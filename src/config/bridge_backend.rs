@@ -86,7 +86,7 @@ impl Default for BridgeBackendConfig {
 impl BridgeBackendConfig {
     /// Sets current configuration to environment variables and returns it.
     /// Bridge backend checks environment variables for it's parameters.
-    pub fn get_env(&mut self) -> HashMap<String, String> {
+    pub fn get_env(&self) -> HashMap<String, String> {
         let mut env = HashMap::new();
 
         env.insert("NODE_ENV".to_string(), "development".to_string());

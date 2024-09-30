@@ -4,13 +4,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context};
-use async_trait::async_trait;
-use bitcoin::Address;
-use bitcoincore_rpc::json::AddressType::Bech32m;
-use bitcoincore_rpc::{Auth, Client, RpcApi};
 use futures::TryStreamExt;
 use tokio::process::Command;
-use tokio::sync::OnceCell;
 use tokio::time::sleep;
 
 use super::config::BridgeBackendConfig;
@@ -19,12 +14,11 @@ use super::framework::TestContext;
 use super::node::{LogProvider, Node, Restart, SpawnOutput};
 use super::Result;
 use crate::node::NodeKind;
+use crate::test_client::TestClient;
 
 pub struct BridgeBackend {
     spawn_output: SpawnOutput,
     pub config: BridgeBackendConfig,
-    client: Client,
-    gen_addr: OnceCell<Address>,
     docker_env: Arc<Option<DockerEnv>>,
 }
 
@@ -32,25 +26,9 @@ impl BridgeBackend {
     pub async fn new(config: &BridgeBackendConfig, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
         let spawn_output = Self::spawn(config, &docker).await?;
 
-        let rpc_url = format!(
-            "http://127.0.0.1:{}/wallet/{}",
-            config.rpc_port,
-            NodeKind::Bitcoin
-        );
-        let client = Client::new(
-            &rpc_url,
-            Auth::UserPass(config.rpc_user.clone(), config.rpc_password.clone()),
-        )
-        .await
-        .context("Failed to create RPC client")?;
-
-        wait_for_rpc_ready(&client, None).await?;
-
         Ok(Self {
             spawn_output,
             config: config.clone(),
-            client,
-            gen_addr: OnceCell::new(),
             docker_env: docker,
         })
     }
@@ -67,52 +45,20 @@ impl BridgeBackend {
     }
 }
 
-#[async_trait]
-impl RpcApi for BridgeBackend {
-    async fn call<T: for<'a> serde::de::Deserialize<'a>>(
-        &self,
-        cmd: &str,
-        args: &[serde_json::Value],
-    ) -> bitcoincore_rpc::Result<T> {
-        self.client.call(cmd, args).await
-    }
-
-    // Override deprecated generate method.
-    // Uses or lazy init gen_addr and forward to `generate_to_address`
-    async fn generate(
-        &self,
-        block_num: u64,
-        _maxtries: Option<u64>,
-    ) -> bitcoincore_rpc::Result<Vec<bitcoin::BlockHash>> {
-        let addr = self
-            .gen_addr
-            .get_or_init(|| async {
-                self.client
-                    .get_new_address(None, Some(Bech32m))
-                    .await
-                    .expect("Failed to generate address")
-                    .assume_checked()
-            })
-            .await;
-
-        self.generate_to_address(block_num, addr).await
-    }
-}
-
 impl Node for BridgeBackend {
     type Config = BridgeBackendConfig;
-    type Client = Client;
+    type Client = TestClient;
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
-        let args = config.args();
-        println!("Running bitcoind with args : {args:?}");
+        let env = config.get_env();
+        println!("Running bridge backend with environment variables: {env:?}");
 
-        Command::new("bitcoind")
-            .args(&args)
+        Command::new("TODO")
             .kill_on_drop(true)
-            .envs(config.env.clone())
+            .env_clear()
+            .envs(env)
             .spawn()
-            .context("Failed to spawn bitcoind process")
+            .context("Failed to spawn bridge backend process")
             .map(SpawnOutput::Child)
     }
 
@@ -125,9 +71,8 @@ impl Node for BridgeBackend {
         let start = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
         while start.elapsed() < timeout {
-            if wait_for_rpc_ready(&self.client, Some(timeout))
-                .await
-                .is_ok()
+            if true
+            // TODO: Do this check.
             {
                 return Ok(());
             }
@@ -137,15 +82,33 @@ impl Node for BridgeBackend {
     }
 
     fn client(&self) -> &Self::Client {
-        &self.client
-    }
-
-    fn env(&self) -> Vec<(&'static str, &'static str)> {
-        self.config.env.clone()
+        &self.client()
     }
 
     fn config_mut(&mut self) -> &mut Self::Config {
         &mut self.config
+    }
+
+    async fn stop(&mut self) -> Result<()> {
+        match self.spawn_output() {
+            SpawnOutput::Child(process) => {
+                process
+                    .kill()
+                    .await
+                    .context("Failed to kill child process")?;
+                Ok(())
+            }
+            SpawnOutput::Container(crate::node::ContainerSpawnOutput { id, .. }) => {
+                std::println!("Stopping container {id}");
+                let docker = bollard::Docker::connect_with_local_defaults()
+                    .context("Failed to connect to Docker")?;
+                docker
+                    .stop_container(id, Some(bollard::container::StopContainerOptions { t: 10 }))
+                    .await
+                    .context("Failed to stop Docker container")?;
+                Ok(())
+            }
+        }
     }
 }
 
