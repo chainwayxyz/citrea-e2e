@@ -1,0 +1,21 @@
+[package]
+name = "citrea-e2e"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bollard = { version = "0.17.1" }
+bitcoin = { version = "0.32.2", features = ["serde", "rand"] }
+bitcoincore-rpc = { version = "0.18.0" }
+futures = "0.3"
+rand = "0.8"
+toml = "0.8.0"
+serde = { version = "1.0.192", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0", default-features = false }
+tokio = { version = "1.39", features = ["full"] }
+anyhow = { version = "1.0.68", default-features = false, features = ["std"] }
+tempfile = "3.8"
+async-trait = "0.1.71"
+
+[patch.crates-io]
+bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "0ae498d" }
