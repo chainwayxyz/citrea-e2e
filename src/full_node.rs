@@ -13,9 +13,9 @@ use super::framework::TestContext;
 use super::node::{LogProvider, Node, NodeKind, SpawnOutput};
 use super::utils::{get_citrea_path, get_stderr_path, get_stdout_path, retry};
 use super::Result;
-use crate::utils::get_genesis_path;
 use crate::evm::make_test_client;
 use crate::test_client::TestClient;
+use crate::utils::get_genesis_path;
 
 #[allow(unused)]
 pub struct FullNode {
