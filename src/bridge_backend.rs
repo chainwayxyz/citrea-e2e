@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -6,7 +5,6 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Context};
 use futures::TryStreamExt;
 use tokio::process::Command;
-use tokio::time::sleep;
 
 use super::config::BridgeBackendConfig;
 use super::docker::DockerEnv;
@@ -16,13 +14,13 @@ use super::Result;
 use crate::node::NodeKind;
 use crate::test_client::TestClient;
 
-pub struct BridgeBackend {
+pub struct BridgeBackendNode {
     spawn_output: SpawnOutput,
     pub config: BridgeBackendConfig,
     docker_env: Arc<Option<DockerEnv>>,
 }
 
-impl BridgeBackend {
+impl BridgeBackendNode {
     pub async fn new(config: &BridgeBackendConfig, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
         let spawn_output = Self::spawn(config, &docker).await?;
 
@@ -45,7 +43,7 @@ impl BridgeBackend {
     }
 }
 
-impl Node for BridgeBackend {
+impl Node for BridgeBackendNode {
     type Config = BridgeBackendConfig;
     type Client = TestClient;
 
@@ -53,12 +51,20 @@ impl Node for BridgeBackend {
         let env = config.get_env();
         println!("Running bridge backend with environment variables: {env:?}");
 
-        Command::new("TODO")
+        Command::new("npm run server:dev")
+            .kill_on_drop(true)
+            .env_clear()
+            .envs(env.clone())
+            .spawn()
+            .context("Failed to spawn bridge backend server process")
+            .map(SpawnOutput::Child)?;
+
+        Command::new("npm run worker:dev")
             .kill_on_drop(true)
             .env_clear()
             .envs(env)
             .spawn()
-            .context("Failed to spawn bridge backend process")
+            .context("Failed to spawn bridge backend worker process")
             .map(SpawnOutput::Child)
     }
 
@@ -112,7 +118,7 @@ impl Node for BridgeBackend {
     }
 }
 
-impl Restart for BridgeBackend {
+impl Restart for BridgeBackendNode {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.client.stop().await?;
         self.stop().await?;
@@ -151,9 +157,9 @@ impl Restart for BridgeBackend {
     }
 }
 
-impl LogProvider for BridgeBackend {
+impl LogProvider for BridgeBackendNode {
     fn kind(&self) -> NodeKind {
-        NodeKind::Bitcoin
+        NodeKind::BridgeBackend
     }
 
     fn log_path(&self) -> PathBuf {
@@ -162,7 +168,7 @@ impl LogProvider for BridgeBackend {
 }
 
 pub struct BitcoinNodeCluster {
-    inner: Vec<BridgeBackend>,
+    inner: Vec<BridgeBackendNode>,
 }
 
 impl BitcoinNodeCluster {
@@ -172,7 +178,7 @@ impl BitcoinNodeCluster {
             inner: Vec::with_capacity(n_nodes),
         };
         for config in ctx.config.bitcoin.iter() {
-            let node = BridgeBackend::new(config, Arc::clone(&ctx.docker)).await?;
+            let node = BridgeBackendNode::new(config, Arc::clone(&ctx.docker)).await?;
             cluster.inner.push(node)
         }
 
@@ -181,7 +187,7 @@ impl BitcoinNodeCluster {
 
     pub async fn stop_all(&mut self) -> Result<()> {
         for node in &mut self.inner {
-            RpcApi::stop(node).await?;
+            // RpcApi::stop(node).await?;
             node.stop().await?;
         }
         Ok(())
@@ -190,17 +196,17 @@ impl BitcoinNodeCluster {
     pub async fn wait_for_sync(&self, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         while start.elapsed() < timeout {
-            let mut heights = HashSet::new();
-            for node in &self.inner {
-                let height = node.get_block_count().await?;
-                heights.insert(height);
-            }
+            // let mut heights = HashSet::new();
+            // for node in &self.inner {
+            //     let height = node.get_block_count().await?;
+            //     heights.insert(height);
+            // }
 
-            if heights.len() == 1 {
-                return Ok(());
-            }
+            // if heights.len() == 1 {
+            return Ok(());
+            // }
 
-            sleep(Duration::from_secs(1)).await;
+            // sleep(Duration::from_secs(1)).await;
         }
         bail!("Nodes failed to sync within the specified timeout")
     }
@@ -223,24 +229,12 @@ impl BitcoinNodeCluster {
         Ok(())
     }
 
-    pub fn get(&self, index: usize) -> Option<&BridgeBackend> {
+    pub fn get(&self, index: usize) -> Option<&BridgeBackendNode> {
         self.inner.get(index)
     }
 
     #[allow(unused)]
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut BridgeBackend> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut BridgeBackendNode> {
         self.inner.get_mut(index)
     }
-}
-
-async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Result<()> {
-    let start = Instant::now();
-    let timeout = timeout.unwrap_or(Duration::from_secs(300));
-    while start.elapsed() < timeout {
-        match client.get_blockchain_info().await {
-            Ok(_) => return Ok(()),
-            Err(_) => sleep(Duration::from_millis(500)).await,
-        }
-    }
-    Err(anyhow::anyhow!("Timeout waiting for RPC to be ready"))
 }
