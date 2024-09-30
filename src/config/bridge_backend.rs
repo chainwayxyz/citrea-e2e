@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(Debug, Clone)]
 pub struct BridgeBackendConfig {
     // Server
@@ -84,62 +86,98 @@ impl Default for BridgeBackendConfig {
 impl BridgeBackendConfig {
     /// Sets current configuration to environment variables and returns it.
     /// Bridge backend checks environment variables for it's parameters.
-    fn set_env(&self) -> String {
-        let mut env = String::new();
+    pub fn get_env(&mut self) -> HashMap<String, String> {
+        let mut env = HashMap::new();
 
-        env += &format!("NODE_ENV=development ");
-        env += &format!("NODE_DEBUG=jsonrpc,db ");
+        env.insert("NODE_ENV".to_string(), "development".to_string());
+        env.insert("NODE_DEBUG".to_string(), "jsonrpc,db".to_string());
 
-        env += &format!("HOST={} ", self.host);
-        env += &format!("PORT={} ", self.port);
-        env += &format!("CORS_ORIGIN_PATTERN=^http://localhost ");
-
-        env += &format!("PGHOST={} ", self.pghost);
-        env += &format!("PGPORT={} ", self.pgport);
-        env += &format!("PGUSER={} ", self.pguser);
-        env += &format!("PGPASSWORD={} ", self.pgpassword);
-        env += &format!("PGDATABASE={} ", self.pgdatabase);
-        env += &format!("PGSSLMODE=prefer ");
-
-        env += &format!("REDIS_URL={} ", self.redis_url);
-
-        env += &format!("NETWORK=regtest ");
-        env += &format!("USER_TAKES_AFTER={} ", self.user_takes_after);
-        env += &format!("VERIFIER_PKS={} ", self.verifier_pks);
-        env += &format!("BRIDGE_AMOUNT_BTC={} ", self.bridge_amount_btc);
-        env += &format!("CONFIRMATION_THRESHOLD={} ", self.confirmation_threshold);
-
-        env += &format!("BITCOIN_REST_ENDPOINT={} ", self.bitcoin_rest_endpoint);
-        env += &format!(
-            "BITCOIN_REST_AUTH_HEADER={} ",
-            self.bitcoin_rest_auth_header
+        env.insert("HOST".to_string(), self.host.clone());
+        env.insert("PORT".to_string(), self.port.to_string());
+        env.insert(
+            "CORS_ORIGIN_PATTERN".to_string(),
+            "=^http://localhost ".to_string(),
         );
 
-        env += &format!("CITREA_REST_ENDPOINT={} ", self.citrea_rest_endpoint);
-        env += &format!(
-            "BITCOIN_LIGHTCLIENT_CONTRACT_ADDRESS={} ",
-            self.bitcoin_lightclient_contract_address
+        env.insert("PGHOST".to_string(), self.pghost.clone());
+        env.insert("PGPORT".to_string(), self.pgport.to_string());
+        env.insert("PGUSER".to_string(), self.pguser.clone());
+        env.insert("PGPASSWORD".to_string(), self.pgpassword.clone());
+        env.insert("PGDATABASE".to_string(), self.pgdatabase.clone());
+        env.insert("PGSSLMODE".to_string(), "=prefer".to_string());
+
+        env.insert("REDIS_URL".to_string(), self.redis_url.clone());
+
+        env.insert("NETWORK".to_string(), "=regtest".to_string());
+        env.insert(
+            "USER_TAKES_AFTER".to_string(),
+            self.user_takes_after.clone(),
         );
-        env += &format!("BRIDGE_CONTRACT_ADDRESS= {}", self.bridge_contract_address);
-        env += &format!(
-            "DECLARE_WITHDRAW_FILLER_PRIVATE_KEY= {}",
-            self.declare_withdraw_filler_private_key
+        env.insert("VERIFIER_PKS".to_string(), self.verifier_pks.clone());
+        env.insert(
+            "BRIDGE_AMOUNT_BTC".to_string(),
+            self.bridge_amount_btc.to_string(),
+        );
+        env.insert(
+            "CONFIRMATION_THRESHOLD".to_string(),
+            self.confirmation_threshold.to_string(),
         );
 
-        env += &format!("FAUCET_PRIVATE_KEY= {}", self.faucet_private_key);
-        env += &format!("FAUCET_AMOUNT= {}", self.faucet_amount);
-        env += &format!("FAUCET_AMOUNT_LIMIT= {}", self.faucet_amount_limit);
-        env += &format!("FAUCET_COUNT_LIMIT= {}", self.faucet_count_limit);
+        env.insert(
+            "BITCOIN_REST_ENDPOINT".to_string(),
+            self.bitcoin_rest_endpoint.clone(),
+        );
+        env.insert(
+            "BITCOIN_REST_AUTH_HEADER".to_string(),
+            self.bitcoin_rest_auth_header.clone(),
+        );
 
-        env += &format!("OPERATOR_URLS={} ", self.operator_urls);
-        env += &format!("VERIFIER_URLS={} ", self.verifier_urls);
-        env += &format!("AGGREGATOR_URL={} ", self.aggregator_url);
+        env.insert(
+            "CITREA_REST_ENDPOINT".to_string(),
+            self.citrea_rest_endpoint.clone(),
+        );
+        env.insert(
+            "BITCOIN_LIGHTCLIENT_CONTRACT_ADDRESS".to_string(),
+            self.bitcoin_lightclient_contract_address.clone(),
+        );
+        env.insert(
+            "BRIDGE_CONTRACT_ADDRESS".to_string(),
+            self.bridge_contract_address.clone(),
+        );
+        env.insert(
+            "DECLARE_WITHDRAW_FILLER_PRIVATE_KEY".to_string(),
+            self.declare_withdraw_filler_private_key.clone(),
+        );
 
-        env += &format!("TELEGRAM_BOT_API_KEY= ");
-        env += &format!("TELEGRAM_CHAT_ID= ");
+        env.insert(
+            "FAUCET_PRIVATE_KEY".to_string(),
+            self.faucet_private_key.clone(),
+        );
+        env.insert("FAUCET_AMOUNT".to_string(), self.faucet_amount.clone());
+        env.insert(
+            "FAUCET_AMOUNT_LIMIT".to_string(),
+            self.faucet_amount_limit.clone(),
+        );
+        env.insert(
+            "FAUCET_COUNT_LIMIT".to_string(),
+            self.faucet_count_limit.clone(),
+        );
 
-        env += &format!("CLOUDFLARE_SITE_KEY=1x00000000000000000000AA ");
-        env += &format!("CLOUDFLARE_SECRET_KEY=1x0000000000000000000000000000000AA ");
+        env.insert("OPERATOR_URLS".to_string(), self.operator_urls.clone());
+        env.insert("VERIFIER_URLS".to_string(), self.verifier_urls.clone());
+        env.insert("AGGREGATOR_URL".to_string(), self.aggregator_url.clone());
+
+        env.insert("TELEGRAM_BOT_API_KEY".to_string(), "".to_string());
+        env.insert("TELEGRAM_CHAT_ID".to_string(), "".to_string());
+
+        env.insert(
+            "CLOUDFLARE_SITE_KEY".to_string(),
+            "1x00000000000000000000AA".to_string(),
+        );
+        env.insert(
+            "CLOUDFLARE_SECRET_KEY".to_string(),
+            "1x0000000000000000000000000000000AA".to_string(),
+        );
 
         env
     }
