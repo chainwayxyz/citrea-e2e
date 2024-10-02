@@ -1,17 +1,18 @@
-use std::future::Future;
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
 use bitcoincore_rpc::RpcApi;
 
-use super::bitcoin::BitcoinNodeCluster;
-use super::config::TestConfig;
-use super::docker::DockerEnv;
-use super::full_node::FullNode;
-use super::node::{LogProvider, LogProviderErased, Node, NodeKind};
-use super::sequencer::Sequencer;
-use super::Result;
-use crate::prover::Prover;
-use crate::utils::tail_file;
+use super::{
+    bitcoin::BitcoinNodeCluster,
+    config::TestConfig,
+    docker::DockerEnv,
+    full_node::FullNode,
+    node::NodeKind,
+    sequencer::Sequencer,
+    traits::{LogProvider, LogProviderErased, Node},
+    Result,
+};
+use crate::{prover::Prover, utils::tail_file};
 
 pub struct TestContext {
     pub config: TestConfig,

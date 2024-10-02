@@ -1,14 +1,17 @@
-use std::fs::File;
-use std::future::Future;
-use std::io::{BufRead, BufReader};
-use std::net::TcpListener;
-use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::{
+    fs,
+    fs::File,
+    future::Future,
+    io,
+    io::{BufRead, BufReader},
+    net::TcpListener,
+    path::{Path, PathBuf},
+};
 
 use anyhow::bail;
-use rand::distributions::Alphanumeric;
-use rand::{thread_rng, Rng};
+use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tokio::time::{sleep, Duration, Instant};
+use which::which;
 
 use super::Result;
 
@@ -21,24 +24,14 @@ pub fn get_workspace_root() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest_dir
         .ancestors()
-        .nth(2)
+        .next()
         .expect("Failed to find workspace root")
         .to_path_buf()
 }
 
-/// Get citrea path from CITREA env or resolves to debug build.
+/// Get citrea path from CITREA env or resolves to PATH using which.
 pub fn get_citrea_path() -> PathBuf {
-    std::env::var("CITREA").map_or_else(
-        |_| {
-            let workspace_root = get_workspace_root();
-            let mut path = workspace_root.to_path_buf();
-            path.push("target");
-            path.push("debug");
-            path.push("citrea");
-            path
-        },
-        PathBuf::from,
-    )
+    std::env::var("CITREA").map_or_else(|_| which("citrea").unwrap(), PathBuf::from)
 }
 
 pub fn get_stdout_path(dir: &Path) -> PathBuf {
@@ -97,7 +90,7 @@ pub fn copy_directory(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Resul
     Ok(())
 }
 
-pub(crate) async fn retry<F, Fut, T>(f: F, timeout: Option<Duration>) -> Result<T>
+pub async fn retry<F, Fut, T>(f: F, timeout: Option<Duration>) -> Result<T>
 where
     F: Fn() -> Fut,
     Fut: Future<Output = Result<T>>,
@@ -137,13 +130,4 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     Ok(())
-}
-
-pub fn get_tx_backup_dir() -> String {
-    let workspace_root = get_workspace_root();
-    let mut path = workspace_root.to_path_buf();
-    path.push("resources");
-    path.push("bitcoin");
-    path.push("inscription_txs");
-    path.to_str().expect("Failed to convert path").to_string()
 }

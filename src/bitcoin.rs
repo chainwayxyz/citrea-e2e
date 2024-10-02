@@ -1,26 +1,29 @@
-use std::collections::HashSet;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashSet,
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
-use bitcoin_da::service::{get_relevant_blobs_from_txs, FINALITY_DEPTH};
-use bitcoin_da::spec::blob::BlobWithSender;
-use bitcoincore_rpc::json::AddressType::Bech32m;
-use bitcoincore_rpc::{Auth, Client, RpcApi};
+use bitcoin_da::{
+    service::{get_relevant_blobs_from_txs, FINALITY_DEPTH},
+    spec::blob::BlobWithSender,
+};
+use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
 use citrea_primitives::REVEAL_BATCH_PROOF_PREFIX;
 use futures::TryStreamExt;
-use tokio::process::Command;
-use tokio::sync::OnceCell;
-use tokio::time::sleep;
+use tokio::{process::Command, sync::OnceCell, time::sleep};
 
-use super::config::BitcoinConfig;
-use super::docker::DockerEnv;
-use super::framework::TestContext;
-use super::node::{LogProvider, Node, Restart, SpawnOutput};
-use super::Result;
+use super::{
+    config::BitcoinConfig,
+    docker::DockerEnv,
+    framework::TestContext,
+    traits::{LogProvider, Node, Restart, SpawnOutput},
+    Result,
+};
 use crate::node::NodeKind;
 
 pub struct BitcoinNode {
@@ -182,6 +185,7 @@ impl RpcApi for BitcoinNode {
     }
 }
 
+#[async_trait]
 impl Node for BitcoinNode {
     type Config = BitcoinConfig;
     type Client = Client;
@@ -232,6 +236,7 @@ impl Node for BitcoinNode {
     }
 }
 
+#[async_trait]
 impl Restart for BitcoinNode {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.client.stop().await?;

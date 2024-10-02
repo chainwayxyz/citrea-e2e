@@ -1,9 +1,9 @@
-use bitcoin_da::service::BitcoinServiceConfig;
-use sov_stf_runner::{FullNodeConfig, RollupPublicKeys, RpcConfig, StorageConfig};
 use tempfile::TempDir;
 
 use super::BitcoinConfig;
-use crate::utils::get_tx_backup_dir;
+use crate::config::{
+    BitcoinServiceConfig, FullNodeConfig, RollupPublicKeys, RpcConfig, StorageConfig,
+};
 pub type RollupConfig = FullNodeConfig<BitcoinServiceConfig>;
 
 pub fn default_rollup_config() -> RollupConfig {
@@ -31,7 +31,11 @@ pub fn default_rollup_config() -> RollupConfig {
             node_password: String::from("password"),
             network: bitcoin::Network::Regtest,
             da_private_key: None,
-            tx_backup_dir: get_tx_backup_dir(),
+            tx_backup_dir: TempDir::new()
+                .expect("Failed to create temporary directory")
+                .into_path()
+                .display()
+                .to_string(),
         },
         public_keys: RollupPublicKeys {
             sequencer_public_key: vec![

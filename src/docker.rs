@@ -1,25 +1,25 @@
-use std::collections::{HashMap, HashSet};
-use std::io::{stdout, Write};
-use std::path::PathBuf;
+use std::{
+    collections::{HashMap, HashSet},
+    io::{stdout, Write},
+    path::PathBuf,
+};
 
 use anyhow::{anyhow, Context, Result};
-use bollard::container::{Config, LogOutput, LogsOptions, NetworkingConfig};
-use bollard::image::CreateImageOptions;
-use bollard::models::{EndpointSettings, Mount, PortBinding};
-use bollard::network::CreateNetworkOptions;
-use bollard::secret::MountTypeEnum;
-use bollard::service::HostConfig;
-use bollard::volume::CreateVolumeOptions;
-use bollard::Docker;
+use bollard::{
+    container::{Config, LogOutput, LogsOptions, NetworkingConfig},
+    image::CreateImageOptions,
+    models::{EndpointSettings, Mount, PortBinding},
+    network::CreateNetworkOptions,
+    secret::MountTypeEnum,
+    service::HostConfig,
+    volume::CreateVolumeOptions,
+    Docker,
+};
 use futures::StreamExt;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
-use tokio::task::JoinHandle;
+use tokio::{fs::File, io::AsyncWriteExt, task::JoinHandle};
 
-use super::config::DockerConfig;
-use super::node::SpawnOutput;
-use super::utils::generate_test_id;
-use crate::node::ContainerSpawnOutput;
+use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
+use crate::traits::ContainerSpawnOutput;
 
 pub struct DockerEnv {
     pub docker: Docker,

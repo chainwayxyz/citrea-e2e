@@ -1,27 +1,33 @@
 //! This module provides the TestCaseRunner and TestCase trait for running and defining test cases.
 //! It handles setup, execution, and cleanup of test environments.
 
-use std::panic::{self};
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::{
+    panic::{self},
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
-use bitcoin_da::service::BitcoinServiceConfig;
-use citrea_sequencer::SequencerConfig;
 use futures::FutureExt;
-use sov_stf_runner::{ProverConfig, RpcConfig, RunnerConfig, StorageConfig};
 
-use super::config::{
-    default_rollup_config, BitcoinConfig, FullFullNodeConfig, FullProverConfig,
-    FullSequencerConfig, RollupConfig, TestCaseConfig, TestCaseEnv, TestConfig,
+use super::{
+    config::{
+        default_rollup_config, BitcoinConfig, FullFullNodeConfig, FullProverConfig,
+        FullSequencerConfig, RollupConfig, TestCaseConfig, TestCaseEnv, TestConfig,
+    },
+    framework::TestFramework,
+    node::NodeKind,
+    utils::{copy_directory, get_available_port},
+    Result,
 };
-use super::framework::TestFramework;
-use super::node::NodeKind;
-use super::utils::{copy_directory, get_available_port, get_tx_backup_dir};
-use super::Result;
-use crate::node::Node;
-use crate::utils::{get_default_genesis_path, get_workspace_root};
+use crate::{
+    config::{
+        BitcoinServiceConfig, ProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
+    },
+    traits::Node,
+    utils::{get_default_genesis_path, get_workspace_root},
+};
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -108,7 +114,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         let prover_rollup = default_rollup_config();
         let full_node_rollup = default_rollup_config();
 
-        let [bitcoin_dir, dbs_dir, prover_dir, sequencer_dir, full_node_dir, genesis_dir] =
+        let [bitcoin_dir, dbs_dir, prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
             create_dirs(&test_case.dir)?;
 
         copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
@@ -145,7 +151,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                             .to_string(),
                     ),
                     node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                    tx_backup_dir: get_tx_backup_dir(),
+                    tx_backup_dir: tx_backup_dir.display().to_string(),
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
@@ -180,7 +186,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                             .to_string(),
                     ),
                     node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                    tx_backup_dir: get_tx_backup_dir(),
+                    tx_backup_dir: tx_backup_dir.display().to_string(),
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
@@ -206,7 +212,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                         da_config.node_url,
                         NodeKind::Bitcoin // Use default wallet
                     ),
-                    tx_backup_dir: get_tx_backup_dir(),
+                    tx_backup_dir: tx_backup_dir.display().to_string(),
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
@@ -307,7 +313,7 @@ pub trait TestCase: Send + Sync + 'static {
     }
 }
 
-fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 6]> {
+fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 7]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
@@ -315,6 +321,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 6]> {
         NodeKind::Sequencer.to_string(),
         NodeKind::FullNode.to_string(),
         "genesis".to_string(),
+        "inscription_txs".to_string(),
     ]
     .map(|dir| base_dir.join(dir));
 
@@ -327,6 +334,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 6]> {
 }
 
 fn copy_genesis_dir(genesis_dir: &Option<String>, target_dir: &Path) -> std::io::Result<()> {
+    println!("1");
     let genesis_dir =
         genesis_dir
             .as_ref()
@@ -339,5 +347,6 @@ fn copy_genesis_dir(genesis_dir: &Option<String>, target_dir: &Path) -> std::io:
                 }
             });
 
+    println!("2");
     copy_directory(genesis_dir, target_dir)
 }
