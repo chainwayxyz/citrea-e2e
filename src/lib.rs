@@ -1,3 +1,5 @@
+#![cfg(test)]
+
 mod bitcoin;
 pub mod client;
 pub mod config;
