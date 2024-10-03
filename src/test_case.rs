@@ -334,7 +334,6 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 7]> {
 }
 
 fn copy_genesis_dir(genesis_dir: &Option<String>, target_dir: &Path) -> std::io::Result<()> {
-    println!("1");
     let genesis_dir =
         genesis_dir
             .as_ref()
@@ -347,6 +346,5 @@ fn copy_genesis_dir(genesis_dir: &Option<String>, target_dir: &Path) -> std::io:
                 }
             });
 
-    println!("2");
     copy_directory(genesis_dir, target_dir)
 }
