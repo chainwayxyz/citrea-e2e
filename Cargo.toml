@@ -1,0 +1,40 @@
+[package]
+name = "citrea-e2e"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+anyhow = { version = "1.0.68", default-features = false, features = ["std"] }
+async-trait = "0.1.71"
+bitcoin = { version = "0.32.2", features = ["serde", "rand"] }
+bitcoincore-rpc = { version = "0.18.0" }
+bollard = { version = "0.17.1" }
+futures = "0.3"
+log = "0.4"
+rand = "0.8"
+serde = { version = "1.0.192", default-features = false, features = ["alloc", "derive"] }
+serde_json = { version = "1.0", default-features = false }
+tempfile = "3.8"
+tokio = { version = "1.39", features = ["full"] }
+toml = "0.8.0"
+which = "6.0.3"
+
+# Eth client dependencies
+alloy = { version = "0.2.1", features = ["hyper", "consensus", "rpc-types-eth", "provider-http", "signers", "signer-local"] }
+jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
+reqwest = { version = "0.12.5", features = ["rustls-tls", "json", "http2"], default-features = false }
+reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
+reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
+reth-rpc-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false, features = ["jsonrpsee-types"] }
+
+# Citrea dependencies
+bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", features = ["native"] }
+citrea-primitives = { git = "https://github.com/chainwayxyz/citrea" }
+citrea-sequencer = { git = "https://github.com/chainwayxyz/citrea" }
+sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", features = ["client"] }
+sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea" }
+sov-stf-runner = { git = "https://github.com/chainwayxyz/citrea", features = ["native"] }
+
+[patch.crates-io]
+bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "0ae498d" }
