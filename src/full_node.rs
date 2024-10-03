@@ -1,27 +1,32 @@
-use std::fs::File;
-use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::process::Stdio;
+use std::{fs::File, net::SocketAddr, path::PathBuf, process::Stdio};
 
 use anyhow::{bail, Context};
+use async_trait::async_trait;
 use sov_rollup_interface::rpc::{SequencerCommitmentResponse, VerifiedProofResponse};
-use tokio::process::Command;
-use tokio::time::{sleep, Duration, Instant};
 
-use super::config::{config_to_file, FullFullNodeConfig, TestConfig};
-use super::framework::TestContext;
-use super::node::{LogProvider, Node, NodeKind, SpawnOutput};
-use super::utils::{get_citrea_path, get_stderr_path, get_stdout_path, retry};
-use super::Result;
-use crate::evm::make_test_client;
-use crate::test_client::TestClient;
-use crate::utils::get_genesis_path;
+use tokio::{
+    process::Command,
+    time::{sleep, Duration, Instant},
+};
+
+use super::{
+    config::{config_to_file, FullFullNodeConfig, TestConfig},
+    framework::TestContext,
+    node::NodeKind,
+    traits::{LogProvider, Node, SpawnOutput},
+    utils::{get_citrea_path, get_stderr_path, get_stdout_path, retry},
+    Result,
+};
+use crate::{
+    client::{make_test_client, L2Client},
+    utils::get_genesis_path,
+};
 
 #[allow(unused)]
 pub struct FullNode {
     spawn_output: SpawnOutput,
     config: FullFullNodeConfig,
-    pub client: Box<TestClient>,
+    pub client: Box<L2Client>,
 }
 
 impl FullNode {
@@ -101,9 +106,10 @@ impl FullNode {
     }
 }
 
+#[async_trait]
 impl Node for FullNode {
     type Config = FullFullNodeConfig;
-    type Client = TestClient;
+    type Client = L2Client;
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
         let citrea = get_citrea_path();

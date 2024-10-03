@@ -1,5 +1,6 @@
 mod bitcoin;
 mod bridge_backend;
+pub mod client;
 pub mod config;
 mod docker;
 pub mod framework;
@@ -8,7 +9,8 @@ pub mod node;
 mod prover;
 mod sequencer;
 pub mod test_case;
+pub mod traits;
 
 mod utils;
 
-pub(crate) type Result<T> = anyhow::Result<T>;
+pub type Result<T> = anyhow::Result<T>;

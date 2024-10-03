@@ -1,27 +1,31 @@
-use std::fs::File;
-use std::net::SocketAddr;
-use std::path::PathBuf;
-use std::process::Stdio;
+use std::{fs::File, net::SocketAddr, path::PathBuf, process::Stdio, time::SystemTime};
 
-use anyhow::Context;
-use tokio::process::Command;
-use tokio::time::{sleep, Duration, Instant};
+use anyhow::{bail, Context};
+use async_trait::async_trait;
+use log::debug;
+use tokio::{
+    process::Command,
+    time::{sleep, Duration, Instant},
+};
 
-use super::config::{config_to_file, FullProverConfig, TestConfig};
-use super::framework::TestContext;
-use super::node::{LogProvider, Node, NodeKind, SpawnOutput};
-use super::utils::{get_citrea_path, get_stderr_path, get_stdout_path, retry};
-use super::Result;
-use crate::evm::make_test_client;
-use crate::test_client::TestClient;
-use crate::test_helpers::wait_for_prover_l1_height;
-use crate::utils::get_genesis_path;
+use super::{
+    config::{config_to_file, FullProverConfig, TestConfig},
+    framework::TestContext,
+    node::NodeKind,
+    traits::{LogProvider, Node, SpawnOutput},
+    utils::{get_citrea_path, get_stderr_path, get_stdout_path, retry},
+    Result,
+};
+use crate::{
+    client::{make_test_client, L2Client},
+    utils::get_genesis_path,
+};
 
 #[allow(unused)]
 pub struct Prover {
     spawn_output: SpawnOutput,
     config: FullProverConfig,
-    pub client: Box<TestClient>,
+    pub client: Box<L2Client>,
 }
 
 impl Prover {
@@ -52,13 +56,30 @@ impl Prover {
     }
 
     pub async fn wait_for_l1_height(&self, height: u64, timeout: Option<Duration>) -> Result<()> {
-        wait_for_prover_l1_height(&self.client, height, timeout).await
+        let start = SystemTime::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(600));
+        loop {
+            debug!("Waiting for prover height {}", height);
+            let latest_block = self.client.ledger_get_last_scanned_l1_height().await;
+            if latest_block >= height {
+                break;
+            }
+
+            let now = SystemTime::now();
+            if start + timeout <= now {
+                bail!("Timeout. Latest prover L1 height is {}", latest_block);
+            }
+
+            sleep(Duration::from_secs(1)).await;
+        }
+        Ok(())
     }
 }
 
+#[async_trait]
 impl Node for Prover {
     type Config = FullProverConfig;
-    type Client = TestClient;
+    type Client = L2Client;
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
         let citrea = get_citrea_path();

@@ -1,7 +1,7 @@
-use super::bitcoin::BitcoinConfig;
-use super::bridge_backend::BridgeBackendConfig;
-use super::test_case::TestCaseConfig;
-use super::{FullFullNodeConfig, FullProverConfig, FullSequencerConfig};
+use super::{
+    bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullFullNodeConfig, FullProverConfig,
+    FullSequencerConfig, BridgeBackendConfig
+};
 
 #[derive(Clone)]
 pub struct TestConfig {
