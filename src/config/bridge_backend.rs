@@ -96,7 +96,7 @@ impl BridgeBackendConfig {
         env.insert("PORT".to_string(), self.port.to_string());
         env.insert(
             "CORS_ORIGIN_PATTERN".to_string(),
-            "=^http://localhost ".to_string(),
+            "^http://localhost ".to_string(),
         );
 
         env.insert("PGHOST".to_string(), self.pghost.clone());
@@ -104,11 +104,11 @@ impl BridgeBackendConfig {
         env.insert("PGUSER".to_string(), self.pguser.clone());
         env.insert("PGPASSWORD".to_string(), self.pgpassword.clone());
         env.insert("PGDATABASE".to_string(), self.pgdatabase.clone());
-        env.insert("PGSSLMODE".to_string(), "=prefer".to_string());
+        env.insert("PGSSLMODE".to_string(), "prefer".to_string());
 
         env.insert("REDIS_URL".to_string(), self.redis_url.clone());
 
-        env.insert("NETWORK".to_string(), "=regtest".to_string());
+        env.insert("NETWORK".to_string(), "regtest".to_string());
         env.insert(
             "USER_TAKES_AFTER".to_string(),
             self.user_takes_after.clone(),
