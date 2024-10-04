@@ -18,23 +18,23 @@ serde_json = { version = "1.0", default-features = false }
 tempfile = "3.8"
 tokio = { version = "1.39", features = ["full"] }
 toml = "0.8.0"
-which = "6.0.3"
+which = "6.0.1"
 
 # Eth client dependencies
-alloy = { version = "0.2.1", features = ["hyper", "consensus", "rpc-types-eth", "provider-http", "signers", "signer-local"] }
+alloy = { version = "0.2.1", features = ["hyper", "rpc-types-eth", "provider-http", "signers", "signer-local"] }
 jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
-reqwest = { version = "0.12.5", features = ["rustls-tls", "json", "http2"], default-features = false }
+reqwest = { version = "=0.12.5", features = ["rustls-tls", "json", "http2"], default-features = false }
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
 reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
 reth-rpc-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false, features = ["jsonrpsee-types"] }
 
 # Citrea dependencies
-bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", features = ["native"] }
-citrea-primitives = { git = "https://github.com/chainwayxyz/citrea" }
-citrea-sequencer = { git = "https://github.com/chainwayxyz/citrea" }
-sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", features = ["client"] }
-sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea" }
-sov-stf-runner = { git = "https://github.com/chainwayxyz/citrea", features = ["native"] }
+bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }
+citrea-primitives = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
+citrea-sequencer = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
+sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["client"] }
+sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
+sov-stf-runner = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }
 
 [patch.crates-io]
 bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "0ae498d" }
