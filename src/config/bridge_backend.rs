@@ -42,6 +42,11 @@ pub struct BridgeBackendConfig {
     pub operator_urls: String,
     pub verifier_urls: String,
     pub aggregator_url: String,
+
+    // Non bridge backend.
+    pub docker_image: Option<String>,
+    pub env: Vec<(&'static str, &'static str)>,
+    pub idx: usize,
 }
 
 impl Default for BridgeBackendConfig {
@@ -79,6 +84,10 @@ impl Default for BridgeBackendConfig {
             operator_urls: "http://localhost:17007,http://localhost:17008,http://localhost:17009".to_string(),
             verifier_urls: "http://localhost:17000,http://localhost:17001,http://localhost:17002,http://localhost:17003,http://localhost:17004,http://localhost:17005,http://localhost:17006".to_string(),
             aggregator_url: "http://localhost:17010".to_string(),
+
+            docker_image: None,
+            env: Vec::new(),
+            idx: 0,
         }
     }
 }

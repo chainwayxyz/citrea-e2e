@@ -23,7 +23,8 @@ use super::{
 };
 use crate::{
     config::{
-        BitcoinServiceConfig, ProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
+        BitcoinServiceConfig, BridgeBackendConfig, ProverConfig, RpcConfig, RunnerConfig,
+        SequencerConfig, StorageConfig,
     },
     traits::Node,
     utils::{get_default_genesis_path, get_workspace_root},
@@ -136,6 +137,15 @@ impl<T: TestCase> TestCaseRunner<T> {
                 idx: i,
                 ..bitcoin.clone()
             })
+        }
+
+        let mut bridge_backend_confs = vec![];
+        for i in 0..test_case.n_nodes {
+            let data_dir = bitcoin_dir.join(i.to_string());
+            std::fs::create_dir_all(&data_dir)
+                .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
+
+            bridge_backend_confs.push(BridgeBackendConfig::default())
         }
 
         // Target first bitcoin node as DA for now
@@ -252,6 +262,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                 env: env.full_node(),
             },
             test_case,
+            bridge_backend: bridge_backend_confs,
         })
     }
 }

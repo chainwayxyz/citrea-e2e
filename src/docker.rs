@@ -51,7 +51,7 @@ impl DockerEnv {
         test_case_id: &str,
         n_nodes: usize,
     ) -> Result<HashSet<String>> {
-        let volume_configs = vec![("bitcoin", n_nodes)];
+        let volume_configs = vec![("bitcoin", n_nodes), ("bridge-backend", n_nodes)];
         let mut volumes = HashSet::new();
 
         for (name, n) in volume_configs {

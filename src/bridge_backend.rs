@@ -1,33 +1,40 @@
+use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context};
+use async_trait::async_trait;
 use futures::TryStreamExt;
 use tokio::process::Command;
+use tokio::time::sleep;
 
 use super::config::BridgeBackendConfig;
 use super::docker::DockerEnv;
 use super::framework::TestContext;
-use super::node::{LogProvider, Node, Restart, SpawnOutput};
 use super::Result;
+use crate::bridge_backend_client::BridgeBackendClient;
 use crate::node::NodeKind;
-use crate::test_client::TestClient;
+use crate::traits::{ContainerSpawnOutput, LogProvider, Node, Restart, SpawnOutput};
 
 pub struct BridgeBackendNode {
     spawn_output: SpawnOutput,
     pub config: BridgeBackendConfig,
     docker_env: Arc<Option<DockerEnv>>,
+    client: BridgeBackendClient,
 }
 
 impl BridgeBackendNode {
     pub async fn new(config: &BridgeBackendConfig, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
         let spawn_output = Self::spawn(config, &docker).await?;
+        let rpc_url = SocketAddr::from_str(&(config.host.clone() + &config.port.to_string()))?;
 
         Ok(Self {
             spawn_output,
             config: config.clone(),
             docker_env: docker,
+            client: BridgeBackendClient::new(rpc_url).await?,
         })
     }
 
@@ -41,11 +48,38 @@ impl BridgeBackendNode {
             None => <Self as Node>::spawn(config),
         }
     }
+
+    async fn wait_for_shutdown(&self) -> Result<()> {
+        let timeout_duration = Duration::from_secs(30);
+        let start = std::time::Instant::now();
+
+        while start.elapsed() < timeout_duration {
+            if !self.is_process_running().await? {
+                println!("Bridge backend has stopped successfully");
+                return Ok(());
+            }
+            sleep(Duration::from_millis(200)).await;
+        }
+
+        bail!("Timeout waiting for bridge backend to stop")
+    }
+
+    async fn is_process_running(&self) -> Result<bool> {
+        // let data_dir = &self.config.data_dir;
+        // let output = Command::new("pgrep")
+        //     .args(["-f", &format!("bitcoind.*{}", data_dir.display())])
+        //     .output()
+        //     .await?;
+
+        // Ok(output.status.success())
+        todo!()
+    }
 }
 
+#[async_trait]
 impl Node for BridgeBackendNode {
     type Config = BridgeBackendConfig;
-    type Client = TestClient;
+    type Client = BridgeBackendClient;
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
         let env = config.get_env();
@@ -87,10 +121,6 @@ impl Node for BridgeBackendNode {
         anyhow::bail!("Node failed to become ready within the specified timeout")
     }
 
-    fn client(&self) -> &Self::Client {
-        &self.client()
-    }
-
     fn config_mut(&mut self) -> &mut Self::Config {
         &mut self.config
     }
@@ -104,7 +134,7 @@ impl Node for BridgeBackendNode {
                     .context("Failed to kill child process")?;
                 Ok(())
             }
-            SpawnOutput::Container(crate::node::ContainerSpawnOutput { id, .. }) => {
+            SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => {
                 std::println!("Stopping container {id}");
                 let docker = bollard::Docker::connect_with_local_defaults()
                     .context("Failed to connect to Docker")?;
@@ -116,11 +146,21 @@ impl Node for BridgeBackendNode {
             }
         }
     }
+
+    fn client(&self) -> &Self::Client {
+        &self.client
+    }
+
+    fn env(&self) -> Vec<(&'static str, &'static str)> {
+        // self.config.get_env()
+        todo!()
+    }
 }
 
+#[async_trait]
 impl Restart for BridgeBackendNode {
     async fn wait_until_stopped(&mut self) -> Result<()> {
-        self.client.stop().await?;
+        // self.client.stop().await?;
         self.stop().await?;
 
         match &self.spawn_output {
@@ -150,9 +190,6 @@ impl Restart for BridgeBackendNode {
 
         self.wait_for_ready(None).await?;
 
-        // Reload wallets after restart
-        self.load_wallets().await;
-
         Ok(())
     }
 }
@@ -163,21 +200,21 @@ impl LogProvider for BridgeBackendNode {
     }
 
     fn log_path(&self) -> PathBuf {
-        self.config.data_dir.join("regtest").join("debug.log")
+        todo!()
     }
 }
 
-pub struct BitcoinNodeCluster {
+pub struct BridgeBackendNodeCluster {
     inner: Vec<BridgeBackendNode>,
 }
 
-impl BitcoinNodeCluster {
+impl BridgeBackendNodeCluster {
     pub async fn new(ctx: &TestContext) -> Result<Self> {
         let n_nodes = ctx.config.test_case.n_nodes;
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),
         };
-        for config in ctx.config.bitcoin.iter() {
+        for config in ctx.config.bridge_backend.iter() {
             let node = BridgeBackendNode::new(config, Arc::clone(&ctx.docker)).await?;
             cluster.inner.push(node)
         }
@@ -189,42 +226,6 @@ impl BitcoinNodeCluster {
         for node in &mut self.inner {
             // RpcApi::stop(node).await?;
             node.stop().await?;
-        }
-        Ok(())
-    }
-
-    pub async fn wait_for_sync(&self, timeout: Duration) -> Result<()> {
-        let start = Instant::now();
-        while start.elapsed() < timeout {
-            // let mut heights = HashSet::new();
-            // for node in &self.inner {
-            //     let height = node.get_block_count().await?;
-            //     heights.insert(height);
-            // }
-
-            // if heights.len() == 1 {
-            return Ok(());
-            // }
-
-            // sleep(Duration::from_secs(1)).await;
-        }
-        bail!("Nodes failed to sync within the specified timeout")
-    }
-
-    // Connect all bitcoin nodes between them
-    pub async fn connect_nodes(&self) -> Result<()> {
-        for (i, from_node) in self.inner.iter().enumerate() {
-            for (j, to_node) in self.inner.iter().enumerate() {
-                if i != j {
-                    let ip = match &to_node.spawn_output {
-                        SpawnOutput::Container(container) => container.ip.clone(),
-                        _ => "127.0.0.1".to_string(),
-                    };
-
-                    let add_node_arg = format!("{}:{}", ip, to_node.config.p2p_port);
-                    from_node.add_node(&add_node_arg).await?;
-                }
-            }
         }
         Ok(())
     }

@@ -9,8 +9,8 @@ mod utils;
 use std::path::PathBuf;
 
 pub use bitcoin::BitcoinConfig;
-pub use bridge_backend::BridgeBackendConfig;
 pub use bitcoin_da::service::BitcoinServiceConfig;
+pub use bridge_backend::BridgeBackendConfig;
 pub use citrea_sequencer::SequencerConfig;
 pub use docker::DockerConfig;
 pub use rollup::{default_rollup_config, RollupConfig};
