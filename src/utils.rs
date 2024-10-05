@@ -1,16 +1,13 @@
 use std::{
     fs,
     fs::File,
-    future::Future,
     io,
     io::{BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
 };
 
-use anyhow::bail;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use tokio::time::{sleep, Duration, Instant};
 use which::which;
 
 use super::Result;
@@ -88,28 +85,6 @@ pub fn copy_directory(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Resul
     }
 
     Ok(())
-}
-
-pub async fn retry<F, Fut, T>(f: F, timeout: Option<Duration>) -> Result<T>
-where
-    F: Fn() -> Fut,
-    Fut: Future<Output = Result<T>>,
-{
-    let start = Instant::now();
-    let timeout = start + timeout.unwrap_or_else(|| Duration::from_secs(5));
-
-    loop {
-        match tokio::time::timeout_at(timeout, f()).await {
-            Ok(Ok(result)) => return Ok(result),
-            Ok(Err(e)) => {
-                if Instant::now() >= timeout {
-                    return Err(e);
-                }
-                sleep(Duration::from_millis(500)).await;
-            }
-            Err(elapsed) => bail!("Timeout expired {elapsed}"),
-        }
-    }
 }
 
 pub fn tail_file(path: &Path, lines: usize) -> Result<()> {

@@ -25,7 +25,7 @@ use crate::{
     config::{
         BitcoinServiceConfig, ProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
     },
-    traits::Node,
+    traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
 };
 

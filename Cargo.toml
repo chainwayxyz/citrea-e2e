@@ -19,14 +19,7 @@ tempfile = "3.8"
 tokio = { version = "1.39", features = ["full"] }
 toml = "0.8.0"
 which = "6.0.1"
-
-# Eth client dependencies
-alloy = { version = "0.2.1", features = ["hyper", "rpc-types-eth", "provider-http", "signers", "signer-local"] }
 jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
-reqwest = { version = "=0.12.5", features = ["rustls-tls", "json", "http2"], default-features = false }
-reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
-reth-rpc-eth-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
-reth-rpc-types = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false, features = ["jsonrpsee-types"] }
 
 # Citrea dependencies
 bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }

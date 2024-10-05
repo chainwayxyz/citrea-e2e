@@ -9,7 +9,7 @@ use super::{
     full_node::FullNode,
     node::NodeKind,
     sequencer::Sequencer,
-    traits::{LogProvider, LogProviderErased, Node},
+    traits::{LogProvider, LogProviderErased, NodeT},
     Result,
 };
 use crate::{prover::Prover, utils::tail_file};
@@ -78,18 +78,18 @@ impl TestFramework {
         // Has to initialize sequencer first since prover and full node depend on it
         self.sequencer = create_optional(
             self.ctx.config.test_case.with_sequencer,
-            Sequencer::new(&self.ctx),
+            Sequencer::new(&self.ctx.config.sequencer),
         )
         .await?;
 
         (self.prover, self.full_node) = tokio::try_join!(
             create_optional(
                 self.ctx.config.test_case.with_prover,
-                Prover::new(&self.ctx)
+                Prover::new(&self.ctx.config.prover)
             ),
             create_optional(
                 self.ctx.config.test_case.with_full_node,
-                FullNode::new(&self.ctx)
+                FullNode::new(&self.ctx.config.full_node)
             ),
         )?;
 
