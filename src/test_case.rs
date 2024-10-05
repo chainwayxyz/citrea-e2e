@@ -80,7 +80,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             .as_mut()
             .expect("Framework not correctly initialized");
 
-        if result.is_err() {
+        if let Err(_) | Ok(Err(_)) = result {
             if let Err(e) = f.dump_log() {
                 eprintln!("Error dumping log: {}", e);
             }
