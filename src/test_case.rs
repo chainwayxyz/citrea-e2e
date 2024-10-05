@@ -53,6 +53,9 @@ impl<T: TestCase> TestCaseRunner<T> {
                 .wait_for_ready(Some(Duration::from_secs(5)))
                 .await?;
         }
+        if let Some(prover) = &f.prover {
+            prover.wait_for_ready(Some(Duration::from_secs(5))).await?;
+        }
 
         Ok(())
     }
