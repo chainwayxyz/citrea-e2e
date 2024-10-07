@@ -23,13 +23,14 @@ use super::{
 };
 use crate::{
     config::{
-        BitcoinServiceConfig, ProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
+        BitcoinServiceConfig, BridgeBackendConfig, ProverConfig, RpcConfig, RunnerConfig,
+        SequencerConfig, StorageConfig,
     },
     traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
 };
 
-// TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
+/// TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
 /// runs the test case, and performs cleanup afterwards. The `run` method handles any panics that
 /// might occur during test execution and takes care of cleaning up and stopping the child processes.
@@ -110,6 +111,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         let test_case = T::test_config();
         let env = T::test_env();
         let bitcoin = T::bitcoin_config();
+        let bridge_backend = T::bridge_backend_config();
         let prover = T::prover_config();
         let sequencer = T::sequencer_config();
         let sequencer_rollup = default_rollup_config();
@@ -232,6 +234,7 @@ impl<T: TestCase> TestCaseRunner<T> {
 
         Ok(TestConfig {
             bitcoin: bitcoin_confs,
+            bridge_backend,
             sequencer: FullSequencerConfig {
                 rollup: sequencer_rollup,
                 dir: sequencer_dir,
@@ -281,6 +284,12 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom Bitcoin configuration.
     fn bitcoin_config() -> BitcoinConfig {
         BitcoinConfig::default()
+    }
+
+    /// Returns the bridge backend configuration for the test.
+    /// Override this method to provide a custom bridge backend configuration.
+    fn bridge_backend_config() -> BridgeBackendConfig {
+        BridgeBackendConfig::default()
     }
 
     /// Returns the sequencer configuration for the test.

@@ -26,6 +26,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum NodeKind {
     Bitcoin,
+    BridgeBackend,
     Prover,
     Sequencer,
     FullNode,
@@ -35,6 +36,7 @@ impl fmt::Display for NodeKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeKind::Bitcoin => write!(f, "bitcoin"),
+            NodeKind::BridgeBackend => write!(f, "bridge-backend"),
             NodeKind::Prover => write!(f, "prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
@@ -48,7 +50,7 @@ pub trait Config: Clone {
     fn dir(&self) -> &PathBuf;
     fn rpc_bind_host(&self) -> &str;
     fn rpc_bind_port(&self) -> u16;
-    fn env(&self) -> Vec<(&'static str, &'static str)>;
+    fn env(&self) -> Vec<(&'static str, &'static str)>; // TODO: Isn't HashMap<String, String> more appropriate
     fn node_config(&self) -> Option<&Self::NodeConfig>;
     fn node_kind() -> NodeKind;
     fn rollup_config(&self) -> &RollupConfig;

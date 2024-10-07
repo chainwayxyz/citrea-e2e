@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use super::{BitcoinConfig, FullSequencerConfig};
+use super::{BitcoinConfig, BridgeBackendConfig, FullSequencerConfig};
 use crate::utils::get_genesis_path;
 
 #[derive(Debug)]
@@ -40,6 +40,21 @@ impl From<&BitcoinConfig> for DockerConfig {
             volume: VolumeConfig {
                 name: format!("bitcoin-{}", v.idx),
                 target: "/home/bitcoin/.bitcoin".to_string(),
+            },
+        }
+    }
+}
+
+impl From<&BridgeBackendConfig> for DockerConfig {
+    fn from(v: &BridgeBackendConfig) -> Self {
+        Self {
+            ports: vec![v.client.port.try_into().unwrap()],
+            image: v.docker_image.clone().unwrap(),
+            cmd: vec![],
+            log_path: v.data_dir.join("stdout"),
+            volume: VolumeConfig {
+                name: "bridge-backend".to_string(),
+                target: "/home/bridge_backend/.bridge_backend".to_string(),
             },
         }
     }

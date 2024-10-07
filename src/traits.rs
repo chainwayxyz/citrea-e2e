@@ -20,8 +20,8 @@ pub enum SpawnOutput {
     Container(ContainerSpawnOutput),
 }
 
-/// The Node trait defines the common interface shared between
-/// BitcoinNode, Prover, Sequencer and FullNode
+/// The [`NodeT`] trait defines the common interface shared between
+/// BitcoinNode, Bridge Backend, Prover, Sequencer and FullNode
 #[async_trait]
 pub trait NodeT: Send {
     type Config: Send;
