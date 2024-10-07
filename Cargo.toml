@@ -23,7 +23,6 @@ jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
 
 # Citrea dependencies
 bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }
-citrea-primitives = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
 citrea-sequencer = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
 sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["client"] }
 sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
