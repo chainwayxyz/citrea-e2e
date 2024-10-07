@@ -9,6 +9,7 @@ pub struct TestCaseEnv {
     pub sequencer: Vec<(&'static str, &'static str)>,
     pub prover: Vec<(&'static str, &'static str)>,
     pub bitcoin: Vec<(&'static str, &'static str)>,
+    pub bridge_backend: Vec<(&'static str, &'static str)>,
 }
 
 impl TestCaseEnv {
@@ -35,6 +36,10 @@ impl TestCaseEnv {
 
     pub fn bitcoin(&self) -> Vec<(&'static str, &'static str)> {
         [self.test_env(), self.bitcoin.clone()].concat()
+    }
+
+    pub fn bridge_backend(&self) -> Vec<(&'static str, &'static str)> {
+        [self.test_env(), self.bridge_backend.clone()].concat()
     }
 }
 
