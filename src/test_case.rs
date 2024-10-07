@@ -81,7 +81,7 @@ impl<T: TestCase> TestCaseRunner<T> {
 
         let f = framework
             .as_mut()
-            .expect("Framework not correctly initialized");
+            .with_context(|| format!("Framework not correctly initialized, result {result:?}"))?;
 
         if let Err(_) | Ok(Err(_)) = result {
             if let Err(e) = f.dump_log() {
