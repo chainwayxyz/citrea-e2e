@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
 use super::config::FullSequencerConfig;
-use crate::node::Node;
-use crate::traits::NodeT;
+use crate::{node::Node, traits::NodeT};
 
 pub type Sequencer = Node<FullSequencerConfig>;
 

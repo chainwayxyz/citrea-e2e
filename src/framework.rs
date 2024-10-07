@@ -12,7 +12,7 @@ use super::{
     traits::{LogProvider, LogProviderErased, NodeT},
     Result,
 };
-use crate::{batch_prover::BatchProver, utils::tail_file};
+use crate::{batch_prover::BatchProver, light_client_prover::LightClientProver, utils::tail_file};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -38,6 +38,7 @@ pub struct TestFramework {
     pub bitcoin_nodes: BitcoinNodeCluster,
     pub sequencer: Option<Sequencer>,
     pub batch_prover: Option<BatchProver>,
+    pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
     show_logs: bool,
     pub initial_da_height: u64,
@@ -67,6 +68,7 @@ impl TestFramework {
             bitcoin_nodes,
             sequencer: None,
             batch_prover: None,
+            light_client_prover: None,
             full_node: None,
             ctx,
             show_logs: true,
@@ -82,10 +84,14 @@ impl TestFramework {
         )
         .await?;
 
-        (self.batch_prover, self.full_node) = tokio::try_join!(
+        (self.batch_prover, self.light_client_prover, self.full_node) = tokio::try_join!(
             create_optional(
                 self.ctx.config.test_case.with_batch_prover,
                 BatchProver::new(&self.ctx.config.batch_prover)
+            ),
+            create_optional(
+                self.ctx.config.test_case.with_light_client_prover,
+                LightClientProver::new(&self.ctx.config.light_client_prover)
             ),
             create_optional(
                 self.ctx.config.test_case.with_full_node,
@@ -102,6 +108,9 @@ impl TestFramework {
             self.sequencer.as_ref().map(LogProvider::as_erased),
             self.full_node.as_ref().map(LogProvider::as_erased),
             self.batch_prover.as_ref().map(LogProvider::as_erased),
+            self.light_client_prover
+                .as_ref()
+                .map(LogProvider::as_erased),
         ]
         .into_iter()
         .flatten()
@@ -154,6 +163,11 @@ impl TestFramework {
             println!("Successfully stopped batch_prover");
         }
 
+        if let Some(light_client_prover) = &mut self.light_client_prover {
+            let _ = light_client_prover.stop().await;
+            println!("Successfully stopped light_client_prover");
+        }
+
         if let Some(full_node) = &mut self.full_node {
             let _ = full_node.stop().await;
             println!("Successfully stopped full_node");
@@ -177,6 +191,14 @@ impl TestFramework {
             .await?;
         da.create_wallet(&NodeKind::BatchProver.to_string(), None, None, None, None)
             .await?;
+        da.create_wallet(
+            &NodeKind::LightClientProver.to_string(),
+            None,
+            None,
+            None,
+            None,
+        )
+        .await?;
         da.create_wallet(&NodeKind::Bitcoin.to_string(), None, None, None, None)
             .await?;
 
@@ -191,6 +213,12 @@ impl TestFramework {
             da.fund_wallet(NodeKind::BatchProver.to_string(), blocks_to_fund)
                 .await?;
         }
+
+        if self.ctx.config.test_case.with_light_client_prover {
+            da.fund_wallet(NodeKind::LightClientProver.to_string(), blocks_to_fund)
+                .await?;
+        }
+
         da.fund_wallet(NodeKind::Bitcoin.to_string(), blocks_to_fund)
             .await?;
 

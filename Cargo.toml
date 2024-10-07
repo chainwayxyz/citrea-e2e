@@ -11,6 +11,7 @@ bitcoin = { version = "0.32.2", features = ["serde", "rand"] }
 bitcoincore-rpc = { version = "0.18.0" }
 bollard = { version = "0.17.1" }
 futures = "0.3"
+jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
 log = "0.4"
 rand = "0.8"
 serde = { version = "1.0.192", default-features = false, features = ["alloc", "derive"] }
@@ -19,7 +20,6 @@ tempfile = "3.8"
 tokio = { version = "1.39", features = ["full"] }
 toml = "0.8.0"
 which = "6.0.1"
-jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 
 # Citrea dependencies

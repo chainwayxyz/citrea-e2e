@@ -13,7 +13,7 @@ use futures::FutureExt;
 
 use super::{
     config::{
-        default_rollup_config, BitcoinConfig, FullFullNodeConfig, FullBatchProverConfig,
+        default_rollup_config, BitcoinConfig, FullBatchProverConfig, FullFullNodeConfig,
         FullSequencerConfig, RollupConfig, TestCaseConfig, TestCaseEnv, TestConfig,
     },
     framework::TestFramework,
@@ -23,7 +23,8 @@ use super::{
 };
 use crate::{
     config::{
-        BitcoinServiceConfig, ProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
+        BitcoinServiceConfig, FullLightClientProverConfig, ProverConfig, RpcConfig, RunnerConfig,
+        SequencerConfig, StorageConfig,
     },
     traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
@@ -54,7 +55,19 @@ impl<T: TestCase> TestCaseRunner<T> {
                 .await?;
         }
         if let Some(batch_prover) = &f.batch_prover {
-            batch_prover.wait_for_ready(Some(Duration::from_secs(5))).await?;
+            batch_prover
+                .wait_for_ready(Some(Duration::from_secs(5)))
+                .await?;
+        }
+        if let Some(light_client_prover) = &f.light_client_prover {
+            light_client_prover
+                .wait_for_ready(Some(Duration::from_secs(5)))
+                .await?;
+        }
+        if let Some(full_node) = &f.full_node {
+            full_node
+                .wait_for_ready(Some(Duration::from_secs(5)))
+                .await?;
         }
 
         Ok(())
@@ -111,12 +124,14 @@ impl<T: TestCase> TestCaseRunner<T> {
         let env = T::test_env();
         let bitcoin = T::bitcoin_config();
         let batch_prover = T::batch_prover_config();
+        let light_client_prover = T::light_client_prover_config();
         let sequencer = T::sequencer_config();
         let sequencer_rollup = default_rollup_config();
         let batch_prover_rollup = default_rollup_config();
+        let light_client_prover_rollup = default_rollup_config();
         let full_node_rollup = default_rollup_config();
 
-        let [bitcoin_dir, dbs_dir, batch_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
+        let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
             create_dirs(&test_case.dir)?;
 
         copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
@@ -204,6 +219,29 @@ impl<T: TestCase> TestCaseRunner<T> {
             }
         };
 
+        let light_client_prover_rollup = {
+            let bind_port = get_available_port()?;
+            let node_kind = NodeKind::LightClientProver.to_string();
+            RollupConfig {
+                da: BitcoinServiceConfig {
+                    da_private_key: None,
+                    node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                    tx_backup_dir: tx_backup_dir.display().to_string(),
+                    ..da_config.clone()
+                },
+                storage: StorageConfig {
+                    path: dbs_dir.join(format!("{node_kind}-db")),
+                    db_max_open_files: None,
+                },
+                rpc: RpcConfig {
+                    bind_port,
+                    ..light_client_prover_rollup.rpc
+                },
+                runner: runner_config.clone(),
+                ..light_client_prover_rollup
+            }
+        };
+
         let full_node_rollup = {
             let bind_port = get_available_port()?;
             let node_kind = NodeKind::FullNode.to_string();
@@ -245,6 +283,13 @@ impl<T: TestCase> TestCaseRunner<T> {
                 docker_image: None,
                 node: batch_prover,
                 env: env.batch_prover(),
+            },
+            light_client_prover: FullLightClientProverConfig {
+                rollup: light_client_prover_rollup,
+                dir: light_client_prover_dir,
+                docker_image: None,
+                node: light_client_prover,
+                env: env.light_client_prover(),
             },
             full_node: FullFullNodeConfig {
                 rollup: full_node_rollup,
@@ -290,8 +335,14 @@ pub trait TestCase: Send + Sync + 'static {
     }
 
     /// Returns the batch prover configuration for the test.
-    /// Override this method to provide a custom prover configuration.
+    /// Override this method to provide a custom batch prover configuration.
     fn batch_prover_config() -> ProverConfig {
+        ProverConfig::default()
+    }
+
+    /// Returns the light client prover configuration for the test.
+    /// Override this method to provide a custom light client prover configuration.
+    fn light_client_prover_config() -> ProverConfig {
         ProverConfig::default()
     }
 
@@ -315,11 +366,12 @@ pub trait TestCase: Send + Sync + 'static {
     }
 }
 
-fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 7]> {
+fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
         NodeKind::BatchProver.to_string(),
+        NodeKind::LightClientProver.to_string(),
         NodeKind::Sequencer.to_string(),
         NodeKind::FullNode.to_string(),
         "genesis".to_string(),

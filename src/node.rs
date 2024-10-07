@@ -27,6 +27,7 @@ use crate::{
 pub enum NodeKind {
     Bitcoin,
     BatchProver,
+    LightClientProver,
     Sequencer,
     FullNode,
 }
@@ -36,6 +37,7 @@ impl fmt::Display for NodeKind {
         match self {
             NodeKind::Bitcoin => write!(f, "bitcoin"),
             NodeKind::BatchProver => write!(f, "batch-prover"),
+            NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
         }

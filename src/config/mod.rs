@@ -34,6 +34,8 @@ pub struct FullL2NodeConfig<T> {
 
 pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
 pub type FullBatchProverConfig = FullL2NodeConfig<ProverConfig>;
+// TODO: use LightClientProverConfig
+pub type FullLightClientProverConfig = FullL2NodeConfig<ProverConfig>;
 pub type FullFullNodeConfig = FullL2NodeConfig<()>;
 
 pub trait NodeKindMarker {
