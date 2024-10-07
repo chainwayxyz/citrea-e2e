@@ -190,4 +190,15 @@ impl BridgeBackendConfig {
 
         env
     }
+
+    #[allow(unused)]
+    pub fn convert_hashmap_to_vec(input: &HashMap<String, String>) -> Vec<(&str, &str)> {
+        let mut result: Vec<(&str, &str)> = Vec::new();
+
+        for val in input {
+            result.push((val.0.as_str(), val.1.as_str()));
+        }
+
+        result
+    }
 }

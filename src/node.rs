@@ -43,7 +43,7 @@ pub trait Config: Clone {
     fn dir(&self) -> &PathBuf;
     fn rpc_bind_host(&self) -> &str;
     fn rpc_bind_port(&self) -> u16;
-    fn env(&self) -> Vec<(&'static str, &'static str)>;
+    fn env(&self) -> Vec<(&'static str, &'static str)>; // TODO: Isn't HashMap<String, String> more appropriate
     fn node_config(&self) -> Option<&Self::NodeConfig>;
     fn node_kind() -> NodeKind;
     fn rollup_config(&self) -> &RollupConfig;
