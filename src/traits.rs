@@ -21,7 +21,7 @@ pub enum SpawnOutput {
 }
 
 /// The Node trait defines the common interface shared between
-/// BitcoinNode, Prover, Sequencer and FullNode
+/// BitcoinNode, BatchProver, Sequencer and FullNode
 #[async_trait]
 pub trait NodeT: Send {
     type Config: Send;

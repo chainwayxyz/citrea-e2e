@@ -6,7 +6,7 @@ mod docker;
 pub mod framework;
 pub mod full_node;
 pub mod node;
-pub mod prover;
+pub mod batch_prover;
 pub mod sequencer;
 pub mod test_case;
 pub mod traits;

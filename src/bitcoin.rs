@@ -128,7 +128,7 @@ impl BitcoinNode {
     async fn load_wallets(&self) {
         let _ = self.load_wallet(&NodeKind::Bitcoin.to_string()).await;
         let _ = self.load_wallet(&NodeKind::Sequencer.to_string()).await;
-        let _ = self.load_wallet(&NodeKind::Prover.to_string()).await;
+        let _ = self.load_wallet(&NodeKind::BatchProver.to_string()).await;
     }
 
     // Switch this over to Node signature once we add support for docker to citrea nodes

@@ -33,7 +33,7 @@ pub struct FullL2NodeConfig<T> {
 }
 
 pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
-pub type FullProverConfig = FullL2NodeConfig<ProverConfig>;
+pub type FullBatchProverConfig = FullL2NodeConfig<ProverConfig>;
 pub type FullFullNodeConfig = FullL2NodeConfig<()>;
 
 pub trait NodeKindMarker {
@@ -44,8 +44,8 @@ impl NodeKindMarker for FullSequencerConfig {
     const KIND: NodeKind = NodeKind::Sequencer;
 }
 
-impl NodeKindMarker for FullProverConfig {
-    const KIND: NodeKind = NodeKind::Prover;
+impl NodeKindMarker for FullBatchProverConfig {
+    const KIND: NodeKind = NodeKind::BatchProver;
 }
 
 impl NodeKindMarker for FullFullNodeConfig {

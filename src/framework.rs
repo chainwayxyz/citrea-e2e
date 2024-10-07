@@ -12,7 +12,7 @@ use super::{
     traits::{LogProvider, LogProviderErased, NodeT},
     Result,
 };
-use crate::{prover::Prover, utils::tail_file};
+use crate::{batch_prover::BatchProver, utils::tail_file};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -37,7 +37,7 @@ pub struct TestFramework {
     ctx: TestContext,
     pub bitcoin_nodes: BitcoinNodeCluster,
     pub sequencer: Option<Sequencer>,
-    pub prover: Option<Prover>,
+    pub batch_prover: Option<BatchProver>,
     pub full_node: Option<FullNode>,
     show_logs: bool,
     pub initial_da_height: u64,
@@ -66,7 +66,7 @@ impl TestFramework {
         Ok(Self {
             bitcoin_nodes,
             sequencer: None,
-            prover: None,
+            batch_prover: None,
             full_node: None,
             ctx,
             show_logs: true,
@@ -75,17 +75,17 @@ impl TestFramework {
     }
 
     pub async fn init_nodes(&mut self) -> Result<()> {
-        // Has to initialize sequencer first since prover and full node depend on it
+        // Has to initialize sequencer first since provers and full node depend on it
         self.sequencer = create_optional(
             self.ctx.config.test_case.with_sequencer,
             Sequencer::new(&self.ctx.config.sequencer),
         )
         .await?;
 
-        (self.prover, self.full_node) = tokio::try_join!(
+        (self.batch_prover, self.full_node) = tokio::try_join!(
             create_optional(
-                self.ctx.config.test_case.with_prover,
-                Prover::new(&self.ctx.config.prover)
+                self.ctx.config.test_case.with_batch_prover,
+                BatchProver::new(&self.ctx.config.batch_prover)
             ),
             create_optional(
                 self.ctx.config.test_case.with_full_node,
@@ -101,7 +101,7 @@ impl TestFramework {
             self.bitcoin_nodes.get(0).map(LogProvider::as_erased),
             self.sequencer.as_ref().map(LogProvider::as_erased),
             self.full_node.as_ref().map(LogProvider::as_erased),
-            self.prover.as_ref().map(LogProvider::as_erased),
+            self.batch_prover.as_ref().map(LogProvider::as_erased),
         ]
         .into_iter()
         .flatten()
@@ -149,9 +149,9 @@ impl TestFramework {
             println!("Successfully stopped sequencer");
         }
 
-        if let Some(prover) = &mut self.prover {
-            let _ = prover.stop().await;
-            println!("Successfully stopped prover");
+        if let Some(batch_prover) = &mut self.batch_prover {
+            let _ = batch_prover.stop().await;
+            println!("Successfully stopped batch_prover");
         }
 
         if let Some(full_node) = &mut self.full_node {
@@ -175,7 +175,7 @@ impl TestFramework {
 
         da.create_wallet(&NodeKind::Sequencer.to_string(), None, None, None, None)
             .await?;
-        da.create_wallet(&NodeKind::Prover.to_string(), None, None, None, None)
+        da.create_wallet(&NodeKind::BatchProver.to_string(), None, None, None, None)
             .await?;
         da.create_wallet(&NodeKind::Bitcoin.to_string(), None, None, None, None)
             .await?;
@@ -187,8 +187,8 @@ impl TestFramework {
                 .await?;
         }
 
-        if self.ctx.config.test_case.with_prover {
-            da.fund_wallet(NodeKind::Prover.to_string(), blocks_to_fund)
+        if self.ctx.config.test_case.with_batch_prover {
+            da.fund_wallet(NodeKind::BatchProver.to_string(), blocks_to_fund)
                 .await?;
         }
         da.fund_wallet(NodeKind::Bitcoin.to_string(), blocks_to_fund)

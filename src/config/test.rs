@@ -1,5 +1,5 @@
 use super::{
-    bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullFullNodeConfig, FullProverConfig,
+    bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullFullNodeConfig, FullBatchProverConfig,
     FullSequencerConfig,
 };
 
@@ -8,6 +8,6 @@ pub struct TestConfig {
     pub test_case: TestCaseConfig,
     pub bitcoin: Vec<BitcoinConfig>,
     pub sequencer: FullSequencerConfig,
-    pub prover: FullProverConfig,
+    pub batch_prover: FullBatchProverConfig,
     pub full_node: FullFullNodeConfig,
 }

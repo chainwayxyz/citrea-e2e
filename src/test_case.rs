@@ -13,7 +13,7 @@ use futures::FutureExt;
 
 use super::{
     config::{
-        default_rollup_config, BitcoinConfig, FullFullNodeConfig, FullProverConfig,
+        default_rollup_config, BitcoinConfig, FullFullNodeConfig, FullBatchProverConfig,
         FullSequencerConfig, RollupConfig, TestCaseConfig, TestCaseEnv, TestConfig,
     },
     framework::TestFramework,
@@ -53,8 +53,8 @@ impl<T: TestCase> TestCaseRunner<T> {
                 .wait_for_ready(Some(Duration::from_secs(5)))
                 .await?;
         }
-        if let Some(prover) = &f.prover {
-            prover.wait_for_ready(Some(Duration::from_secs(5))).await?;
+        if let Some(batch_prover) = &f.batch_prover {
+            batch_prover.wait_for_ready(Some(Duration::from_secs(5))).await?;
         }
 
         Ok(())
@@ -110,13 +110,13 @@ impl<T: TestCase> TestCaseRunner<T> {
         let test_case = T::test_config();
         let env = T::test_env();
         let bitcoin = T::bitcoin_config();
-        let prover = T::prover_config();
+        let batch_prover = T::batch_prover_config();
         let sequencer = T::sequencer_config();
         let sequencer_rollup = default_rollup_config();
-        let prover_rollup = default_rollup_config();
+        let batch_prover_rollup = default_rollup_config();
         let full_node_rollup = default_rollup_config();
 
-        let [bitcoin_dir, dbs_dir, prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
+        let [bitcoin_dir, dbs_dir, batch_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
             create_dirs(&test_case.dir)?;
 
         copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
@@ -178,9 +178,9 @@ impl<T: TestCase> TestCaseRunner<T> {
             sync_blocks_count: 10,
         });
 
-        let prover_rollup = {
+        let batch_prover_rollup = {
             let bind_port = get_available_port()?;
-            let node_kind = NodeKind::Prover.to_string();
+            let node_kind = NodeKind::BatchProver.to_string();
             RollupConfig {
                 da: BitcoinServiceConfig {
                     da_private_key: Some(
@@ -197,10 +197,10 @@ impl<T: TestCase> TestCaseRunner<T> {
                 },
                 rpc: RpcConfig {
                     bind_port,
-                    ..prover_rollup.rpc
+                    ..batch_prover_rollup.rpc
                 },
                 runner: runner_config.clone(),
-                ..prover_rollup
+                ..batch_prover_rollup
             }
         };
 
@@ -239,12 +239,12 @@ impl<T: TestCase> TestCaseRunner<T> {
                 node: sequencer,
                 env: env.sequencer(),
             },
-            prover: FullProverConfig {
-                rollup: prover_rollup,
-                dir: prover_dir,
+            batch_prover: FullBatchProverConfig {
+                rollup: batch_prover_rollup,
+                dir: batch_prover_dir,
                 docker_image: None,
-                node: prover,
-                env: env.prover(),
+                node: batch_prover,
+                env: env.batch_prover(),
             },
             full_node: FullFullNodeConfig {
                 rollup: full_node_rollup,
@@ -289,9 +289,9 @@ pub trait TestCase: Send + Sync + 'static {
         SequencerConfig::default()
     }
 
-    /// Returns the prover configuration for the test.
+    /// Returns the batch prover configuration for the test.
     /// Override this method to provide a custom prover configuration.
-    fn prover_config() -> ProverConfig {
+    fn batch_prover_config() -> ProverConfig {
         ProverConfig::default()
     }
 
@@ -319,7 +319,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 7]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
-        NodeKind::Prover.to_string(),
+        NodeKind::BatchProver.to_string(),
         NodeKind::Sequencer.to_string(),
         NodeKind::FullNode.to_string(),
         "genesis".to_string(),
