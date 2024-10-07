@@ -7,15 +7,16 @@ mod utils;
 
 use std::path::PathBuf;
 
+pub use crate::citrea_config::bitcoin::BitcoinServiceConfig;
+pub use crate::citrea_config::prover::ProverConfig;
+pub use crate::citrea_config::rollup::{
+    FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig,
+};
+pub use crate::citrea_config::sequencer::SequencerConfig;
 pub use bitcoin::BitcoinConfig;
-pub use bitcoin_da::service::BitcoinServiceConfig;
-pub use citrea_sequencer::SequencerConfig;
 pub use docker::DockerConfig;
 pub use rollup::{default_rollup_config, RollupConfig};
 use serde::Serialize;
-pub use sov_stf_runner::{
-    FullNodeConfig, ProverConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig,
-};
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseEnv};
 pub use utils::config_to_file;

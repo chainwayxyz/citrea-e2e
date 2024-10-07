@@ -20,13 +20,12 @@ tokio = { version = "1.39", features = ["full"] }
 toml = "0.8.0"
 which = "6.0.1"
 jsonrpsee = { version = "0.24.2", features = ["http-client", "ws-client"] }
+hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 
 # Citrea dependencies
-bitcoin-da = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }
-citrea-sequencer = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
-sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["client"] }
+sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", default-features = false, features = ["client"] }
 sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
-sov-stf-runner = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d", features = ["native"] }
+syn = { version = "1.0", features = ["full", "extra-traits"] }
 
 [patch.crates-io]
 bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "0ae498d" }

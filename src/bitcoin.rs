@@ -8,7 +8,6 @@ use std::{
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
-use bitcoin_da::service::FINALITY_DEPTH;
 use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
 use futures::TryStreamExt;
 use tokio::{process::Command, sync::OnceCell, time::sleep};
@@ -21,6 +20,8 @@ use super::{
     Result,
 };
 use crate::node::NodeKind;
+
+pub const FINALITY_DEPTH: u64 = 8;
 
 pub struct BitcoinNode {
     spawn_output: SpawnOutput,

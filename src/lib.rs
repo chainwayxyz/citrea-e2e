@@ -1,4 +1,5 @@
 pub mod bitcoin;
+mod citrea_config;
 mod client;
 pub mod config;
 mod docker;
