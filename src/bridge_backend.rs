@@ -1,6 +1,4 @@
-use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -14,7 +12,7 @@ use super::config::BridgeBackendConfig;
 use super::docker::DockerEnv;
 use super::framework::TestContext;
 use super::Result;
-use crate::bridge_backend_client::BridgeBackendClient;
+use crate::client::Client;
 use crate::node::NodeKind;
 use crate::traits::{ContainerSpawnOutput, LogProvider, NodeT, Restart, SpawnOutput};
 
@@ -22,19 +20,18 @@ pub struct BridgeBackendNode {
     spawn_output: SpawnOutput,
     pub config: BridgeBackendConfig,
     docker_env: Arc<Option<DockerEnv>>,
-    client: BridgeBackendClient,
+    client: Client,
 }
 
 impl BridgeBackendNode {
     pub async fn new(config: &BridgeBackendConfig, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
         let spawn_output = Self::spawn(config, &docker).await?;
-        let rpc_url = SocketAddr::from_str(&(config.host.clone() + &config.port.to_string()))?;
 
         Ok(Self {
             spawn_output,
             config: config.clone(),
             docker_env: docker,
-            client: BridgeBackendClient::new(rpc_url).await?,
+            client: Client::new(&config.host, config.port.try_into().unwrap())?,
         })
     }
 
@@ -79,7 +76,7 @@ impl BridgeBackendNode {
 #[async_trait]
 impl NodeT for BridgeBackendNode {
     type Config = BridgeBackendConfig;
-    type Client = BridgeBackendClient;
+    type Client = Client;
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
         let env = config.get_env();

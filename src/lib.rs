@@ -1,6 +1,6 @@
 pub mod bitcoin;
 pub mod bridge_backend;
-mod bridge_backend_client;
+// mod bridge_backend_client;
 mod client;
 pub mod config;
 mod docker;
