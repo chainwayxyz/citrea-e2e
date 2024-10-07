@@ -74,7 +74,7 @@ impl DockerEnv {
     }
 
     async fn create_network(docker: &Docker, test_case_id: &str) -> Result<(String, String)> {
-        let network_name = format!("test_network_{}", test_case_id);
+        let network_name = format!("test_network_{test_case_id}");
         let options = CreateNetworkOptions {
             name: network_name.clone(),
             check_duplicate: true,
@@ -95,7 +95,7 @@ impl DockerEnv {
         let exposed_ports: HashMap<String, HashMap<(), ()>> = config
             .ports
             .iter()
-            .map(|port| (format!("{}/tcp", port), HashMap::new()))
+            .map(|port| (format!("{port}/tcp"), HashMap::new()))
             .collect();
 
         let port_bindings: HashMap<String, Option<Vec<PortBinding>>> = config
@@ -103,7 +103,7 @@ impl DockerEnv {
             .iter()
             .map(|port| {
                 (
-                    format!("{}/tcp", port),
+                    format!("{port}/tcp"),
                     Some(vec![PortBinding {
                         host_ip: Some("0.0.0.0".to_string()),
                         host_port: Some(port.to_string()),
@@ -196,7 +196,7 @@ impl DockerEnv {
             return Ok(());
         }
 
-        println!("Pulling image: {}", image);
+        println!("Pulling image: {image}");
         let options = Some(CreateImageOptions {
             from_image: image,
             ..Default::default()
@@ -207,7 +207,7 @@ impl DockerEnv {
             match result {
                 Ok(info) => {
                     if let (Some(status), Some(progress)) = (info.status, info.progress) {
-                        print!("\r{}: {}     ", status, progress);
+                        print!("\r{status}: {progress}     ");
                         stdout().flush().unwrap();
                     }
                 }

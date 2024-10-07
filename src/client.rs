@@ -19,7 +19,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(host: &str, port: u16) -> Result<Self> {
-        let host = format!("http://{}:{}", host, port);
+        let host = format!("http://{host}:{port}");
         let client = HttpClientBuilder::default()
             .request_timeout(Duration::from_secs(120))
             .build(host)?;

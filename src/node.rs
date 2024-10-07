@@ -77,12 +77,12 @@ impl<C: Config> Node<C> {
         let kind = C::node_kind();
 
         config.node_config().map_or(Ok(Vec::new()), |node_config| {
-            let config_path = dir.join(format!("{}_config.toml", kind));
+            let config_path = dir.join(format!("{kind}_config.toml"));
             config_to_file(node_config, &config_path)
-                .with_context(|| format!("Error writing {} config to file", kind))?;
+                .with_context(|| format!("Error writing {kind} config to file"))?;
 
             Ok(vec![
-                format!("--{}-config-path", kind),
+                format!("--{kind}-config-path"),
                 config_path.display().to_string(),
             ])
         })
@@ -102,7 +102,7 @@ impl<C: Config> Node<C> {
         // Handle full node not having any node config
         let node_config_args = Self::get_node_config_args(config)?;
 
-        let rollup_config_path = dir.join(format!("{}_rollup_config.toml", kind));
+        let rollup_config_path = dir.join(format!("{kind}_rollup_config.toml"));
         config_to_file(&config.rollup_config(), &rollup_config_path)?;
 
         Command::new(citrea)
@@ -120,7 +120,7 @@ impl<C: Config> Node<C> {
             .stderr(Stdio::from(stderr_file))
             .kill_on_drop(true)
             .spawn()
-            .context(format!("Failed to spawn {} process", kind))
+            .context(format!("Failed to spawn {kind} process"))
             .map(SpawnOutput::Child)
     }
 
@@ -229,7 +229,7 @@ where
     async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()> {
         let config = self.config_mut();
         if let Some(new_config) = new_config {
-            *config = new_config
+            *config = new_config;
         }
         *self.spawn_output() = Self::spawn(config)?;
         self.wait_for_ready(None).await

@@ -42,8 +42,7 @@ pub fn get_stderr_path(dir: &Path) -> PathBuf {
 /// Get genesis path from resources
 /// TODO: assess need for customable genesis path in e2e tests
 pub fn get_default_genesis_path() -> PathBuf {
-    let workspace_root = get_workspace_root();
-    let mut path = workspace_root.to_path_buf();
+    let mut path = get_workspace_root();
     path.push("resources");
     path.push("genesis");
     path.push("bitcoin-regtest");
@@ -101,7 +100,7 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     for line in last_lines {
-        println!("{}", line);
+        println!("{line}");
     }
 
     Ok(())

@@ -1,4 +1,4 @@
-//! This module provides the TestCaseRunner and TestCase trait for running and defining test cases.
+//! This module provides the `TestCaseRunner` and `TestCase` trait for running and defining test cases.
 //! It handles setup, execution, and cleanup of test environments.
 
 use std::{
@@ -36,7 +36,7 @@ use crate::{
 pub struct TestCaseRunner<T: TestCase>(T);
 
 impl<T: TestCase> TestCaseRunner<T> {
-    /// Creates a new TestCaseRunner with the given test case.
+    /// Creates a new `TestCaseRunner`` with the given test case.
     pub fn new(test_case: T) -> Self {
         Self(test_case)
     }
@@ -85,7 +85,7 @@ impl<T: TestCase> TestCaseRunner<T> {
 
         if let Err(_) | Ok(Err(_)) = result {
             if let Err(e) = f.dump_log() {
-                eprintln!("Error dumping log: {}", e);
+                eprintln!("Error dumping log: {e}");
             }
         }
 
@@ -100,8 +100,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             Err(panic_error) => {
                 let panic_msg = panic_error
                     .downcast_ref::<String>()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "Unknown panic".to_string());
+                    .map_or_else(|| "Unknown panic".to_string(), ToString::to_string);
                 bail!(panic_msg)
             }
         }
@@ -138,7 +137,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                 env: env.bitcoin().clone(),
                 idx: i,
                 ..bitcoin.clone()
-            })
+            });
         }
 
         // Target first bitcoin node as DA for now
@@ -158,7 +157,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
-                    path: dbs_dir.join(format!("{}-db", node_kind)),
+                    path: dbs_dir.join(format!("{node_kind}-db")),
                     db_max_open_files: None,
                 },
                 rpc: RpcConfig {
@@ -193,7 +192,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
-                    path: dbs_dir.join(format!("{}-db", node_kind)),
+                    path: dbs_dir.join(format!("{node_kind}-db")),
                     db_max_open_files: None,
                 },
                 rpc: RpcConfig {
@@ -219,7 +218,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                     ..da_config.clone()
                 },
                 storage: StorageConfig {
-                    path: dbs_dir.join(format!("{}-db", node_kind)),
+                    path: dbs_dir.join(format!("{node_kind}-db")),
                     db_max_open_files: None,
                 },
                 rpc: RpcConfig {

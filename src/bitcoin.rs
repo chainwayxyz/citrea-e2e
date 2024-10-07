@@ -286,9 +286,9 @@ impl BitcoinNodeCluster {
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),
         };
-        for config in ctx.config.bitcoin.iter() {
+        for config in &ctx.config.bitcoin {
             let node = BitcoinNode::new(config, Arc::clone(&ctx.docker)).await?;
-            cluster.inner.push(node)
+            cluster.inner.push(node);
         }
 
         Ok(cluster)
@@ -327,7 +327,7 @@ impl BitcoinNodeCluster {
                 if i != j {
                     let ip = match &to_node.spawn_output {
                         SpawnOutput::Container(container) => container.ip.clone(),
-                        _ => "127.0.0.1".to_string(),
+                        SpawnOutput::Child(_) => "127.0.0.1".to_string(),
                     };
 
                     let add_node_arg = format!("{}:{}", ip, to_node.config.p2p_port);
