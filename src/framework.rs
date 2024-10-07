@@ -12,7 +12,7 @@ use super::{
     traits::{LogProvider, LogProviderErased, NodeT},
     Result,
 };
-use crate::{bridge_backend::BridgeBackendNodeCluster, prover::Prover, utils::tail_file};
+use crate::{bridge_backend::BridgeBackendNode, prover::Prover, utils::tail_file};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -36,7 +36,7 @@ impl TestContext {
 pub struct TestFramework {
     ctx: TestContext,
     pub bitcoin_nodes: BitcoinNodeCluster,
-    pub bridge_backend_nodes: BridgeBackendNodeCluster,
+    pub bridge_backend: Option<BridgeBackendNode>,
     pub sequencer: Option<Sequencer>,
     pub prover: Option<Prover>,
     pub full_node: Option<FullNode>,
@@ -62,12 +62,10 @@ impl TestFramework {
         let ctx = TestContext::new(config).await;
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
-        let bridge_backend_nodes = BridgeBackendNodeCluster::new(&ctx).await?;
 
-        // tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         Ok(Self {
             bitcoin_nodes,
-            bridge_backend_nodes,
+            bridge_backend: None,
             sequencer: None,
             prover: None,
             full_node: None,
