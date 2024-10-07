@@ -21,7 +21,7 @@ use super::{
     config::BitcoinConfig,
     docker::DockerEnv,
     framework::TestContext,
-    traits::{LogProvider, Node, Restart, SpawnOutput},
+    traits::{LogProvider, NodeT, Restart, SpawnOutput},
     Result,
 };
 use crate::node::NodeKind;
@@ -148,7 +148,7 @@ impl BitcoinNode {
     async fn spawn(config: &BitcoinConfig, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
             Some(docker) => docker.spawn(config.into()).await,
-            None => <Self as Node>::spawn(config),
+            None => <Self as NodeT>::spawn(config),
         }
     }
 }
@@ -186,7 +186,7 @@ impl RpcApi for BitcoinNode {
 }
 
 #[async_trait]
-impl Node for BitcoinNode {
+impl NodeT for BitcoinNode {
     type Config = BitcoinConfig;
     type Client = Client;
 
@@ -233,6 +233,10 @@ impl Node for BitcoinNode {
 
     fn config_mut(&mut self) -> &mut Self::Config {
         &mut self.config
+    }
+
+    fn config(&self) -> &Self::Config {
+        &self.config
     }
 }
 

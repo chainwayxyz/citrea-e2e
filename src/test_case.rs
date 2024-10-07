@@ -26,7 +26,7 @@ use crate::{
         BitcoinServiceConfig, BridgeBackendConfig, ProverConfig, RpcConfig, RunnerConfig,
         SequencerConfig, StorageConfig,
     },
-    traits::Node,
+    traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
 };
 
@@ -53,6 +53,9 @@ impl<T: TestCase> TestCaseRunner<T> {
             sequencer
                 .wait_for_ready(Some(Duration::from_secs(5)))
                 .await?;
+        }
+        if let Some(prover) = &f.prover {
+            prover.wait_for_ready(Some(Duration::from_secs(5))).await?;
         }
 
         Ok(())
@@ -81,7 +84,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             .as_mut()
             .expect("Framework not correctly initialized");
 
-        if result.is_err() {
+        if let Err(_) | Ok(Err(_)) = result {
             if let Err(e) = f.dump_log() {
                 eprintln!("Error dumping log: {}", e);
             }
