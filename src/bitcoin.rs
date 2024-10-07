@@ -8,12 +8,8 @@ use std::{
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
-use bitcoin_da::{
-    service::{get_relevant_blobs_from_txs, FINALITY_DEPTH},
-    spec::blob::BlobWithSender,
-};
+use bitcoin_da::service::FINALITY_DEPTH;
 use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
-use citrea_primitives::REVEAL_BATCH_PROOF_PREFIX;
 use futures::TryStreamExt;
 use tokio::{process::Command, sync::OnceCell, time::sleep};
 
@@ -100,16 +96,6 @@ impl BitcoinNode {
 
     pub async fn get_finalized_height(&self) -> Result<u64> {
         Ok(self.get_block_count().await? - FINALITY_DEPTH + 1)
-    }
-
-    pub async fn get_relevant_blobs_from_block(&self, height: u64) -> Result<Vec<BlobWithSender>> {
-        let hash = self.get_block_hash(height).await?;
-        let block = self.get_block(&hash).await?;
-
-        Ok(get_relevant_blobs_from_txs(
-            block.txdata,
-            REVEAL_BATCH_PROOF_PREFIX,
-        ))
     }
 
     async fn wait_for_shutdown(&self) -> Result<()> {

@@ -79,6 +79,16 @@ impl Client {
         Ok(self.client.get_soft_confirmation_by_number(num).await?)
     }
 
+    pub async fn ledger_get_sequencer_commitments_on_slot_by_hash(
+        &self,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<SequencerCommitmentResponse>>> {
+        self.client
+            .get_sequencer_commitments_on_slot_by_hash(hash)
+            .await
+            .map_err(|e| e.into())
+    }
+
     pub async fn ledger_get_head_soft_confirmation_height(&self) -> Result<u64> {
         Ok(self.client.get_head_soft_confirmation_height().await?)
     }

@@ -1,7 +1,14 @@
-use std::{fmt, fs::File, path::PathBuf, process::Stdio, time::Duration};
+use std::{
+    fmt,
+    fs::File,
+    path::PathBuf,
+    process::Stdio,
+    time::{Duration, SystemTime},
+};
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use async_trait::async_trait;
+use log::debug;
 use serde::Serialize;
 use tokio::{
     process::Command,
@@ -115,6 +122,30 @@ impl<C: Config> Node<C> {
             .spawn()
             .context(format!("Failed to spawn {} process", kind))
             .map(SpawnOutput::Child)
+    }
+
+    pub async fn wait_for_l2_height(&self, num: u64, timeout: Option<Duration>) -> Result<()> {
+        let start = SystemTime::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
+        loop {
+            debug!("Waiting for soft confirmation {}", num);
+            let latest_block = self
+                .client
+                .ledger_get_head_soft_confirmation_height()
+                .await?;
+
+            if latest_block >= num {
+                break;
+            }
+
+            let now = SystemTime::now();
+            if start + timeout <= now {
+                bail!("Timeout. Latest L2 block is {:?}", latest_block);
+            }
+
+            sleep(Duration::from_secs(1)).await;
+        }
+        Ok(())
     }
 }
 
