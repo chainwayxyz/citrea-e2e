@@ -30,7 +30,7 @@ use crate::{
     utils::{get_default_genesis_path, get_workspace_root},
 };
 
-// TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
+/// TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
 /// runs the test case, and performs cleanup afterwards. The `run` method handles any panics that
 /// might occur during test execution and takes care of cleaning up and stopping the child processes.
