@@ -23,8 +23,8 @@ use super::{
 };
 use crate::{
     config::{
-        BitcoinServiceConfig, FullLightClientProverConfig, ProverConfig, RpcConfig, RunnerConfig,
-        SequencerConfig, StorageConfig,
+        BatchProverConfig, BitcoinServiceConfig, FullLightClientProverConfig,
+        LightClientProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
     },
     traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
@@ -191,6 +191,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             include_tx_body: true,
             accept_public_input_as_proven: Some(true),
             sync_blocks_count: 10,
+            pruning_config: None,
         });
 
         let batch_prover_rollup = {
@@ -336,14 +337,14 @@ pub trait TestCase: Send + Sync + 'static {
 
     /// Returns the batch prover configuration for the test.
     /// Override this method to provide a custom batch prover configuration.
-    fn batch_prover_config() -> ProverConfig {
-        ProverConfig::default()
+    fn batch_prover_config() -> BatchProverConfig {
+        BatchProverConfig::default()
     }
 
     /// Returns the light client prover configuration for the test.
     /// Override this method to provide a custom light client prover configuration.
-    fn light_client_prover_config() -> ProverConfig {
-        ProverConfig::default()
+    fn light_client_prover_config() -> LightClientProverConfig {
+        LightClientProverConfig::default()
     }
 
     /// Returns the test setup
