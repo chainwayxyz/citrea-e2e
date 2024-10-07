@@ -31,11 +31,10 @@ impl BridgeBackendNode {
             spawn_output,
             config: config.clone(),
             docker_env: docker,
-            client: Client::new(&config.host, config.port.try_into().unwrap())?,
+            client: Client::new(&config.client.host, config.client.port.try_into().unwrap())?,
         })
     }
 
-    // Switch this over to Node signature once we add support for docker to citrea nodes
     async fn spawn(
         config: &BridgeBackendConfig,
         docker: &Arc<Option<DockerEnv>>,

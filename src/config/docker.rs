@@ -48,11 +48,8 @@ impl From<&BitcoinConfig> for DockerConfig {
 impl From<&BridgeBackendConfig> for DockerConfig {
     fn from(v: &BridgeBackendConfig) -> Self {
         Self {
-            ports: vec![v.port.try_into().unwrap()],
-            image: v
-                .docker_image
-                .clone()
-                .unwrap_or_else(|| "bitcoin/bitcoin:latest".to_string()),
+            ports: vec![v.client.port.try_into().unwrap()],
+            image: v.docker_image.clone().unwrap(),
             cmd: vec![],
             log_path: PathBuf::new(),
             volume: VolumeConfig {
