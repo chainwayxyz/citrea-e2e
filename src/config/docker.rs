@@ -51,7 +51,7 @@ impl From<&BridgeBackendConfig> for DockerConfig {
             ports: vec![v.client.port.try_into().unwrap()],
             image: v.docker_image.clone().unwrap(),
             cmd: vec![],
-            log_path: PathBuf::new(),
+            log_path: v.data_dir.join("stdout"),
             volume: VolumeConfig {
                 name: format!("bridge-backend"),
                 target: "/home/bridge_backend/.bridge_backend".to_string(),

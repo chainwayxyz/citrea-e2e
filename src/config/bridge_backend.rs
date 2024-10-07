@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 /// Real config values for bridge backend itself.
 #[derive(Debug, Clone)]
@@ -45,52 +45,58 @@ pub struct BridgeBackendClient {
     pub aggregator_url: String,
 }
 
+impl Default for BridgeBackendClient {
+    fn default() -> Self {
+        Self {
+            host: "localhost".to_string(),
+            port: 8080,
+
+            pghost: "localhost".to_string(),
+            pgport: 5432,
+            pguser: "citrea".to_string(),
+            pgpassword: "".to_string(),
+            pgdatabase: "citrea_bridge".to_string(),
+
+            redis_url: "redis://localhost:6379".to_string(),
+
+            user_takes_after: "c800".to_string(),
+            verifier_pks: "7c4803421956db53eed29ee45bddbe60d16e66560f918a94270ea5272b2b4e90".to_string(),
+            bridge_amount_btc: 1,
+            confirmation_threshold: 6,
+
+            bitcoin_rest_endpoint: "".to_string(),
+            bitcoin_rest_auth_header: "".to_string(),
+
+            citrea_rest_endpoint: "".to_string(),
+            bitcoin_lightclient_contract_address: "0x3100000000000000000000000000000000000001".to_string(),
+            bridge_contract_address: "".to_string(),
+            declare_withdraw_filler_private_key: "".to_string(),
+
+            faucet_private_key: "".to_string(),
+            faucet_amount: "".to_string(),
+            faucet_amount_limit: "".to_string(),
+            faucet_count_limit: "".to_string(),
+
+            operator_urls: "http://localhost:17007,http://localhost:17008,http://localhost:17009".to_string(),
+            verifier_urls: "http://localhost:17000,http://localhost:17001,http://localhost:17002,http://localhost:17003,http://localhost:17004,http://localhost:17005,http://localhost:17006".to_string(),
+            aggregator_url: "http://localhost:17010".to_string(), 
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct BridgeBackendConfig {
     pub client: BridgeBackendClient,
-
     pub docker_image: Option<String>,
+    pub data_dir: PathBuf,
 }
 
 impl Default for BridgeBackendConfig {
     fn default() -> Self {
         Self {
-            client: BridgeBackendClient {
-                host: "localhost".to_string(),
-                port: 8080,
-
-                pghost: "localhost".to_string(),
-                pgport: 5432,
-                pguser: "citrea".to_string(),
-                pgpassword: "".to_string(),
-                pgdatabase: "citrea_bridge".to_string(),
-
-                redis_url: "redis://localhost:6379".to_string(),
-
-                user_takes_after: "c800".to_string(),
-                verifier_pks: "7c4803421956db53eed29ee45bddbe60d16e66560f918a94270ea5272b2b4e90".to_string(),
-                bridge_amount_btc: 1,
-                confirmation_threshold: 6,
-
-                bitcoin_rest_endpoint: "".to_string(),
-                bitcoin_rest_auth_header: "".to_string(),
-
-                citrea_rest_endpoint: "".to_string(),
-                bitcoin_lightclient_contract_address: "0x3100000000000000000000000000000000000001".to_string(),
-                bridge_contract_address: "".to_string(),
-                declare_withdraw_filler_private_key: "".to_string(),
-
-                faucet_private_key: "".to_string(),
-                faucet_amount: "".to_string(),
-                faucet_amount_limit: "".to_string(),
-                faucet_count_limit: "".to_string(),
-
-                operator_urls: "http://localhost:17007,http://localhost:17008,http://localhost:17009".to_string(),
-                verifier_urls: "http://localhost:17000,http://localhost:17001,http://localhost:17002,http://localhost:17003,http://localhost:17004,http://localhost:17005,http://localhost:17006".to_string(),
-                aggregator_url: "http://localhost:17010".to_string(), 
-            },
-
+            client: BridgeBackendClient::default(),
             docker_image: None,
+            data_dir: PathBuf::from("bridge_backend"),
         }
     }
 }

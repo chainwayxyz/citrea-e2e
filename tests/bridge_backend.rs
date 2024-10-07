@@ -23,7 +23,7 @@ impl TestCase for BasicBridgeBackendTest {
         let Some(_da) = f.bitcoin_nodes.get(0) else {
             bail!("bitcoind not running!")
         };
-        let Some(_bridge_backend) = f.bridge_backend_nodes.get(0) else {
+        let Some(_bridge_backend) = &f.bridge_backend else {
             bail!("Bridge backend is not running!")
         };
 

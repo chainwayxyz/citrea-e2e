@@ -10,7 +10,6 @@ use tokio::time::sleep;
 
 use super::config::BridgeBackendConfig;
 use super::docker::DockerEnv;
-use super::framework::TestContext;
 use super::Result;
 use crate::client::Client;
 use crate::node::NodeKind;
@@ -153,7 +152,7 @@ impl NodeT for BridgeBackendNode {
     }
 
     fn config(&self) -> &<Self as NodeT>::Config {
-        todo!()
+        &self.config
     }
 }
 
@@ -201,40 +200,5 @@ impl LogProvider for BridgeBackendNode {
 
     fn log_path(&self) -> PathBuf {
         todo!()
-    }
-}
-
-pub struct BridgeBackendNodeCluster {
-    inner: Vec<BridgeBackendNode>,
-}
-
-impl BridgeBackendNodeCluster {
-    pub async fn new(ctx: &TestContext) -> Result<Self> {
-        let n_nodes = ctx.config.test_case.n_nodes;
-        let mut cluster = Self {
-            inner: Vec::with_capacity(n_nodes),
-        };
-        for config in ctx.config.bridge_backend.iter() {
-            let node = BridgeBackendNode::new(config, Arc::clone(&ctx.docker)).await?;
-            cluster.inner.push(node)
-        }
-
-        Ok(cluster)
-    }
-
-    pub async fn stop_all(&mut self) -> Result<()> {
-        for node in &mut self.inner {
-            node.stop().await?;
-        }
-        Ok(())
-    }
-
-    pub fn get(&self, index: usize) -> Option<&BridgeBackendNode> {
-        self.inner.get(index)
-    }
-
-    #[allow(unused)]
-    pub fn get_mut(&mut self, index: usize) -> Option<&mut BridgeBackendNode> {
-        self.inner.get_mut(index)
     }
 }
