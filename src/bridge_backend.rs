@@ -16,7 +16,7 @@ use super::framework::TestContext;
 use super::Result;
 use crate::bridge_backend_client::BridgeBackendClient;
 use crate::node::NodeKind;
-use crate::traits::{ContainerSpawnOutput, LogProvider, Node, Restart, SpawnOutput};
+use crate::traits::{ContainerSpawnOutput, LogProvider, NodeT, Restart, SpawnOutput};
 
 pub struct BridgeBackendNode {
     spawn_output: SpawnOutput,
@@ -45,7 +45,7 @@ impl BridgeBackendNode {
     ) -> Result<SpawnOutput> {
         match docker.as_ref() {
             Some(docker) => docker.spawn(config.into()).await,
-            None => <Self as Node>::spawn(config),
+            None => <Self as NodeT>::spawn(config),
         }
     }
 
@@ -77,7 +77,7 @@ impl BridgeBackendNode {
 }
 
 #[async_trait]
-impl Node for BridgeBackendNode {
+impl NodeT for BridgeBackendNode {
     type Config = BridgeBackendConfig;
     type Client = BridgeBackendClient;
 
@@ -155,6 +155,10 @@ impl Node for BridgeBackendNode {
         // self.config.get_env()
         todo!()
     }
+
+    fn config(&self) -> &<Self as NodeT>::Config {
+        todo!()
+    }
 }
 
 #[async_trait]
@@ -224,7 +228,6 @@ impl BridgeBackendNodeCluster {
 
     pub async fn stop_all(&mut self) -> Result<()> {
         for node in &mut self.inner {
-            // RpcApi::stop(node).await?;
             node.stop().await?;
         }
         Ok(())
