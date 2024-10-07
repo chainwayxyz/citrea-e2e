@@ -111,6 +111,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         let test_case = T::test_config();
         let env = T::test_env();
         let bitcoin = T::bitcoin_config();
+        let bridge_backend = T::bridge_backend_config();
         let prover = T::prover_config();
         let sequencer = T::sequencer_config();
         let sequencer_rollup = default_rollup_config();
@@ -139,15 +140,6 @@ impl<T: TestCase> TestCaseRunner<T> {
                 idx: i,
                 ..bitcoin.clone()
             });
-        }
-
-        let mut bridge_backend_confs = vec![];
-        for i in 0..test_case.n_nodes {
-            let data_dir = bitcoin_dir.join(i.to_string());
-            std::fs::create_dir_all(&data_dir)
-                .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
-
-            bridge_backend_confs.push(BridgeBackendConfig::default())
         }
 
         // Target first bitcoin node as DA for now
@@ -242,6 +234,7 @@ impl<T: TestCase> TestCaseRunner<T> {
 
         Ok(TestConfig {
             bitcoin: bitcoin_confs,
+            bridge_backend,
             sequencer: FullSequencerConfig {
                 rollup: sequencer_rollup,
                 dir: sequencer_dir,
@@ -264,7 +257,6 @@ impl<T: TestCase> TestCaseRunner<T> {
                 env: env.full_node(),
             },
             test_case,
-            bridge_backend: bridge_backend_confs,
         })
     }
 }
