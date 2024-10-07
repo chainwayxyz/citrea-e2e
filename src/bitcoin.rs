@@ -8,12 +8,8 @@ use std::{
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
-use bitcoin_da::{
-    service::{get_relevant_blobs_from_txs, FINALITY_DEPTH},
-    spec::blob::BlobWithSender,
-};
+use bitcoin_da::service::FINALITY_DEPTH;
 use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
-use citrea_primitives::REVEAL_BATCH_PROOF_PREFIX;
 use futures::TryStreamExt;
 use tokio::{process::Command, sync::OnceCell, time::sleep};
 
@@ -100,16 +96,6 @@ impl BitcoinNode {
 
     pub async fn get_finalized_height(&self) -> Result<u64> {
         Ok(self.get_block_count().await? - FINALITY_DEPTH + 1)
-    }
-
-    pub async fn get_relevant_blobs_from_block(&self, height: u64) -> Result<Vec<BlobWithSender>> {
-        let hash = self.get_block_hash(height).await?;
-        let block = self.get_block(&hash).await?;
-
-        Ok(get_relevant_blobs_from_txs(
-            block.txdata,
-            REVEAL_BATCH_PROOF_PREFIX,
-        ))
     }
 
     async fn wait_for_shutdown(&self) -> Result<()> {
@@ -300,9 +286,9 @@ impl BitcoinNodeCluster {
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),
         };
-        for config in ctx.config.bitcoin.iter() {
+        for config in &ctx.config.bitcoin {
             let node = BitcoinNode::new(config, Arc::clone(&ctx.docker)).await?;
-            cluster.inner.push(node)
+            cluster.inner.push(node);
         }
 
         Ok(cluster)
@@ -341,7 +327,7 @@ impl BitcoinNodeCluster {
                 if i != j {
                     let ip = match &to_node.spawn_output {
                         SpawnOutput::Container(container) => container.ip.clone(),
-                        _ => "127.0.0.1".to_string(),
+                        SpawnOutput::Child(_) => "127.0.0.1".to_string(),
                     };
 
                     let add_node_arg = format!("{}:{}", ip, to_node.config.p2p_port);

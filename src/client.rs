@@ -19,7 +19,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(host: &str, port: u16) -> Result<Self> {
-        let host = format!("http://{}:{}", host, port);
+        let host = format!("http://{host}:{port}");
         let client = HttpClientBuilder::default()
             .request_timeout(Duration::from_secs(120))
             .build(host)?;
@@ -77,6 +77,16 @@ impl Client {
         num: u64,
     ) -> Result<Option<SoftConfirmationResponse>> {
         Ok(self.client.get_soft_confirmation_by_number(num).await?)
+    }
+
+    pub async fn ledger_get_sequencer_commitments_on_slot_by_hash(
+        &self,
+        hash: [u8; 32],
+    ) -> Result<Option<Vec<SequencerCommitmentResponse>>> {
+        self.client
+            .get_sequencer_commitments_on_slot_by_hash(hash)
+            .await
+            .map_err(|e| e.into())
     }
 
     pub async fn ledger_get_head_soft_confirmation_height(&self) -> Result<u64> {
