@@ -53,7 +53,7 @@ impl From<&BridgeBackendConfig> for DockerConfig {
             cmd: vec![],
             log_path: PathBuf::new(),
             volume: VolumeConfig {
-                name: format!("bridge-backend-{}", v.idx),
+                name: format!("bridge-backend"),
                 target: "/home/bridge_backend/.bridge_backend".to_string(),
             },
         }

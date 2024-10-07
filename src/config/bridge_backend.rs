@@ -50,8 +50,6 @@ pub struct BridgeBackendConfig {
     pub client: BridgeBackendClient,
 
     pub docker_image: Option<String>,
-    pub env: Vec<(&'static str, &'static str)>,
-    pub idx: usize,
 }
 
 impl Default for BridgeBackendConfig {
@@ -93,8 +91,6 @@ impl Default for BridgeBackendConfig {
             },
 
             docker_image: None,
-            env: Vec::new(),
-            idx: 0,
         }
     }
 }
