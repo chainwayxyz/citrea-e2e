@@ -294,6 +294,12 @@ pub trait TestCase: Send + Sync + 'static {
         BitcoinConfig::default()
     }
 
+    /// Returns the bridge backend configuration for the test.
+    /// Override this method to provide a custom bridge backend configuration.
+    fn bridge_backend_config() -> BridgeBackendConfig {
+        BridgeBackendConfig::default()
+    }
+
     /// Returns the sequencer configuration for the test.
     /// Override this method to provide a custom sequencer configuration.
     fn sequencer_config() -> SequencerConfig {
