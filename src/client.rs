@@ -6,12 +6,12 @@ use jsonrpsee::{
     http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
 };
-use log::debug;
 use sov_ledger_rpc::client::RpcClient;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,
 };
 use tokio::time::sleep;
+use tracing::trace;
 
 pub struct Client {
     client: HttpClient,
@@ -97,7 +97,7 @@ impl Client {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            debug!("Waiting for soft confirmation {}", num);
+            trace!("Waiting for soft confirmation {}", num);
             let latest_block = self.client.get_head_soft_confirmation_height().await?;
 
             if latest_block >= num {

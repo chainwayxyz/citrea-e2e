@@ -1,6 +1,7 @@
 use std::{future::Future, sync::Arc};
 
 use bitcoincore_rpc::RpcApi;
+use tracing::{debug, info};
 
 use super::{
     bitcoin::BitcoinNodeCluster,
@@ -119,13 +120,13 @@ impl TestFramework {
 
     pub fn show_log_paths(&self) {
         if self.show_logs {
-            println!(
+            info!(
                 "Logs available at {}",
                 self.ctx.config.test_case.dir.display()
             );
 
             for node in self.get_nodes_as_log_provider() {
-                println!(
+                info!(
                     "{} logs available at : {}",
                     node.kind(),
                     node.log_path().display()
@@ -135,14 +136,14 @@ impl TestFramework {
     }
 
     pub fn dump_log(&self) -> Result<()> {
-        println!("Dumping logs:");
+        debug!("Dumping logs:");
 
         let n_lines = std::env::var("TAIL_N_LINES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(25);
         for node in self.get_nodes_as_log_provider() {
-            println!("{} logs (last {n_lines} lines):", node.kind());
+            debug!("{} logs (last {n_lines} lines):", node.kind());
             if let Err(e) = tail_file(&node.log_path(), n_lines) {
                 eprint!("{e}");
             }
@@ -151,34 +152,34 @@ impl TestFramework {
     }
 
     pub async fn stop(&mut self) -> Result<()> {
-        println!("Stopping framework...");
+        info!("Stopping framework...");
 
         if let Some(sequencer) = &mut self.sequencer {
             let _ = sequencer.stop().await;
-            println!("Successfully stopped sequencer");
+            info!("Successfully stopped sequencer");
         }
 
         if let Some(batch_prover) = &mut self.batch_prover {
             let _ = batch_prover.stop().await;
-            println!("Successfully stopped batch_prover");
+            info!("Successfully stopped batch_prover");
         }
 
         if let Some(light_client_prover) = &mut self.light_client_prover {
             let _ = light_client_prover.stop().await;
-            println!("Successfully stopped light_client_prover");
+            info!("Successfully stopped light_client_prover");
         }
 
         if let Some(full_node) = &mut self.full_node {
             let _ = full_node.stop().await;
-            println!("Successfully stopped full_node");
+            info!("Successfully stopped full_node");
         }
 
         let _ = self.bitcoin_nodes.stop_all().await;
-        println!("Successfully stopped bitcoin nodes");
+        info!("Successfully stopped bitcoin nodes");
 
         if let Some(docker) = self.ctx.docker.as_ref() {
             let _ = docker.cleanup().await;
-            println!("Successfully cleaned docker");
+            info!("Successfully cleaned docker");
         }
 
         Ok(())

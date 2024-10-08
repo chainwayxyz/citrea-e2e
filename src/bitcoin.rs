@@ -11,6 +11,7 @@ use bitcoin::Address;
 use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
 use futures::TryStreamExt;
 use tokio::{process::Command, sync::OnceCell, time::sleep};
+use tracing::{debug, info, trace};
 
 use super::{
     config::BitcoinConfig,
@@ -105,7 +106,7 @@ impl BitcoinNode {
 
         while start.elapsed() < timeout_duration {
             if !self.is_process_running().await? {
-                println!("Bitcoin daemon has stopped successfully");
+                info!("Bitcoin daemon has stopped successfully");
                 return Ok(());
             }
             sleep(Duration::from_millis(200)).await;
@@ -182,7 +183,7 @@ impl NodeT for BitcoinNode {
 
     fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
         let args = config.args();
-        println!("Running bitcoind with args : {args:?}");
+        debug!("Running bitcoind with args : {args:?}");
 
         Command::new("bitcoind")
             .args(&args)
@@ -198,7 +199,7 @@ impl NodeT for BitcoinNode {
     }
 
     async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
-        println!("Waiting for ready");
+        trace!("Waiting for ready");
         let start = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
         while start.elapsed() < timeout {
@@ -210,7 +211,7 @@ impl NodeT for BitcoinNode {
             }
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
-        anyhow::bail!("Node failed to become ready within the specified timeout")
+        bail!("Node failed to become ready within the specified timeout")
     }
 
     fn client(&self) -> &Self::Client {
@@ -249,7 +250,7 @@ impl Restart for BitcoinNode {
                     .try_collect::<Vec<_>>()
                     .await?;
                 env.docker.remove_container(&output.id, None).await?;
-                println!("Docker container {} succesfully removed", output.id);
+                info!("Docker container {} succesfully removed", output.id);
                 Ok(())
             }
         }
@@ -361,5 +362,5 @@ async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Resul
             Err(_) => sleep(Duration::from_millis(500)).await,
         }
     }
-    Err(anyhow::anyhow!("Timeout waiting for RPC to be ready"))
+    bail!("Timeout waiting for RPC to be ready")
 }

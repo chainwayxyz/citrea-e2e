@@ -8,12 +8,12 @@ use std::{
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
-use log::debug;
 use serde::Serialize;
 use tokio::{
     process::Command,
     time::{sleep, Instant},
 };
+use tracing::trace;
 
 use crate::{
     client::Client,
@@ -130,7 +130,7 @@ impl<C: Config> Node<C> {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            debug!("Waiting for soft confirmation {}", num);
+            trace!("Waiting for soft confirmation {}", num);
             let latest_block = self
                 .client
                 .ledger_get_head_soft_confirmation_height()

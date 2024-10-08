@@ -21,8 +21,8 @@ pub fn from_toml_path<P: AsRef<std::path::Path>, R: serde::de::DeserializeOwned>
         let mut file = File::open(path)?;
         file.read_to_string(&mut contents)?;
     }
-    log::debug!("Config file size: {} bytes", contents.len());
-    log::trace!("Config file contents: {}", &contents);
+    tracing::debug!("Config file size: {} bytes", contents.len());
+    tracing::trace!("Config file contents: {}", &contents);
 
     let result: R = toml::from_str(&contents)?;
 
