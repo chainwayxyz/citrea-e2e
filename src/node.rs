@@ -8,7 +8,6 @@ use std::{
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
-use log::debug;
 use serde::Serialize;
 use tokio::{
     process::Command,

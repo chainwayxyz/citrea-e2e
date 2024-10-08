@@ -6,7 +6,6 @@ use jsonrpsee::{
     http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
 };
-use log::debug;
 use sov_ledger_rpc::client::RpcClient;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,

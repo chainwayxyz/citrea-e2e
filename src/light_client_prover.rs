@@ -1,8 +1,8 @@
 use std::time::SystemTime;
 
 use anyhow::bail;
-use log::debug;
 use tokio::time::{sleep, Duration};
+use tracing::debug;
 
 use super::{config::FullLightClientProverConfig, Result};
 use crate::node::Node;
