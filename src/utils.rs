@@ -7,9 +7,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tracing::debug;
-use which::which;
 
 use super::Result;
 
@@ -27,9 +27,11 @@ pub fn get_workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Get citrea path from CITREA env or resolves to PATH using which.
-pub fn get_citrea_path() -> PathBuf {
-    std::env::var("CITREA").map_or_else(|_| which("citrea").unwrap(), PathBuf::from)
+/// Get citrea path from CITREA_E2E_TEST_BINARY env
+pub fn get_citrea_path() -> Result<PathBuf> {
+    std::env::var("CITREA_E2E_TEST_BINARY")
+        .map(PathBuf::from)
+        .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
 }
 
 pub fn get_stdout_path(dir: &Path) -> PathBuf {

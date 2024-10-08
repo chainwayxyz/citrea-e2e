@@ -91,7 +91,7 @@ impl<C: Config> Node<C> {
     }
 
     fn spawn(config: &C) -> Result<SpawnOutput> {
-        let citrea = get_citrea_path();
+        let citrea = get_citrea_path()?;
         let dir = config.dir();
 
         let kind = C::node_kind();
