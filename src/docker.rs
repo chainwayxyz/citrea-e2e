@@ -17,6 +17,7 @@ use bollard::{
 };
 use futures::StreamExt;
 use tokio::{fs::File, io::AsyncWriteExt, task::JoinHandle};
+use tracing::{debug, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
 use crate::traits::ContainerSpawnOutput;
@@ -91,7 +92,7 @@ impl DockerEnv {
     }
 
     pub async fn spawn(&self, config: DockerConfig) -> Result<SpawnOutput> {
-        println!("Spawning docker with config {config:#?}");
+        debug!("Spawning docker with config {config:#?}");
         let exposed_ports: HashMap<String, HashMap<(), ()>> = config
             .ports
             .iter()
@@ -146,9 +147,6 @@ impl DockerEnv {
             .context("Image not specified in config")?;
         self.ensure_image_exists(image).await?;
 
-        // println!("options :{options:?}");
-        // println!("config :{container_config:?}");
-
         let container = self
             .docker
             .create_container::<String, String>(None, container_config)
@@ -196,7 +194,7 @@ impl DockerEnv {
             return Ok(());
         }
 
-        println!("Pulling image: {image}");
+        info!("Pulling image: {image}...");
         let options = Some(CreateImageOptions {
             from_image: image,
             ..Default::default()
@@ -214,7 +212,7 @@ impl DockerEnv {
                 Err(e) => return Err(anyhow::anyhow!("Failed to pull image: {}", e)),
             }
         }
-        println!("Image succesfully pulled");
+        info!("Image succesfully pulled");
 
         Ok(())
     }

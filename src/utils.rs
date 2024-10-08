@@ -8,6 +8,7 @@ use std::{
 };
 
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use tracing::debug;
 use which::which;
 
 use super::Result;
@@ -100,7 +101,7 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     for line in last_lines {
-        println!("{line}");
+        debug!("{line}");
     }
 
     Ok(())

@@ -4,6 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use bollard::{container::StopContainerOptions, Docker};
 use tokio::process::Child;
+use tracing::info;
 
 use super::Result;
 use crate::node::NodeKind;
@@ -45,7 +46,7 @@ pub trait NodeT: Send {
                 Ok(())
             }
             SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => {
-                println!("Stopping container {id}");
+                info!("Stopping container {id}");
                 let docker =
                     Docker::connect_with_local_defaults().context("Failed to connect to Docker")?;
                 docker
