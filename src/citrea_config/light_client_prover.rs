@@ -1,38 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-/// The possible configurations of the prover.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ProverGuestRunConfig {
-    /// Skip proving.
-    Skip,
-    /// Run the rollup verification logic inside the current process.
-    Simulate,
-    /// Run the rollup verifier in a zkVM executor.
-    Execute,
-    /// Run the rollup verifier and create a SNARK of execution.
-    Prove,
-}
+use super::batch_prover::ProverGuestRunConfig;
 
-impl<'de> Deserialize<'de> for ProverGuestRunConfig {
-    fn deserialize<D>(deserializer: D) -> Result<ProverGuestRunConfig, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "skip" => Ok(ProverGuestRunConfig::Skip),
-            "simulate" => Ok(ProverGuestRunConfig::Simulate),
-            "execute" => Ok(ProverGuestRunConfig::Execute),
-            "prove" => Ok(ProverGuestRunConfig::Prove),
-            _ => Err(serde::de::Error::custom("invalid prover guest run config")),
-        }
-    }
-}
-
-/// Prover configuration
+/// Light client prover configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProverConfig {
+pub struct LightClientProverConfig {
     /// Prover run mode
     pub proving_mode: ProverGuestRunConfig,
     /// Average number of commitments to prove
@@ -41,7 +13,7 @@ pub struct ProverConfig {
     pub enable_recovery: bool,
 }
 
-impl Default for ProverConfig {
+impl Default for LightClientProverConfig {
     fn default() -> Self {
         Self {
             proving_mode: ProverGuestRunConfig::Execute,
@@ -91,8 +63,8 @@ mod tests {
 
         let config_file = create_config_from(config);
 
-        let config: ProverConfig = from_toml_path(config_file.path()).unwrap();
-        let expected = ProverConfig {
+        let config: LightClientProverConfig = from_toml_path(config_file.path()).unwrap();
+        let expected = LightClientProverConfig {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,

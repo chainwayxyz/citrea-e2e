@@ -11,7 +11,7 @@ pub type LightClientProver = Node<FullLightClientProverConfig>;
 
 impl LightClientProver {
     // TODO: remove _l at the end
-    pub async fn wait_for_l1_height_l(&self, height: u64, timeout: Option<Duration>) -> Result<()> {
+    pub async fn wait_for_l1_height(&self, height: u64, timeout: Option<Duration>) -> Result<()> {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(600));
         loop {

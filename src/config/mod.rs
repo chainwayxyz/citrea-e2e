@@ -8,7 +8,8 @@ mod utils;
 use std::path::PathBuf;
 
 pub use crate::citrea_config::bitcoin::BitcoinServiceConfig;
-pub use crate::citrea_config::prover::ProverConfig;
+pub use crate::citrea_config::batch_prover::BatchProverConfig;
+pub use crate::citrea_config::light_client_prover::LightClientProverConfig;
 pub use crate::citrea_config::rollup::{
     FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig,
 };
@@ -34,7 +35,6 @@ pub struct FullL2NodeConfig<T> {
 
 pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
 pub type FullBatchProverConfig = FullL2NodeConfig<BatchProverConfig>;
-// TODO: use LightClientProverConfig
 pub type FullLightClientProverConfig = FullL2NodeConfig<LightClientProverConfig>;
 pub type FullFullNodeConfig = FullL2NodeConfig<()>;
 

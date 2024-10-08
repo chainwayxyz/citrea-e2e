@@ -4,7 +4,8 @@
 // Configs are stable and not expected to change much.
 
 pub(crate) mod bitcoin;
-pub(crate) mod prover;
+pub(crate) mod batch_prover;
+pub(crate) mod light_client_prover;
 pub(crate) mod rollup;
 pub(crate) mod sequencer;
 

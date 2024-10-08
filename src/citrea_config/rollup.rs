@@ -14,6 +14,8 @@ pub struct RunnerConfig {
     /// Number of blocks to request during sync
     #[serde(default = "default_sync_blocks_count")]
     pub sync_blocks_count: u64,
+    /// Configurations for pruning
+    pub pruning_config: Option<PruningConfig>,
 }
 
 /// RPC configuration.
@@ -117,4 +119,17 @@ pub struct FullNodeConfig<BitcoinServiceConfig> {
     pub da: BitcoinServiceConfig,
     /// Important pubkeys
     pub public_keys: RollupPublicKeys,
+}
+
+/// A configuration type to define the behaviour of the pruner.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct PruningConfig {
+    /// Defines the number of blocks from the tip of the chain to remove.
+    pub distance: u64,
+}
+
+impl Default for PruningConfig {
+    fn default() -> Self {
+        Self { distance: 256 }
+    }
 }
