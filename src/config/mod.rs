@@ -16,7 +16,7 @@ pub use test_case::{TestCaseConfig, TestCaseEnv};
 pub use utils::config_to_file;
 
 pub use crate::citrea_config::{
-    batch_prover::BatchProverConfig,
+    batch_prover::{BatchProverConfig, ProverGuestRunConfig},
     bitcoin::BitcoinServiceConfig,
     light_client_prover::LightClientProverConfig,
     rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
