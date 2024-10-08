@@ -32,7 +32,7 @@ impl<'de> Deserialize<'de> for ProverGuestRunConfig {
 
 /// Prover configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct ProverConfig {
+pub struct BatchProverConfig {
     /// Prover run mode
     pub proving_mode: ProverGuestRunConfig,
     /// Average number of commitments to prove
@@ -41,7 +41,7 @@ pub struct ProverConfig {
     pub enable_recovery: bool,
 }
 
-impl Default for ProverConfig {
+impl Default for BatchProverConfig {
     fn default() -> Self {
         Self {
             proving_mode: ProverGuestRunConfig::Execute,
@@ -53,12 +53,13 @@ impl Default for ProverConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        path::Path,
+    };
 
     use serde::de::DeserializeOwned;
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::Path;
     use tempfile::NamedTempFile;
 
     use super::*;
@@ -91,8 +92,8 @@ mod tests {
 
         let config_file = create_config_from(config);
 
-        let config: ProverConfig = from_toml_path(config_file.path()).unwrap();
-        let expected = ProverConfig {
+        let config: BatchProverConfig = from_toml_path(config_file.path()).unwrap();
+        let expected = BatchProverConfig {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,

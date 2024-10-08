@@ -7,12 +7,6 @@ mod utils;
 
 use std::path::PathBuf;
 
-pub use crate::citrea_config::bitcoin::BitcoinServiceConfig;
-pub use crate::citrea_config::prover::ProverConfig;
-pub use crate::citrea_config::rollup::{
-    FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig,
-};
-pub use crate::citrea_config::sequencer::SequencerConfig;
 pub use bitcoin::BitcoinConfig;
 pub use docker::DockerConfig;
 pub use rollup::{default_rollup_config, RollupConfig};
@@ -21,6 +15,13 @@ pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseEnv};
 pub use utils::config_to_file;
 
+pub use crate::citrea_config::{
+    batch_prover::BatchProverConfig,
+    bitcoin::BitcoinServiceConfig,
+    light_client_prover::LightClientProverConfig,
+    rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
+    sequencer::SequencerConfig,
+};
 use crate::node::{Config, NodeKind};
 
 #[derive(Clone, Debug)]
@@ -33,7 +34,8 @@ pub struct FullL2NodeConfig<T> {
 }
 
 pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
-pub type FullProverConfig = FullL2NodeConfig<ProverConfig>;
+pub type FullBatchProverConfig = FullL2NodeConfig<BatchProverConfig>;
+pub type FullLightClientProverConfig = FullL2NodeConfig<LightClientProverConfig>;
 pub type FullFullNodeConfig = FullL2NodeConfig<()>;
 
 pub trait NodeKindMarker {
@@ -44,8 +46,12 @@ impl NodeKindMarker for FullSequencerConfig {
     const KIND: NodeKind = NodeKind::Sequencer;
 }
 
-impl NodeKindMarker for FullProverConfig {
-    const KIND: NodeKind = NodeKind::Prover;
+impl NodeKindMarker for FullBatchProverConfig {
+    const KIND: NodeKind = NodeKind::BatchProver;
+}
+
+impl NodeKindMarker for FullLightClientProverConfig {
+    const KIND: NodeKind = NodeKind::LightClientProver;
 }
 
 impl NodeKindMarker for FullFullNodeConfig {

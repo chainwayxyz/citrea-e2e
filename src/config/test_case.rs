@@ -7,7 +7,8 @@ pub struct TestCaseEnv {
     pub test: Vec<(&'static str, &'static str)>,
     pub full_node: Vec<(&'static str, &'static str)>,
     pub sequencer: Vec<(&'static str, &'static str)>,
-    pub prover: Vec<(&'static str, &'static str)>,
+    pub batch_prover: Vec<(&'static str, &'static str)>,
+    pub light_client_prover: Vec<(&'static str, &'static str)>,
     pub bitcoin: Vec<(&'static str, &'static str)>,
 }
 
@@ -25,8 +26,12 @@ impl TestCaseEnv {
         [self.test_env(), self.sequencer.clone()].concat()
     }
 
-    pub fn prover(&self) -> Vec<(&'static str, &'static str)> {
-        [self.test_env(), self.prover.clone()].concat()
+    pub fn batch_prover(&self) -> Vec<(&'static str, &'static str)> {
+        [self.test_env(), self.batch_prover.clone()].concat()
+    }
+
+    pub fn light_client_prover(&self) -> Vec<(&'static str, &'static str)> {
+        [self.test_env(), self.light_client_prover.clone()].concat()
     }
 
     pub fn full_node(&self) -> Vec<(&'static str, &'static str)> {
@@ -43,8 +48,8 @@ pub struct TestCaseConfig {
     pub n_nodes: usize,
     pub with_sequencer: bool,
     pub with_full_node: bool,
-    pub with_prover: bool,
-    #[allow(unused)]
+    pub with_batch_prover: bool,
+    pub with_light_client_prover: bool,
     pub timeout: Duration,
     pub dir: PathBuf,
     pub docker: bool,
@@ -59,7 +64,8 @@ impl Default for TestCaseConfig {
         TestCaseConfig {
             n_nodes: 1,
             with_sequencer: true,
-            with_prover: false,
+            with_batch_prover: false,
+            with_light_client_prover: false,
             with_full_node: false,
             timeout: Duration::from_secs(60),
             dir: TempDir::new()
