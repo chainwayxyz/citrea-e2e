@@ -53,12 +53,13 @@ impl Default for BatchProverConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        path::Path,
+    };
 
     use serde::de::DeserializeOwned;
-    use std::fs::File;
-    use std::io::Read;
-    use std::path::Path;
     use tempfile::NamedTempFile;
 
     use super::*;

@@ -74,9 +74,8 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
-    use crate::citrea_config::from_toml_path;
-
     use super::*;
+    use crate::citrea_config::from_toml_path;
 
     fn create_config_from(content: &str) -> NamedTempFile {
         let mut config_file = NamedTempFile::new().unwrap();

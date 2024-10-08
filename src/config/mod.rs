@@ -7,13 +7,6 @@ mod utils;
 
 use std::path::PathBuf;
 
-pub use crate::citrea_config::bitcoin::BitcoinServiceConfig;
-pub use crate::citrea_config::batch_prover::BatchProverConfig;
-pub use crate::citrea_config::light_client_prover::LightClientProverConfig;
-pub use crate::citrea_config::rollup::{
-    FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig,
-};
-pub use crate::citrea_config::sequencer::SequencerConfig;
 pub use bitcoin::BitcoinConfig;
 pub use docker::DockerConfig;
 pub use rollup::{default_rollup_config, RollupConfig};
@@ -22,6 +15,13 @@ pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseEnv};
 pub use utils::config_to_file;
 
+pub use crate::citrea_config::{
+    batch_prover::BatchProverConfig,
+    bitcoin::BitcoinServiceConfig,
+    light_client_prover::LightClientProverConfig,
+    rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
+    sequencer::SequencerConfig,
+};
 use crate::node::{Config, NodeKind};
 
 #[derive(Clone, Debug)]
