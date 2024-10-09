@@ -13,6 +13,7 @@ use sov_rollup_interface::rpc::{
 use tokio::time::sleep;
 use tracing::trace;
 
+#[derive(Clone, Debug)]
 pub struct Client {
     client: HttpClient,
 }
