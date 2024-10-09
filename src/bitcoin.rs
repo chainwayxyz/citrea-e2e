@@ -268,7 +268,7 @@ impl Restart for BitcoinNode {
 
     async fn start(&mut self, config: Option<Self::Config>) -> Result<()> {
         if let Some(config) = config {
-            self.config = config
+            self.config = config;
         }
         self.spawn_output = Self::spawn(&self.config, &self.docker_env).await?;
 
@@ -361,7 +361,7 @@ async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Resul
             Ok(_) => return Ok(()),
             Err(e) => {
                 trace!("[wait_for_rpc_ready] error {e}");
-                sleep(Duration::from_millis(500)).await
+                sleep(Duration::from_millis(500)).await;
             }
         }
     }

@@ -27,7 +27,7 @@ pub fn get_workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Get citrea path from CITREA_E2E_TEST_BINARY env
+/// Get citrea path from `CITREA_E2E_TEST_BINARY` env
 pub fn get_citrea_path() -> Result<PathBuf> {
     std::env::var("CITREA_E2E_TEST_BINARY")
         .map(PathBuf::from)
