@@ -83,8 +83,12 @@ impl<C: Config> Node<C> {
             config_to_file(node_config, &config_path)
                 .with_context(|| format!("Error writing {kind} config to file"))?;
 
+            let node_kind_str = match &kind {
+                NodeKind::BatchProver | NodeKind::LightClientProver => "prover".to_string(),
+                kind => kind.to_string(),
+            };
             Ok(vec![
-                format!("--{kind}-config-path"),
+                format!("--{node_kind_str}-config-path"),
                 config_path.display().to_string(),
             ])
         })
