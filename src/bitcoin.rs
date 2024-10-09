@@ -359,7 +359,10 @@ async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Resul
     while start.elapsed() < timeout {
         match client.get_blockchain_info().await {
             Ok(_) => return Ok(()),
-            Err(_) => sleep(Duration::from_millis(500)).await,
+            Err(e) => {
+                trace!("[wait_for_rpc_ready] error {e}");
+                sleep(Duration::from_millis(500)).await
+            }
         }
     }
     bail!("Timeout waiting for RPC to be ready")

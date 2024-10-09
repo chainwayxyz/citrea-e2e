@@ -26,4 +26,4 @@ sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d
 sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "82bf52d" }
 
 [patch.crates-io]
-bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "0ae498d" }
+bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "ede8097" }
