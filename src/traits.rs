@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -7,7 +7,6 @@ use tokio::process::Child;
 use tracing::info;
 
 use super::Result;
-use crate::node::NodeKind;
 
 #[derive(Debug)]
 pub struct ContainerSpawnOutput {
@@ -80,31 +79,5 @@ pub trait Restart: NodeT + Send {
     async fn restart(&mut self, new_config: Option<Self::Config>) -> Result<()> {
         self.wait_until_stopped().await?;
         self.start(new_config).await
-    }
-}
-
-pub trait LogProvider: NodeT {
-    fn kind(&self) -> NodeKind;
-    fn log_path(&self) -> PathBuf;
-    fn as_erased(&self) -> &dyn LogProviderErased
-    where
-        Self: Sized,
-    {
-        self
-    }
-}
-
-pub trait LogProviderErased {
-    fn kind(&self) -> NodeKind;
-    fn log_path(&self) -> PathBuf;
-}
-
-impl<T: LogProvider> LogProviderErased for T {
-    fn kind(&self) -> NodeKind {
-        LogProvider::kind(self)
-    }
-
-    fn log_path(&self) -> PathBuf {
-        LogProvider::log_path(self)
     }
 }

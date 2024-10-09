@@ -46,7 +46,6 @@ impl<T: TestCase> TestCaseRunner<T> {
     async fn prepare(&self, f: &mut TestFramework) -> Result<()> {
         f.fund_da_wallets().await?;
         f.init_nodes().await?;
-        f.show_log_paths();
         f.bitcoin_nodes.connect_nodes().await?;
 
         if let Some(sequencer) = &f.sequencer {

@@ -13,13 +13,14 @@ use tokio::{
     process::Command,
     time::{sleep, Instant},
 };
-use tracing::trace;
+use tracing::{info, trace};
 
 use crate::{
     client::Client,
     config::{config_to_file, RollupConfig},
-    traits::{LogProvider, NodeT, Restart, SpawnOutput},
-    utils::{get_citrea_path, get_genesis_path, get_stderr_path, get_stdout_path},
+    log_provider::LogProvider,
+    traits::{NodeT, Restart, SpawnOutput},
+    utils::{get_citrea_path, get_genesis_path},
     Result,
 };
 
@@ -56,13 +57,13 @@ pub trait Config: Clone {
     fn rollup_config(&self) -> &RollupConfig;
 }
 
-pub struct Node<C: Config> {
+pub struct Node<C: Config + LogProvider> {
     spawn_output: SpawnOutput,
     config: C,
     pub client: Client,
 }
 
-impl<C: Config> Node<C> {
+impl<C: Config + LogProvider> Node<C> {
     pub async fn new(config: &C) -> Result<Self> {
         let spawn_output = Self::spawn(config)?;
 
@@ -100,10 +101,16 @@ impl<C: Config> Node<C> {
 
         let kind = C::node_kind();
 
-        let stdout_file =
-            File::create(get_stdout_path(dir)).context("Failed to create stdout file")?;
-        let stderr_file =
-            File::create(get_stderr_path(dir)).context("Failed to create stderr file")?;
+        let stdout_path = config.log_path();
+        let stdout_file = File::create(&stdout_path).context("Failed to create stdout file")?;
+        info!(
+            "{} stdout logs available at : {}",
+            kind,
+            stdout_path.display()
+        );
+
+        let stderr_path = config.stderr_path();
+        let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
 
         // Handle full node not having any node config
         let node_config_args = Self::get_node_config_args(config)?;
@@ -158,7 +165,7 @@ impl<C: Config> Node<C> {
 #[async_trait]
 impl<C> NodeT for Node<C>
 where
-    C: Config + Send + Sync,
+    C: Config + LogProvider + Send + Sync,
 {
     type Config = C;
     type Client = Client;
@@ -208,20 +215,10 @@ where
     }
 }
 
-impl<C: Config + Send + Sync> LogProvider for Node<C> {
-    fn kind(&self) -> NodeKind {
-        C::node_kind()
-    }
-
-    fn log_path(&self) -> PathBuf {
-        get_stdout_path(self.config.dir())
-    }
-}
-
 #[async_trait]
 impl<C> Restart for Node<C>
 where
-    C: Config + Send + Sync,
+    C: Config + LogProvider + Send + Sync,
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;

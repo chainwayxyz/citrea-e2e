@@ -1,10 +1,12 @@
 use std::{
     collections::HashSet,
-    path::PathBuf,
+    fs::File,
+    process::Stdio,
     sync::Arc,
     time::{Duration, Instant},
 };
 
+use crate::log_provider::LogProvider;
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
@@ -17,7 +19,7 @@ use super::{
     config::BitcoinConfig,
     docker::DockerEnv,
     framework::TestContext,
-    traits::{LogProvider, NodeT, Restart, SpawnOutput},
+    traits::{NodeT, Restart, SpawnOutput},
     Result,
 };
 use crate::node::NodeKind;
@@ -185,10 +187,19 @@ impl NodeT for BitcoinNode {
         let args = config.args();
         debug!("Running bitcoind with args : {args:?}");
 
+        info!(
+            "Bitcoin debug.log available at : {}",
+            config.log_path().display()
+        );
+
+        let stderr_path = config.stderr_path();
+        let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
+
         Command::new("bitcoind")
             .args(&args)
             .kill_on_drop(true)
             .envs(config.env.clone())
+            .stderr(Stdio::from(stderr_file))
             .spawn()
             .context("Failed to spawn bitcoind process")
             .map(SpawnOutput::Child)
@@ -268,16 +279,6 @@ impl Restart for BitcoinNode {
         self.load_wallets().await;
 
         Ok(())
-    }
-}
-
-impl LogProvider for BitcoinNode {
-    fn kind(&self) -> NodeKind {
-        NodeKind::Bitcoin
-    }
-
-    fn log_path(&self) -> PathBuf {
-        self.config.data_dir.join("regtest").join("debug.log")
     }
 }
 
