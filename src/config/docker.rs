@@ -34,7 +34,7 @@ impl From<&BitcoinConfig> for DockerConfig {
             image: v
                 .docker_image
                 .clone()
-                .unwrap_or_else(|| "bitcoin/bitcoin:27.1".to_string()),
+                .unwrap_or_else(|| "bitcoin/bitcoin:28.0".to_string()),
             cmd: args,
             log_path: v.data_dir.join("regtest").join("debug.log"),
             volume: VolumeConfig {
