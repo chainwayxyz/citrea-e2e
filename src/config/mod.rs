@@ -23,7 +23,7 @@ pub use crate::citrea_config::{
     sequencer::SequencerConfig,
 };
 use crate::{
-    log_provider::LogProvider,
+    log_provider::LogPathProvider,
     node::{Config, NodeKind},
 };
 
@@ -100,7 +100,7 @@ where
     }
 }
 
-impl<T: Clone + Serialize> LogProvider for FullL2NodeConfig<T>
+impl<T: Clone + Serialize> LogPathProvider for FullL2NodeConfig<T>
 where
     FullL2NodeConfig<T>: Config,
 {

@@ -10,7 +10,7 @@ use super::{
 use crate::{
     batch_prover::BatchProver,
     light_client_prover::LightClientProver,
-    log_provider::{LogProvider, LogProviderErased},
+    log_provider::{LogPathProvider, LogPathProviderErased},
     utils::tail_file,
 };
 
@@ -99,17 +99,17 @@ impl TestFramework {
         Ok(())
     }
 
-    fn get_nodes_as_log_provider(&self) -> Vec<&dyn LogProviderErased> {
+    fn get_nodes_as_log_provider(&self) -> Vec<&dyn LogPathProviderErased> {
         self.ctx
             .config
             .bitcoin
             .iter()
-            .map(LogProvider::as_erased)
+            .map(LogPathProvider::as_erased)
             .chain(vec![
-                LogProvider::as_erased(&self.ctx.config.sequencer),
-                LogProvider::as_erased(&self.ctx.config.full_node),
-                LogProvider::as_erased(&self.ctx.config.batch_prover),
-                LogProvider::as_erased(&self.ctx.config.light_client_prover),
+                LogPathProvider::as_erased(&self.ctx.config.sequencer),
+                LogPathProvider::as_erased(&self.ctx.config.full_node),
+                LogPathProvider::as_erased(&self.ctx.config.batch_prover),
+                LogPathProvider::as_erased(&self.ctx.config.light_client_prover),
             ])
             .collect()
     }

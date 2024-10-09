@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use crate::node::NodeKind;
 
-pub trait LogProvider {
+pub trait LogPathProvider {
     fn kind() -> NodeKind;
     fn log_path(&self) -> PathBuf;
     fn stderr_path(&self) -> PathBuf;
-    fn as_erased(&self) -> &dyn LogProviderErased
+    fn as_erased(&self) -> &dyn LogPathProviderErased
     where
         Self: Sized,
     {
@@ -14,22 +14,22 @@ pub trait LogProvider {
     }
 }
 
-pub trait LogProviderErased {
+pub trait LogPathProviderErased {
     fn kind(&self) -> NodeKind;
     fn log_path(&self) -> PathBuf;
     fn stderr_path(&self) -> PathBuf;
 }
 
-impl<T: LogProvider> LogProviderErased for T {
+impl<T: LogPathProvider> LogPathProviderErased for T {
     fn kind(&self) -> NodeKind {
         T::kind()
     }
 
     fn log_path(&self) -> PathBuf {
-        LogProvider::log_path(self)
+        LogPathProvider::log_path(self)
     }
 
     fn stderr_path(&self) -> PathBuf {
-        LogProvider::stderr_path(self)
+        LogPathProvider::stderr_path(self)
     }
 }

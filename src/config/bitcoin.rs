@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use bitcoin::Network;
 use tempfile::TempDir;
 
-use crate::{log_provider::LogProvider, node::NodeKind};
+use crate::{log_provider::LogPathProvider, node::NodeKind};
 
 #[derive(Debug, Clone)]
 pub struct BitcoinConfig {
@@ -65,7 +65,7 @@ impl BitcoinConfig {
     }
 }
 
-impl LogProvider for BitcoinConfig {
+impl LogPathProvider for BitcoinConfig {
     fn kind() -> NodeKind {
         NodeKind::Bitcoin
     }

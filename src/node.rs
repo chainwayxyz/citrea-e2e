@@ -18,7 +18,7 @@ use tracing::{info, trace};
 use crate::{
     client::Client,
     config::{config_to_file, RollupConfig},
-    log_provider::LogProvider,
+    log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{get_citrea_path, get_genesis_path},
     Result,
@@ -57,13 +57,13 @@ pub trait Config: Clone {
     fn rollup_config(&self) -> &RollupConfig;
 }
 
-pub struct Node<C: Config + LogProvider> {
+pub struct Node<C: Config + LogPathProvider> {
     spawn_output: SpawnOutput,
     config: C,
     pub client: Client,
 }
 
-impl<C: Config + LogProvider> Node<C> {
+impl<C: Config + LogPathProvider> Node<C> {
     pub async fn new(config: &C) -> Result<Self> {
         let spawn_output = Self::spawn(config)?;
 
@@ -165,7 +165,7 @@ impl<C: Config + LogProvider> Node<C> {
 #[async_trait]
 impl<C> NodeT for Node<C>
 where
-    C: Config + LogProvider + Send + Sync,
+    C: Config + LogPathProvider + Send + Sync,
 {
     type Config = C;
     type Client = Client;
@@ -218,7 +218,7 @@ where
 #[async_trait]
 impl<C> Restart for Node<C>
 where
-    C: Config + LogProvider + Send + Sync,
+    C: Config + LogPathProvider + Send + Sync,
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
