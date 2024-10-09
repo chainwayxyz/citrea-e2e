@@ -6,7 +6,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::log_provider::LogPathProvider;
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
@@ -22,7 +21,7 @@ use super::{
     traits::{NodeT, Restart, SpawnOutput},
     Result,
 };
-use crate::node::NodeKind;
+use crate::{log_provider::LogPathProvider, node::NodeKind};
 
 pub const FINALITY_DEPTH: u64 = 8;
 

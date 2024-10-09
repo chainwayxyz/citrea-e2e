@@ -122,7 +122,6 @@ impl TestFramework {
                     .with_light_client_prover
                     .then(|| LogPathProvider::as_erased(&self.ctx.config.light_client_prover)),
             ])
-            .into_iter()
             .flatten()
             .collect()
     }
