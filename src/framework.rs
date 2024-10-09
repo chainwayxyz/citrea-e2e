@@ -100,17 +100,30 @@ impl TestFramework {
     }
 
     fn get_nodes_as_log_provider(&self) -> Vec<&dyn LogPathProviderErased> {
+        let test_case = &self.ctx.config.test_case;
+
         self.ctx
             .config
             .bitcoin
             .iter()
             .map(LogPathProvider::as_erased)
+            .map(Option::Some)
             .chain(vec![
-                LogPathProvider::as_erased(&self.ctx.config.sequencer),
-                LogPathProvider::as_erased(&self.ctx.config.full_node),
-                LogPathProvider::as_erased(&self.ctx.config.batch_prover),
-                LogPathProvider::as_erased(&self.ctx.config.light_client_prover),
+                test_case
+                    .with_sequencer
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.sequencer)),
+                test_case
+                    .with_full_node
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.full_node)),
+                test_case
+                    .with_batch_prover
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.batch_prover)),
+                test_case
+                    .with_light_client_prover
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.light_client_prover)),
             ])
+            .into_iter()
+            .flatten()
             .collect()
     }
 
