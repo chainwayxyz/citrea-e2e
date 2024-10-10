@@ -22,7 +22,10 @@ pub use crate::citrea_config::{
     rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
     sequencer::SequencerConfig,
 };
-use crate::node::{Config, NodeKind};
+use crate::{
+    log_provider::LogPathProvider,
+    node::{Config, NodeKind},
+};
 
 #[derive(Clone, Debug)]
 pub struct FullL2NodeConfig<T> {
@@ -94,5 +97,22 @@ where
 
     fn rollup_config(&self) -> &RollupConfig {
         &self.rollup
+    }
+}
+
+impl<T: Clone + Serialize> LogPathProvider for FullL2NodeConfig<T>
+where
+    FullL2NodeConfig<T>: Config,
+{
+    fn kind() -> NodeKind {
+        Self::node_kind()
+    }
+
+    fn log_path(&self) -> PathBuf {
+        self.dir().join("stdout.log")
+    }
+
+    fn stderr_path(&self) -> PathBuf {
+        self.dir().join("stderr.log")
     }
 }

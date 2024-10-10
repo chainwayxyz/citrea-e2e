@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
-    path::PathBuf,
+    fs::File,
+    process::Stdio,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -17,10 +18,10 @@ use super::{
     config::BitcoinConfig,
     docker::DockerEnv,
     framework::TestContext,
-    traits::{LogProvider, NodeT, Restart, SpawnOutput},
+    traits::{NodeT, Restart, SpawnOutput},
     Result,
 };
-use crate::node::NodeKind;
+use crate::{log_provider::LogPathProvider, node::NodeKind};
 
 pub const FINALITY_DEPTH: u64 = 8;
 
@@ -185,10 +186,19 @@ impl NodeT for BitcoinNode {
         let args = config.args();
         debug!("Running bitcoind with args : {args:?}");
 
+        info!(
+            "Bitcoin debug.log available at : {}",
+            config.log_path().display()
+        );
+
+        let stderr_path = config.stderr_path();
+        let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
+
         Command::new("bitcoind")
             .args(&args)
             .kill_on_drop(true)
             .envs(config.env.clone())
+            .stderr(Stdio::from(stderr_file))
             .spawn()
             .context("Failed to spawn bitcoind process")
             .map(SpawnOutput::Child)
@@ -258,7 +268,7 @@ impl Restart for BitcoinNode {
 
     async fn start(&mut self, config: Option<Self::Config>) -> Result<()> {
         if let Some(config) = config {
-            self.config = config
+            self.config = config;
         }
         self.spawn_output = Self::spawn(&self.config, &self.docker_env).await?;
 
@@ -268,16 +278,6 @@ impl Restart for BitcoinNode {
         self.load_wallets().await;
 
         Ok(())
-    }
-}
-
-impl LogProvider for BitcoinNode {
-    fn kind(&self) -> NodeKind {
-        NodeKind::Bitcoin
-    }
-
-    fn log_path(&self) -> PathBuf {
-        self.config.data_dir.join("regtest").join("debug.log")
     }
 }
 
@@ -361,7 +361,7 @@ async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Resul
             Ok(_) => return Ok(()),
             Err(e) => {
                 trace!("[wait_for_rpc_ready] error {e}");
-                sleep(Duration::from_millis(500)).await
+                sleep(Duration::from_millis(500)).await;
             }
         }
     }
