@@ -66,7 +66,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
             node_password: v.rpc_password,
             network: v.network,
             da_private_key: None,
-            tx_backup_dir: "".to_string(),
+            tx_backup_dir: String::new(),
         }
     }
 }

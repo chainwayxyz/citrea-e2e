@@ -29,7 +29,7 @@ impl Default for SequencerConfig {
             deposit_mempool_fetch_limit: 10,
             block_production_interval_ms: 100,
             da_update_interval_ms: 100,
-            mempool_conf: Default::default(),
+            mempool_conf: SequencerMempoolConfig::default(),
         }
     }
 }
@@ -57,11 +57,11 @@ pub struct SequencerMempoolConfig {
 impl Default for SequencerMempoolConfig {
     fn default() -> Self {
         Self {
-            pending_tx_limit: 100000,
+            pending_tx_limit: 100_000,
             pending_tx_size: 200,
-            queue_tx_limit: 100000,
+            queue_tx_limit: 100_000,
             queue_tx_size: 200,
-            base_fee_tx_limit: 100000,
+            base_fee_tx_limit: 100_000,
             base_fee_tx_size: 200,
             max_account_slots: 16,
         }

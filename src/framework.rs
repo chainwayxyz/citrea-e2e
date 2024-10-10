@@ -4,16 +4,15 @@ use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
 
 use super::{
-    bitcoin::BitcoinNodeCluster,
-    config::TestConfig,
-    docker::DockerEnv,
-    full_node::FullNode,
-    node::NodeKind,
-    sequencer::Sequencer,
-    traits::{LogProvider, LogProviderErased, NodeT},
-    Result,
+    bitcoin::BitcoinNodeCluster, config::TestConfig, docker::DockerEnv, full_node::FullNode,
+    node::NodeKind, sequencer::Sequencer, traits::NodeT, Result,
 };
-use crate::{batch_prover::BatchProver, light_client_prover::LightClientProver, utils::tail_file};
+use crate::{
+    batch_prover::BatchProver,
+    light_client_prover::LightClientProver,
+    log_provider::{LogPathProvider, LogPathProviderErased},
+    utils::tail_file,
+};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -41,7 +40,6 @@ pub struct TestFramework {
     pub batch_prover: Option<BatchProver>,
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
-    show_logs: bool,
     pub initial_da_height: u64,
 }
 
@@ -64,7 +62,6 @@ impl TestFramework {
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
 
-        // tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         Ok(Self {
             bitcoin_nodes,
             sequencer: None,
@@ -72,7 +69,6 @@ impl TestFramework {
             light_client_prover: None,
             full_node: None,
             ctx,
-            show_logs: true,
             initial_da_height: 0,
         })
     }
@@ -103,36 +99,31 @@ impl TestFramework {
         Ok(())
     }
 
-    fn get_nodes_as_log_provider(&self) -> Vec<&dyn LogProviderErased> {
-        vec![
-            self.bitcoin_nodes.get(0).map(LogProvider::as_erased),
-            self.sequencer.as_ref().map(LogProvider::as_erased),
-            self.full_node.as_ref().map(LogProvider::as_erased),
-            self.batch_prover.as_ref().map(LogProvider::as_erased),
-            self.light_client_prover
-                .as_ref()
-                .map(LogProvider::as_erased),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
-    }
+    fn get_nodes_as_log_provider(&self) -> Vec<&dyn LogPathProviderErased> {
+        let test_case = &self.ctx.config.test_case;
 
-    pub fn show_log_paths(&self) {
-        if self.show_logs {
-            info!(
-                "Logs available at {}",
-                self.ctx.config.test_case.dir.display()
-            );
-
-            for node in self.get_nodes_as_log_provider() {
-                info!(
-                    "{} logs available at : {}",
-                    node.kind(),
-                    node.log_path().display()
-                );
-            }
-        }
+        self.ctx
+            .config
+            .bitcoin
+            .iter()
+            .map(LogPathProvider::as_erased)
+            .map(Option::Some)
+            .chain(vec![
+                test_case
+                    .with_sequencer
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.sequencer)),
+                test_case
+                    .with_full_node
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.full_node)),
+                test_case
+                    .with_batch_prover
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.batch_prover)),
+                test_case
+                    .with_light_client_prover
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.light_client_prover)),
+            ])
+            .flatten()
+            .collect()
     }
 
     pub fn dump_log(&self) -> Result<()> {
@@ -142,11 +133,11 @@ impl TestFramework {
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(25);
-        for node in self.get_nodes_as_log_provider() {
-            debug!("{} logs (last {n_lines} lines):", node.kind());
-            if let Err(e) = tail_file(&node.log_path(), n_lines) {
-                eprint!("{e}");
-            }
+        for provider in self.get_nodes_as_log_provider() {
+            println!("{} logs (last {n_lines} lines):", provider.kind());
+            let _ = tail_file(&provider.log_path(), n_lines);
+            println!("{} stderr logs (last {n_lines} lines):", provider.kind());
+            let _ = tail_file(&provider.stderr_path(), n_lines);
         }
         Ok(())
     }

@@ -7,6 +7,7 @@ mod docker;
 pub mod framework;
 pub mod full_node;
 pub mod light_client_prover;
+mod log_provider;
 pub mod node;
 pub mod sequencer;
 pub mod test_case;
