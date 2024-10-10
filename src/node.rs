@@ -30,6 +30,7 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    Verifier,
 }
 
 impl fmt::Display for NodeKind {
@@ -40,6 +41,7 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            NodeKind::Verifier => write!(f, "verifier"),
         }
     }
 }

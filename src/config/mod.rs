@@ -1,4 +1,5 @@
 mod bitcoin;
+mod clementine;
 mod docker;
 mod rollup;
 mod test;
@@ -7,6 +8,7 @@ mod utils;
 
 use std::path::PathBuf;
 
+pub use clementine::{ClementineClient, ClementineConfig};
 pub use bitcoin::BitcoinConfig;
 pub use docker::DockerConfig;
 pub use rollup::{default_rollup_config, RollupConfig};
