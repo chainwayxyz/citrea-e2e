@@ -13,6 +13,6 @@ pub mod sequencer;
 pub mod test_case;
 pub mod traits;
 mod utils;
-pub mod clementine;
+pub mod verifier;
 
 pub type Result<T> = anyhow::Result<T>;

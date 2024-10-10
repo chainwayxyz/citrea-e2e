@@ -101,7 +101,7 @@ impl Default for ClementineClient {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClementineConfig {
     pub client: ClementineClient,
     pub docker_image: Option<String>,
