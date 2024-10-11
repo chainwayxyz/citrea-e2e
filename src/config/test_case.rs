@@ -10,6 +10,7 @@ pub struct TestCaseEnv {
     pub batch_prover: Vec<(&'static str, &'static str)>,
     pub light_client_prover: Vec<(&'static str, &'static str)>,
     pub bitcoin: Vec<(&'static str, &'static str)>,
+    pub verifier: Vec<(&'static str, &'static str)>,
 }
 
 impl TestCaseEnv {
@@ -41,6 +42,10 @@ impl TestCaseEnv {
     pub fn bitcoin(&self) -> Vec<(&'static str, &'static str)> {
         [self.test_env(), self.bitcoin.clone()].concat()
     }
+
+    pub fn verifier(&self) -> Vec<(&'static str, &'static str)> {
+        [self.test_env(), self.verifier.clone()].concat()
+    }
 }
 
 #[derive(Clone)]
@@ -50,6 +55,7 @@ pub struct TestCaseConfig {
     pub with_full_node: bool,
     pub with_batch_prover: bool,
     pub with_light_client_prover: bool,
+    pub with_verifier: bool,
     pub timeout: Duration,
     pub dir: PathBuf,
     pub docker: bool,
@@ -67,6 +73,7 @@ impl Default for TestCaseConfig {
             with_batch_prover: false,
             with_light_client_prover: false,
             with_full_node: false,
+            with_verifier: false,
             timeout: Duration::from_secs(60),
             dir: TempDir::new()
                 .expect("Failed to create temporary directory")

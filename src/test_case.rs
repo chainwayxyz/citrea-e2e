@@ -23,8 +23,9 @@ use super::{
 };
 use crate::{
     config::{
-        BatchProverConfig, BitcoinServiceConfig, FullLightClientProverConfig,
-        LightClientProverConfig, RpcConfig, RunnerConfig, SequencerConfig, StorageConfig,
+        BatchProverConfig, BitcoinServiceConfig, ClementineConfig, FullLightClientProverConfig,
+        FullVerifierConfig, LightClientProverConfig, RpcConfig, RunnerConfig, SequencerConfig,
+        StorageConfig,
     },
     traits::NodeT,
     utils::{get_default_genesis_path, get_workspace_root},
@@ -129,8 +130,9 @@ impl<T: TestCase> TestCaseRunner<T> {
         let batch_prover_rollup = default_rollup_config();
         let light_client_prover_rollup = default_rollup_config();
         let full_node_rollup = default_rollup_config();
+        let clementine_config = T::clementine_config();
 
-        let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
+        let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir, verifier_dir] =
             create_dirs(&test_case.dir)?;
 
         copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
@@ -298,6 +300,13 @@ impl<T: TestCase> TestCaseRunner<T> {
                 node: (),
                 env: env.full_node(),
             },
+            verifier: FullVerifierConfig {
+                config: ClementineConfig::default(),
+                docker_image: None,
+                env: env.verifier(),
+                node: clementine_config,
+                dir: verifier_dir,
+            },
             test_case,
         })
     }
@@ -346,6 +355,12 @@ pub trait TestCase: Send + Sync + 'static {
         LightClientProverConfig::default()
     }
 
+    /// Returns the light clementine configuration for the test.
+    /// Override this method to provide a custom clementine configuration.
+    fn clementine_config() -> ClementineConfig {
+        ClementineConfig::default()
+    }
+
     /// Returns the test setup
     /// Override this method to add custom initialization logic
     async fn setup(&self, _framework: &mut TestFramework) -> Result<()> {
@@ -366,7 +381,7 @@ pub trait TestCase: Send + Sync + 'static {
     }
 }
 
-fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {
+fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 9]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
@@ -374,6 +389,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {
         NodeKind::LightClientProver.to_string(),
         NodeKind::Sequencer.to_string(),
         NodeKind::FullNode.to_string(),
+        NodeKind::Verifier.to_string(),
         "genesis".to_string(),
         "inscription_txs".to_string(),
     ]

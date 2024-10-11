@@ -3,7 +3,7 @@ use std::{fs::File, process::Stdio, time::Duration};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use tokio::{process::Command, time::Instant};
+use tokio::process::Command;
 use tracing::info;
 
 use crate::{
@@ -87,24 +87,24 @@ where
         &mut self.spawn_output
     }
 
-    async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
-        let start = Instant::now();
-        let timeout = timeout.unwrap_or(Duration::from_secs(30));
-        while start.elapsed() < timeout {
-            // if self
-            //     .client
-            //     .ledger_get_head_soft_confirmation()
-            //     .await
-            //     .is_ok()
-            // {
-            return Ok(());
-            // }
-            // sleep(Duration::from_millis(500)).await;
-        }
-        anyhow::bail!(
-            "{} failed to become ready within the specified timeout",
-            C::node_kind()
-        )
+    async fn wait_for_ready(&self, _timeout: Option<Duration>) -> Result<()> {
+        // let start = Instant::now();
+        // let timeout = timeout.unwrap_or(Duration::from_secs(30));
+        // while start.elapsed() < timeout {
+        // if self
+        //     .client
+        //     .ledger_get_head_soft_confirmation()
+        //     .await
+        //     .is_ok()
+        // {
+        return Ok(());
+        // }
+        // sleep(Duration::from_millis(500)).await;
+        // }
+        // anyhow::bail!(
+        //     "{} failed to become ready within the specified timeout",
+        //     C::node_kind()
+        // )
     }
 
     fn client(&self) -> &Self::Client {

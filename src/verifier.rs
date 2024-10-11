@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use crate::{config::FullVerifierConfig, node::Node, traits::NodeT};
+use crate::{clementine, config::FullVerifierConfig, traits::NodeT};
 
-pub type Verifier = Node<FullVerifierConfig>;
+pub type Verifier = clementine::node::ClementineNode<FullVerifierConfig>;
 
 impl Verifier {
     pub fn dir(&self) -> &PathBuf {
