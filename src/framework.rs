@@ -236,15 +236,15 @@ fn setup_logging() {
             .unwrap();
 
         if std::env::var("JSON_LOGS").is_ok() {
-            tracing_subscriber::registry()
+            let _ = tracing_subscriber::registry()
                 .with(fmt::layer().json())
                 .with(env_filter)
-                .init();
+                .try_init();
         } else {
-            tracing_subscriber::registry()
+            let _ = tracing_subscriber::registry()
                 .with(fmt::layer())
                 .with(env_filter)
-                .init();
+                .try_init();
         }
 
         log_panics::init();
