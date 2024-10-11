@@ -17,7 +17,7 @@ use tracing::{info, trace};
 
 use crate::{
     client::Client,
-    config::{config_to_file, RollupConfig},
+    config::{config_to_file, ClementineConfig, RollupConfig},
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{get_citrea_path, get_genesis_path},
@@ -57,6 +57,7 @@ pub trait Config: Clone {
     fn node_config(&self) -> Option<&Self::NodeConfig>;
     fn node_kind() -> NodeKind;
     fn rollup_config(&self) -> &RollupConfig;
+    fn clementine_config(&self) -> &ClementineConfig;
 }
 
 pub struct Node<C: Config + LogPathProvider> {
