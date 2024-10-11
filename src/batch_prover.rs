@@ -2,7 +2,7 @@ use std::time::SystemTime;
 
 use anyhow::bail;
 use tokio::time::{sleep, Duration};
-use tracing::debug;
+use tracing::trace;
 
 use super::{config::FullBatchProverConfig, Result};
 use crate::node::Node;
@@ -14,7 +14,7 @@ impl BatchProver {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(600));
         loop {
-            debug!("Waiting for batch prover height {}", height);
+            trace!("Waiting for batch prover height {}", height);
             let latest_block = self.client.ledger_get_last_scanned_l1_height().await?;
 
             if latest_block >= height {

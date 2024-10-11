@@ -1,7 +1,11 @@
-use std::{future::Future, sync::Arc};
+use std::{
+    future::Future,
+    sync::{Arc, Once},
+};
 
 use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use super::{
     bitcoin::BitcoinNodeCluster, config::TestConfig, docker::DockerEnv, full_node::FullNode,
@@ -53,6 +57,8 @@ async fn create_optional<T>(pred: bool, f: impl Future<Output = Result<T>>) -> R
 
 impl TestFramework {
     pub async fn new(config: TestConfig) -> Result<Self> {
+        setup_logging();
+
         anyhow::ensure!(
             config.test_case.n_nodes > 0,
             "At least one bitcoin node has to be running"
@@ -218,4 +224,28 @@ impl TestFramework {
         self.initial_da_height = da.get_block_count().await?;
         Ok(())
     }
+}
+
+static INIT: Once = Once::new();
+
+fn setup_logging() {
+    INIT.call_once(|| {
+        let env_filter = EnvFilter::try_from_default_env()
+            .or_else(|_| EnvFilter::try_new("citrea_e2e=info"))
+            .unwrap();
+
+        if std::env::var("JSON_LOGS").is_ok() {
+            let _ = tracing_subscriber::registry()
+                .with(fmt::layer().json())
+                .with(env_filter)
+                .try_init();
+        } else {
+            let _ = tracing_subscriber::registry()
+                .with(fmt::layer())
+                .with(env_filter)
+                .try_init();
+        }
+
+        log_panics::init();
+    });
 }
