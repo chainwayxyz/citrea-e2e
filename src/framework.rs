@@ -12,6 +12,7 @@ use crate::{
     light_client_prover::LightClientProver,
     log_provider::{LogPathProvider, LogPathProviderErased},
     utils::tail_file,
+    verifier::Verifier,
 };
 
 pub struct TestContext {
@@ -40,6 +41,7 @@ pub struct TestFramework {
     pub batch_prover: Option<BatchProver>,
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
+    pub verifier: Option<Verifier>,
     pub initial_da_height: u64,
 }
 
@@ -68,6 +70,7 @@ impl TestFramework {
             batch_prover: None,
             light_client_prover: None,
             full_node: None,
+            verifier: None,
             ctx,
             initial_da_height: 0,
         })
@@ -81,7 +84,12 @@ impl TestFramework {
         )
         .await?;
 
-        (self.batch_prover, self.light_client_prover, self.full_node) = tokio::try_join!(
+        (
+            self.batch_prover,
+            self.light_client_prover,
+            self.full_node,
+            self.verifier,
+        ) = tokio::try_join!(
             create_optional(
                 self.ctx.config.test_case.with_batch_prover,
                 BatchProver::new(&self.ctx.config.batch_prover)
@@ -93,6 +101,10 @@ impl TestFramework {
             create_optional(
                 self.ctx.config.test_case.with_full_node,
                 FullNode::new(&self.ctx.config.full_node)
+            ),
+            create_optional(
+                self.ctx.config.test_case.with_verifier,
+                Verifier::new(&self.ctx.config.verifier)
             ),
         )?;
 
