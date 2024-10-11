@@ -1,6 +1,7 @@
 pub mod batch_prover;
 pub mod bitcoin;
 mod citrea_config;
+pub mod clementine;
 mod client;
 pub mod config;
 mod docker;
