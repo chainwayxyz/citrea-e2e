@@ -5,6 +5,7 @@ use std::{
 
 use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use super::{
     bitcoin::BitcoinNodeCluster, config::TestConfig, docker::DockerEnv, full_node::FullNode,
@@ -224,8 +225,6 @@ impl TestFramework {
         Ok(())
     }
 }
-
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 static INIT: Once = Once::new();
 
