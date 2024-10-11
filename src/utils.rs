@@ -33,6 +33,14 @@ pub fn get_citrea_path() -> Result<PathBuf> {
         .map(PathBuf::from)
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
 }
+/// Get clementine path from `CLEMENTINE_E2E_TEST_BINARY` env
+pub fn get_clementine_path() -> Result<PathBuf> {
+    std::env::var("CLEMENTINE_E2E_TEST_BINARY")
+        .map(PathBuf::from)
+        .map_err(|_| {
+            anyhow!("CLEMENTINE_E2E_TEST_BINARY is not set. Cannot resolve clementine path")
+        })
+}
 
 /// Get genesis path from resources
 /// TODO: assess need for customable genesis path in e2e tests
