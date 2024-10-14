@@ -1,6 +1,6 @@
 use super::{
     bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullBatchProverConfig, FullFullNodeConfig,
-    FullLightClientProverConfig, FullSequencerConfig,
+    FullLightClientProverConfig, FullSequencerConfig, FullVerifierConfig,
 };
 
 #[derive(Clone)]
@@ -10,5 +10,6 @@ pub struct TestConfig {
     pub sequencer: FullSequencerConfig,
     pub batch_prover: FullBatchProverConfig,
     pub light_client_prover: FullLightClientProverConfig,
+    pub verifier: FullVerifierConfig,
     pub full_node: FullFullNodeConfig,
 }

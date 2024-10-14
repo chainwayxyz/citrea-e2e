@@ -17,7 +17,7 @@ use tracing::{info, trace};
 
 use crate::{
     client::Client,
-    config::{config_to_file, RollupConfig},
+    config::{config_to_file, ClementineConfig, RollupConfig},
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{get_citrea_path, get_genesis_path},
@@ -31,6 +31,7 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    Verifier,
 }
 
 impl fmt::Display for NodeKind {
@@ -41,6 +42,7 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            NodeKind::Verifier => write!(f, "verifier"),
         }
     }
 }
@@ -55,6 +57,7 @@ pub trait Config: Clone {
     fn node_config(&self) -> Option<&Self::NodeConfig>;
     fn node_kind() -> NodeKind;
     fn rollup_config(&self) -> &RollupConfig;
+    fn clementine_config(&self) -> &ClementineConfig;
 }
 
 pub struct Node<C: Config + LogPathProvider> {

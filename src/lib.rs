@@ -1,6 +1,7 @@
 pub mod batch_prover;
 pub mod bitcoin;
 mod citrea_config;
+pub mod clementine;
 mod client;
 pub mod config;
 mod docker;
@@ -13,5 +14,6 @@ pub mod sequencer;
 pub mod test_case;
 pub mod traits;
 mod utils;
+pub mod verifier;
 
 pub type Result<T> = anyhow::Result<T>;
