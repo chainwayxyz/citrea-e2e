@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{env, path::PathBuf, time::Duration};
 
 use tempfile::TempDir;
 
@@ -43,7 +43,7 @@ impl TestCaseEnv {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct TestCaseConfig {
     pub n_nodes: usize,
     pub with_sequencer: bool,
@@ -52,7 +52,7 @@ pub struct TestCaseConfig {
     pub with_light_client_prover: bool,
     pub timeout: Duration,
     pub dir: PathBuf,
-    pub docker: bool,
+    pub docker: TestCaseDockerConfig,
     // Either a relative dir from workspace root, i.e. "./resources/genesis/devnet"
     // Or an absolute path.
     // Defaults to resources/genesis/bitcoin-regtest
@@ -71,8 +71,35 @@ impl Default for TestCaseConfig {
             dir: TempDir::new()
                 .expect("Failed to create temporary directory")
                 .into_path(),
-            docker: std::env::var("USE_DOCKER").map_or(false, |v| v.parse().unwrap_or(false)),
+            docker: TestCaseDockerConfig::default(),
             genesis_dir: None,
         }
     }
+}
+
+#[derive(Clone, Debug)]
+pub struct TestCaseDockerConfig {
+    pub bitcoin: bool,
+    pub citrea: bool,
+}
+
+impl Default for TestCaseDockerConfig {
+    fn default() -> Self {
+        TestCaseDockerConfig {
+            bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER"),
+            citrea: parse_bool_env("TEST_CITREA_DOCKER"),
+        }
+    }
+}
+
+impl TestCaseDockerConfig {
+    pub fn enabled(&self) -> bool {
+        self.bitcoin || self.citrea
+    }
+}
+
+pub fn parse_bool_env(key: &str) -> bool {
+    env::var(key)
+        .map(|v| &v == "1" || &v.to_lowercase() == "true")
+        .unwrap_or(false)
 }

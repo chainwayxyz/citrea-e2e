@@ -46,3 +46,11 @@ jobs:
         with:
           version: "latest"
           args: "--workspace --all-features --all-targets"
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Cargo test
+      run: cargo test

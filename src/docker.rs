@@ -16,65 +16,69 @@ use bollard::{
     Docker,
 };
 use futures::StreamExt;
-use tokio::{fs::File, io::AsyncWriteExt, task::JoinHandle};
-use tracing::{debug, info};
+use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
+use tracing::{debug, error, info};
+
+use crate::node::NodeKind;
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
-use crate::traits::ContainerSpawnOutput;
+
+#[derive(Debug)]
+pub struct ContainerSpawnOutput {
+    pub id: String,
+    pub ip: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkInfo {
+    id: String,
+    name: String,
+}
 
 pub struct DockerEnv {
     pub docker: Docker,
-    pub network_id: String,
-    pub network_name: String,
+    pub network_info: NetworkInfo,
     id: String,
-    volumes: HashSet<String>,
+    volumes: Mutex<HashSet<String>>,
+    container_ids: Mutex<HashSet<String>>,
 }
 
 impl DockerEnv {
-    pub async fn new(n_nodes: usize) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
         let docker =
             Docker::connect_with_local_defaults().context("Failed to connect to Docker")?;
         let test_id = generate_test_id();
-        let (network_id, network_name) = Self::create_network(&docker, &test_id).await?;
-        let volumes = Self::create_volumes(&docker, &test_id, n_nodes).await?;
+        let network_info = Self::create_network(&docker, &test_id).await?;
 
         Ok(Self {
             docker,
-            network_id,
-            network_name,
+            network_info,
             id: test_id,
-            volumes,
+            volumes: Mutex::new(HashSet::new()),
+            container_ids: Mutex::new(HashSet::new()),
         })
     }
 
-    async fn create_volumes(
-        docker: &Docker,
-        test_case_id: &str,
-        n_nodes: usize,
-    ) -> Result<HashSet<String>> {
-        let volume_configs = vec![("bitcoin", n_nodes)];
-        let mut volumes = HashSet::new();
+    /// Create a volume per node
+    /// Keeps track of volumes for cleanup
+    async fn create_volume(&self, config: &DockerConfig) -> Result<()> {
+        let volume_name = format!("{}-{}", config.volume.name, self.id);
+        self.docker
+            .create_volume(CreateVolumeOptions {
+                name: volume_name.clone(),
+                driver: "local".to_string(),
+                driver_opts: HashMap::new(),
+                labels: HashMap::new(),
+            })
+            .await?;
 
-        for (name, n) in volume_configs {
-            for i in 0..n {
-                let volume_name = format!("{name}-{i}-{test_case_id}");
-                docker
-                    .create_volume(CreateVolumeOptions {
-                        name: volume_name.clone(),
-                        driver: "local".to_string(),
-                        driver_opts: HashMap::new(),
-                        labels: HashMap::new(),
-                    })
-                    .await?;
+        self.volumes.lock().await.insert(volume_name);
 
-                volumes.insert(volume_name);
-            }
-        }
-
-        Ok(volumes)
+        Ok(())
     }
 
-    async fn create_network(docker: &Docker, test_case_id: &str) -> Result<(String, String)> {
+    /// Create a new test network and return its network, name and id
+    async fn create_network(docker: &Docker, test_case_id: &str) -> Result<NetworkInfo> {
         let network_name = format!("test_network_{test_case_id}");
         let options = CreateNetworkOptions {
             name: network_name.clone(),
@@ -88,11 +92,22 @@ impl DockerEnv {
             .await?
             .id
             .context("Error getting network id")?;
-        Ok((id, network_name))
+
+        Ok(NetworkInfo {
+            id,
+            name: network_name,
+        })
+    }
+
+    pub fn get_hostname(&self, kind: &NodeKind) -> String {
+        format!("{kind}-{}", self.id)
     }
 
     pub async fn spawn(&self, config: DockerConfig) -> Result<SpawnOutput> {
         debug!("Spawning docker with config {config:#?}");
+
+        self.create_volume(&config).await?;
+
         let exposed_ports: HashMap<String, HashMap<(), ()>> = config
             .ports
             .iter()
@@ -114,24 +129,41 @@ impl DockerEnv {
             .collect();
 
         let mut network_config = HashMap::new();
-        network_config.insert(self.network_id.clone(), EndpointSettings::default());
+        network_config.insert(
+            self.network_info.id.clone(),
+            EndpointSettings {
+                ip_address: Some(self.get_hostname(&config.kind)),
+                ..Default::default()
+            },
+        );
 
         let volume_name = format!("{}-{}", config.volume.name, self.id);
-        let mount = Mount {
+        let mut mounts = vec![Mount {
             target: Some(config.volume.target.clone()),
             source: Some(volume_name),
             typ: Some(MountTypeEnum::VOLUME),
             ..Default::default()
-        };
+        }];
+
+        if let Some(host_dir) = &config.host_dir {
+            for dir in host_dir {
+                mounts.push(Mount {
+                    target: Some(dir.clone()),
+                    source: Some(dir.clone()),
+                    typ: Some(MountTypeEnum::BIND),
+                    ..Default::default()
+                });
+            }
+        }
 
         let container_config = Config {
+            hostname: Some(format!("{}-{}", config.kind, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),
-                // binds: Some(vec![config.dir]),
-                mounts: Some(vec![mount]),
+                mounts: Some(mounts),
                 ..Default::default()
             }),
             networking_config: Some(NetworkingConfig {
@@ -153,6 +185,8 @@ impl DockerEnv {
             .await
             .map_err(|e| anyhow!("Failed to create Docker container {e}"))?;
 
+        self.container_ids.lock().await.insert(container.id.clone());
+
         self.docker
             .start_container::<String>(&container.id, None)
             .await
@@ -173,12 +207,19 @@ impl DockerEnv {
         // Extract container logs to host
         // This spawns a background task to continuously stream logs from the container.
         // The task will run until the container is stopped or removed during cleanup.
-        Self::extract_container_logs(self.docker.clone(), container.id.clone(), config.log_path);
+        Self::extract_container_logs(
+            self.docker.clone(),
+            container.id.clone(),
+            config.log_path,
+            &config.kind,
+        );
 
-        Ok(SpawnOutput::Container(ContainerSpawnOutput {
+        let spawn_output = SpawnOutput::Container(ContainerSpawnOutput {
             id: container.id,
             ip: ip_address,
-        }))
+        });
+        debug!("{}, spawn_output : {spawn_output:?}", config.kind);
+        Ok(spawn_output)
     }
 
     async fn ensure_image_exists(&self, image: &str) -> Result<()> {
@@ -218,25 +259,29 @@ impl DockerEnv {
     }
 
     pub async fn cleanup(&self) -> Result<()> {
+        for id in self.container_ids.lock().await.iter() {
+            debug!("Logs for container {}:", id);
+            let _ = self.dump_logs_cli(id);
+        }
+
         let containers = self.docker.list_containers::<String>(None).await?;
         for container in containers {
             if let (Some(id), Some(networks)) = (
                 container.id,
                 container.network_settings.and_then(|ns| ns.networks),
             ) {
-                if networks.contains_key(&self.network_name) {
+                if networks.contains_key(&self.network_info.name) {
                     self.docker.stop_container(&id, None).await?;
                     self.docker.remove_container(&id, None).await?;
                 }
             }
         }
 
-        self.docker.remove_network(&self.network_name).await?;
+        self.docker.remove_network(&self.network_info.name).await?;
 
-        for volume_name in &self.volumes {
+        for volume_name in self.volumes.lock().await.iter() {
             self.docker.remove_volume(volume_name, None).await?;
         }
-
         Ok(())
     }
 
@@ -244,7 +289,10 @@ impl DockerEnv {
         docker: Docker,
         container_id: String,
         log_path: PathBuf,
+        kind: &NodeKind,
     ) -> JoinHandle<Result<()>> {
+        info!("{} stdout logs available at : {}", kind, log_path.display());
+
         tokio::spawn(async move {
             if let Some(parent) = log_path.parent() {
                 tokio::fs::create_dir_all(parent)
@@ -276,5 +324,21 @@ impl DockerEnv {
             }
             Ok(())
         })
+    }
+
+    fn dump_logs_cli(&self, container_id: &str) -> Result<()> {
+        let n_lines = std::env::var("TAIL_N_LINES").unwrap_or_else(|_| "25".to_string());
+
+        let output = std::process::Command::new("docker")
+            .args(["logs", container_id, "-n", &n_lines])
+            .output()?;
+
+        debug!("{}", String::from_utf8_lossy(&output.stdout));
+
+        if !output.stderr.is_empty() {
+            error!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+
+        Ok(())
     }
 }

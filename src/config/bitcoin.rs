@@ -17,6 +17,7 @@ pub struct BitcoinConfig {
     pub docker_image: Option<String>,
     pub env: Vec<(&'static str, &'static str)>,
     pub idx: usize,
+    pub docker_host: Option<String>,
 }
 
 impl Default for BitcoinConfig {
@@ -34,6 +35,7 @@ impl Default for BitcoinConfig {
             docker_image: Some("bitcoin/bitcoin:28.0".to_string()),
             env: Vec::new(),
             idx: 0,
+            docker_host: None,
         }
     }
 }
