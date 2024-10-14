@@ -76,7 +76,7 @@ where
             image: config.docker_image.clone().unwrap_or_else(|| {
                 let base_img = DEFAULT_CITREA_DOCKER_IMAGE;
                 match std::env::var("SHORT_PREFIX") {
-                    Ok(_) => format!("{base_img}-short-prefix"),
+                    Ok(v) if v == "1" || v == "true" => format!("{base_img}-short-prefix"),
                     _ => base_img.to_string(),
                 }
             }),

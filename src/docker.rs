@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    io::{stdout, Write},
     path::PathBuf,
 };
 
@@ -246,8 +245,7 @@ impl DockerEnv {
             match result {
                 Ok(info) => {
                     if let (Some(status), Some(progress)) = (info.status, info.progress) {
-                        print!("\r{status}: {progress}     ");
-                        stdout().flush().unwrap();
+                        info!("\r{status}: {progress}     ");
                     }
                 }
                 Err(e) => return Err(anyhow::anyhow!("Failed to pull image: {}", e)),
