@@ -89,7 +89,7 @@ impl<C: Config + LogPathProvider> Node<C> {
                 kind => kind.to_string(),
             };
             Ok(vec![
-                format!("--{node_kind_str}-config-path"),
+                format!("--{node_kind_str}"),
                 config_path.display().to_string(),
             ])
         })
