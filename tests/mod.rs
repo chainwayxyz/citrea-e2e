@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bitcoincore_rpc::RpcApi;
 use citrea_e2e::bitcoin::FINALITY_DEPTH;
-use citrea_e2e::config::{SequencerConfig, TestCaseConfig, TestCaseDockerConfig};
+use citrea_e2e::config::{TestCaseConfig, TestCaseDockerConfig};
 use citrea_e2e::framework::TestFramework;
 use citrea_e2e::test_case::{TestCase, TestCaseRunner};
 use citrea_e2e::Result;
@@ -18,13 +18,6 @@ impl TestCase for DockerIntegrationTest {
                 bitcoin: true,
                 citrea: true,
             },
-            ..Default::default()
-        }
-    }
-
-    fn sequencer_config() -> SequencerConfig {
-        SequencerConfig {
-            min_soft_confirmations_per_commitment: 10,
             ..Default::default()
         }
     }
