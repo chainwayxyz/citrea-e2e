@@ -198,8 +198,8 @@ impl NodeT for BitcoinNode {
 
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
-            Some(docker) => docker.spawn(config.into()).await,
-            None => Self::spawn(config),
+            Some(docker) if docker.bitcoin() => docker.spawn(config.into()).await,
+            _ => Self::spawn(config),
         }
     }
 

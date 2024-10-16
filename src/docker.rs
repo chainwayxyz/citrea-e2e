@@ -18,7 +18,7 @@ use futures::StreamExt;
 use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
-use crate::node::NodeKind;
+use crate::{config::TestCaseDockerConfig, node::NodeKind};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
 
@@ -40,10 +40,11 @@ pub struct DockerEnv {
     id: String,
     volumes: Mutex<HashSet<String>>,
     container_ids: Mutex<HashSet<String>>,
+    test_case_config: TestCaseDockerConfig,
 }
 
 impl DockerEnv {
-    pub async fn new() -> Result<Self> {
+    pub async fn new(test_case_config: TestCaseDockerConfig) -> Result<Self> {
         let docker =
             Docker::connect_with_local_defaults().context("Failed to connect to Docker")?;
         let test_id = generate_test_id();
@@ -55,6 +56,7 @@ impl DockerEnv {
             id: test_id,
             volumes: Mutex::new(HashSet::new()),
             container_ids: Mutex::new(HashSet::new()),
+            test_case_config,
         })
     }
 
@@ -338,5 +340,15 @@ impl DockerEnv {
         }
 
         Ok(())
+    }
+
+    // Should run bitcoin in docker
+    pub fn bitcoin(&self) -> bool {
+        self.test_case_config.bitcoin
+    }
+
+    // Should run citrea in docker
+    pub fn citrea(&self) -> bool {
+        self.test_case_config.citrea
     }
 }
