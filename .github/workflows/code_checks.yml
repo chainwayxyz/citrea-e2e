@@ -53,4 +53,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Run Cargo test
-      run: cargo test
+      run: |
+      SHORT_PREFIX=0 cargo test
+      SHORT_PREFIX=1 cargo test
