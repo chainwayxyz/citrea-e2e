@@ -1,7 +1,17 @@
+use std::fmt::Debug;
 use std::path::PathBuf;
 
-use super::{BitcoinConfig, FullSequencerConfig};
+use serde::Serialize;
+use tracing::debug;
+
+use super::{BitcoinConfig, FullL2NodeConfig, NodeKindMarker};
+use crate::log_provider::LogPathProvider;
+use crate::node::{get_citrea_args, Config, NodeKind};
 use crate::utils::get_genesis_path;
+
+const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
+const DEFAULT_CITREA_DOCKER_IMAGE: &str =
+    "chainwayxyz/citrea-test:f4e3f560c083d949779b5bd0706f945ebd405622";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
@@ -16,11 +26,13 @@ pub struct DockerConfig {
     pub cmd: Vec<String>,
     pub log_path: PathBuf,
     pub volume: VolumeConfig,
+    pub host_dir: Option<Vec<String>>,
+    pub kind: NodeKind,
 }
 
 impl From<&BitcoinConfig> for DockerConfig {
-    fn from(v: &BitcoinConfig) -> Self {
-        let mut args = v.args();
+    fn from(config: &BitcoinConfig) -> Self {
+        let mut args = config.args();
 
         // Docker specific args
         args.extend([
@@ -30,48 +42,57 @@ impl From<&BitcoinConfig> for DockerConfig {
         ]);
 
         Self {
-            ports: vec![v.rpc_port, v.p2p_port],
-            image: v
+            ports: vec![config.rpc_port, config.p2p_port],
+            image: config
                 .docker_image
                 .clone()
-                .unwrap_or_else(|| "bitcoin/bitcoin:28.0".to_string()),
+                .unwrap_or_else(|| DEFAULT_BITCOIN_DOCKER_IMAGE.to_string()),
             cmd: args,
-            log_path: v.data_dir.join("regtest").join("debug.log"),
+            log_path: config.data_dir.join("regtest").join("debug.log"),
             volume: VolumeConfig {
-                name: format!("bitcoin-{}", v.idx),
+                name: format!("bitcoin-{}", config.idx),
                 target: "/home/bitcoin/.bitcoin".to_string(),
             },
+            host_dir: None,
+            kind: NodeKind::Bitcoin,
         }
     }
 }
 
-impl From<&FullSequencerConfig> for DockerConfig {
-    fn from(v: &FullSequencerConfig) -> Self {
-        let args = vec![
-            "--da-layer".to_string(),
-            "bitcoin".to_string(),
-            "--rollup-config-path".to_string(),
-            "sequencer_rollup_config.toml".to_string(),
-            "--sequencer-config-path".to_string(),
-            "sequencer_config.toml".to_string(),
-            "--genesis-paths".to_string(),
-            get_genesis_path(v.dir.parent().expect("Couldn't get parent dir"))
-                .display()
-                .to_string(),
-        ];
+impl<T> From<FullL2NodeConfig<T>> for DockerConfig
+where
+    T: Clone + Serialize + Debug,
+    FullL2NodeConfig<T>: NodeKindMarker,
+{
+    fn from(config: FullL2NodeConfig<T>) -> Self {
+        let kind = FullL2NodeConfig::<T>::kind();
+
+        debug!("Converting config {config:?} for {kind} to docker config");
+
+        let args = get_citrea_args(&config);
 
         Self {
-            ports: vec![v.rollup.rpc.bind_port],
-            image: v
-                .docker_image
-                .clone()
-                .unwrap_or_else(|| "citrea:latest".to_string()), // Default to local image
+            ports: vec![config.rollup.rpc.bind_port],
+            image: config.docker_image.clone().unwrap_or_else(|| {
+                let base_img = DEFAULT_CITREA_DOCKER_IMAGE;
+                let img = match std::env::var("SHORT_PREFIX") {
+                    Ok(v) if v == "1" || v == "true" => format!("{base_img}-short-prefix"),
+                    _ => base_img.to_string(),
+                };
+                println!("img : {:?}", img);
+                img
+            }),
             cmd: args,
-            log_path: v.dir.join("stdout"),
+            log_path: config.dir.join("stdout.log"),
             volume: VolumeConfig {
-                name: "sequencer".to_string(),
-                target: "/sequencer/data".to_string(),
+                name: format!("{kind}"),
+                target: format!("/{kind}/data"),
             },
+            host_dir: Some(vec![
+                config.dir().to_owned().display().to_string(),
+                get_genesis_path(&config),
+            ]),
+            kind,
         }
     }
 }

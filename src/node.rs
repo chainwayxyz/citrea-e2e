@@ -1,8 +1,9 @@
 use std::{
-    fmt,
+    fmt::{self, Debug},
     fs::File,
     path::PathBuf,
     process::Stdio,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -13,24 +14,37 @@ use tokio::{
     process::Command,
     time::{sleep, Instant},
 };
-use tracing::{info, trace};
+use tracing::{debug, info, trace};
 
 use crate::{
     client::Client,
-    config::{config_to_file, RollupConfig},
+    config::{DaLayer, DockerConfig, RollupConfig},
+    docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{get_citrea_path, get_genesis_path},
     Result,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum NodeKind {
     Bitcoin,
     BatchProver,
     LightClientProver,
     Sequencer,
     FullNode,
+}
+
+impl NodeKind {
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            NodeKind::Bitcoin => 1,
+            NodeKind::BatchProver => 2,
+            NodeKind::LightClientProver => 3,
+            NodeKind::Sequencer => 4,
+            NodeKind::FullNode => 5,
+        }
+    }
 }
 
 impl fmt::Display for NodeKind {
@@ -55,17 +69,27 @@ pub trait Config: Clone {
     fn node_config(&self) -> Option<&Self::NodeConfig>;
     fn node_kind() -> NodeKind;
     fn rollup_config(&self) -> &RollupConfig;
+    fn da_layer(&self) -> DaLayer;
+
+    // Get node config path argument and path.
+    // Not required for `full-node`
+    fn get_node_config_args(&self) -> Option<Vec<String>>;
+    fn get_rollup_config_args(&self) -> Vec<String>;
 }
 
-pub struct Node<C: Config + LogPathProvider> {
+pub struct Node<C: Config + LogPathProvider + Send + Sync> {
     spawn_output: SpawnOutput,
     config: C,
     pub client: Client,
 }
 
-impl<C: Config + LogPathProvider> Node<C> {
-    pub async fn new(config: &C) -> Result<Self> {
-        let spawn_output = Self::spawn(config)?;
+impl<C> Node<C>
+where
+    C: Config + LogPathProvider + Send + Sync + Debug,
+    DockerConfig: From<C>,
+{
+    pub async fn new(config: &C, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
+        let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
         let client = Client::new(config.rpc_bind_host(), config.rpc_bind_port())?;
         Ok(Self {
@@ -75,31 +99,12 @@ impl<C: Config + LogPathProvider> Node<C> {
         })
     }
 
-    fn get_node_config_args(config: &C) -> Result<Vec<String>> {
-        let dir = config.dir();
-        let kind = C::node_kind();
-
-        config.node_config().map_or(Ok(Vec::new()), |node_config| {
-            let config_path = dir.join(format!("{kind}_config.toml"));
-            config_to_file(node_config, &config_path)
-                .with_context(|| format!("Error writing {kind} config to file"))?;
-
-            let node_kind_str = match &kind {
-                NodeKind::BatchProver | NodeKind::LightClientProver => "prover".to_string(),
-                kind => kind.to_string(),
-            };
-            Ok(vec![
-                format!("--{node_kind_str}"),
-                config_path.display().to_string(),
-            ])
-        })
-    }
-
     fn spawn(config: &C) -> Result<SpawnOutput> {
         let citrea = get_citrea_path()?;
-        let dir = config.dir();
 
         let kind = C::node_kind();
+
+        debug!("Spawning {kind} with config {config:?}");
 
         let stdout_path = config.log_path();
         let stdout_file = File::create(&stdout_path).context("Failed to create stdout file")?;
@@ -112,22 +117,8 @@ impl<C: Config + LogPathProvider> Node<C> {
         let stderr_path = config.stderr_path();
         let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
 
-        // Handle full node not having any node config
-        let node_config_args = Self::get_node_config_args(config)?;
-
-        let rollup_config_path = dir.join(format!("{kind}_rollup_config.toml"));
-        config_to_file(&config.rollup_config(), &rollup_config_path)?;
-
         Command::new(citrea)
-            .arg("--da-layer")
-            .arg("bitcoin")
-            .arg("--rollup-config-path")
-            .arg(rollup_config_path)
-            .args(node_config_args)
-            .arg("--genesis-paths")
-            .arg(get_genesis_path(
-                dir.parent().expect("Couldn't get parent dir"),
-            ))
+            .args(get_citrea_args(config))
             .envs(config.env())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
@@ -165,13 +156,17 @@ impl<C: Config + LogPathProvider> Node<C> {
 #[async_trait]
 impl<C> NodeT for Node<C>
 where
-    C: Config + LogPathProvider + Send + Sync,
+    C: Config + LogPathProvider + Send + Sync + Debug,
+    DockerConfig: From<C>,
 {
     type Config = C;
     type Client = Client;
 
-    fn spawn(config: &Self::Config) -> Result<SpawnOutput> {
-        Self::spawn(config)
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
+        match docker.as_ref() {
+            Some(docker) => docker.spawn(config.to_owned().into()).await,
+            None => Self::spawn(config),
+        }
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -218,7 +213,8 @@ where
 #[async_trait]
 impl<C> Restart for Node<C>
 where
-    C: Config + LogPathProvider + Send + Sync,
+    C: Config + LogPathProvider + Send + Sync + Debug,
+    DockerConfig: From<C>,
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
@@ -237,4 +233,20 @@ where
         *self.spawn_output() = Self::spawn(config)?;
         self.wait_for_ready(None).await
     }
+}
+
+pub fn get_citrea_args<C>(config: &C) -> Vec<String>
+where
+    C: Config,
+{
+    let node_config_args = config.get_node_config_args().unwrap_or_default();
+    let rollup_config_args = config.get_rollup_config_args();
+
+    [
+        vec!["--da-layer".to_string(), config.da_layer().to_string()],
+        node_config_args,
+        rollup_config_args,
+        vec!["--genesis-paths".to_string(), get_genesis_path(config)],
+    ]
+    .concat()
 }

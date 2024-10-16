@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -6,13 +6,9 @@ use bollard::{container::StopContainerOptions, Docker};
 use tokio::process::Child;
 use tracing::info;
 
-use super::Result;
+use crate::docker::{ContainerSpawnOutput, DockerEnv};
 
-#[derive(Debug)]
-pub struct ContainerSpawnOutput {
-    pub id: String,
-    pub ip: String,
-}
+use super::Result;
 
 #[derive(Debug)]
 pub enum SpawnOutput {
@@ -28,7 +24,7 @@ pub trait NodeT: Send {
     type Client;
 
     /// Spawn a new node with specific config and return its child
-    fn spawn(test_config: &Self::Config) -> Result<SpawnOutput>;
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput>;
     fn spawn_output(&mut self) -> &mut SpawnOutput;
 
     fn config_mut(&mut self) -> &mut Self::Config;
