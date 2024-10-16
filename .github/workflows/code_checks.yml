@@ -48,11 +48,20 @@ jobs:
           args: "--workspace --all-features --all-targets"
 
   test:
-    name: Tests
+    name: Run Tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        short_prefix: [0, 1]
+
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+
     - name: Run Cargo test
-      run: |
-        SHORT_PREFIX=0 cargo test
-        SHORT_PREFIX=1 cargo test
+      run: SHORT_PREFIX=${{ matrix.short_prefix }} cargo test
