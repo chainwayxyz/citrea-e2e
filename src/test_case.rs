@@ -15,9 +15,14 @@ use async_trait::async_trait;
 use futures::FutureExt;
 use std::{
     panic::{self},
+    path::Path,
     time::Duration,
 };
 use tokio::signal;
+
+const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
+const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
+const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -114,6 +119,41 @@ impl<T: TestCase> TestCaseRunner<T> {
                 bail!(panic_msg)
             }
         }
+    }
+
+    pub fn set_binary_path<S: AsRef<str>, P: AsRef<Path>>(self, env_var: S, path: P) -> Self {
+        std::env::set_var(env_var.as_ref(), path.as_ref().display().to_string());
+        self
+    }
+
+    /// Sets the path for the Citrea binary in the environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Location of the Citrea binary to be used when spawning binary.
+    ///
+    pub fn citrea_path<P: AsRef<Path>>(self, path: P) -> Self {
+        self.set_binary_path(CITREA_ENV, path)
+    }
+
+    /// Sets the path for the Bitcoin binary in the environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Location of the Bitcoin binary to be used when spawning binary.
+    ///
+    pub fn bitcoin_path<P: AsRef<Path>>(self, path: P) -> Self {
+        self.set_binary_path(BITCOIN_ENV, path)
+    }
+
+    /// Sets the path for the Clementine binary in the environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Location of the Clementine binary to be used when spawning binary.
+    ///
+    pub fn clementine_path<P: AsRef<Path>>(self, path: P) -> Self {
+        self.set_binary_path(CLEMENTINE_ENV, path)
     }
 }
 
