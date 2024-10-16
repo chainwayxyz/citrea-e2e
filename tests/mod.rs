@@ -35,19 +35,15 @@ impl TestCase for DockerIntegrationTest {
             sequencer.client.send_publish_batch_request().await?;
         }
 
-        da.generate(FINALITY_DEPTH, None).await?;
-
         // Wait for blob inscribe tx to be in mempool
         da.wait_mempool_len(1, None).await?;
 
         da.generate(FINALITY_DEPTH, None).await?;
         let finalized_height = da.get_finalized_height().await?;
+
         batch_prover
             .wait_for_l1_height(finalized_height, None)
             .await?;
-
-        let finalized_height = da.get_finalized_height().await?;
-        da.generate(FINALITY_DEPTH, None).await?;
 
         let commitments = full_node
             .wait_for_sequencer_commitments(finalized_height, None)
