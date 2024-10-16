@@ -168,7 +168,7 @@ where
                 kind => kind.to_string(),
             };
             vec![
-                format!("--{node_kind_str}-config-path"),
+                format!("--{node_kind_str}"),
                 config_path.display().to_string(),
             ]
         })
