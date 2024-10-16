@@ -1,12 +1,6 @@
 //! This module provides the `TestCaseRunner` and `TestCase` trait for running and defining test cases.
 //! It handles setup, execution, and cleanup of test environments.
 
-use std::{panic, time::Duration};
-
-use anyhow::{bail, Context};
-use async_trait::async_trait;
-use futures::FutureExt;
-
 use super::{
     config::{BitcoinConfig, TestCaseConfig, TestCaseEnv},
     framework::TestFramework,
@@ -16,6 +10,14 @@ use crate::{
     config::{BatchProverConfig, LightClientProverConfig, SequencerConfig},
     traits::NodeT,
 };
+use anyhow::{bail, Context};
+use async_trait::async_trait;
+use futures::FutureExt;
+use std::{
+    panic::{self},
+    time::Duration,
+};
+use tokio::signal;
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -70,10 +72,19 @@ impl<T: TestCase> TestCaseRunner<T> {
     /// This sets up the framework, executes the test, and ensures cleanup is performed even if a panic occurs.
     pub async fn run(mut self) -> Result<()> {
         let mut framework = None;
+
         let result = panic::AssertUnwindSafe(async {
-            framework = Some(TestFramework::new::<T>().await?);
-            let f = framework.as_mut().unwrap();
-            self.run_test_case(f).await
+            tokio::select! {
+                res = async {
+                    framework = Some(TestFramework::new::<T>().await?);
+                    let f = framework.as_mut().unwrap();
+                    self.run_test_case(f).await
+                 } => res,
+                _ = signal::ctrl_c() => {
+                    println!("Initiating shutdown...");
+                    bail!("Shutdown received before completion")
+                }
+            }
         })
         .catch_unwind()
         .await;
