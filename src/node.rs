@@ -164,8 +164,8 @@ where
 
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
-            Some(docker) => docker.spawn(config.to_owned().into()).await,
-            None => Self::spawn(config),
+            Some(docker) if docker.citrea() => docker.spawn(config.to_owned().into()).await,
+            _ => Self::spawn(config),
         }
     }
 

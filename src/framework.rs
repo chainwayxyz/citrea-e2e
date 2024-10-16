@@ -72,7 +72,7 @@ impl TestFramework {
 
         let test_case = T::test_config();
         let docker = if test_case.docker.enabled() {
-            Some(DockerEnv::new().await?)
+            Some(DockerEnv::new(test_case.docker.clone()).await?)
         } else {
             None
         };
@@ -285,21 +285,21 @@ impl TestFramework {
             });
         }
 
-        if let Some(docker) = docker.as_ref() {
-            bitcoin_confs[0].docker_host = Some(docker.get_hostname(&NodeKind::Bitcoin));
-        }
+        bitcoin_confs[0].docker_host = docker
+            .as_ref()
+            .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::Bitcoin)));
 
         // Target first bitcoin node as DA for now
         let da_config: BitcoinServiceConfig = bitcoin_confs[0].clone().into();
 
         let runner_bind_host = match docker.as_ref() {
-            Some(d) => d.get_hostname(&NodeKind::Sequencer),
-            None => sequencer_rollup.rpc.bind_host.clone(),
+            Some(d) if d.citrea() => d.get_hostname(&NodeKind::Sequencer),
+            _ => sequencer_rollup.rpc.bind_host.clone(),
         };
 
         let bind_host = match docker.as_ref() {
-            Some(_) => "0.0.0.0".to_string(),
-            None => sequencer_rollup.rpc.bind_host.clone(),
+            Some(d) if d.citrea() => "0.0.0.0".to_string(),
+            _ => sequencer_rollup.rpc.bind_host.clone(),
         };
 
         let sequencer_rollup = {

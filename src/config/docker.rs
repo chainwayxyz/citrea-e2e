@@ -75,12 +75,10 @@ where
             ports: vec![config.rollup.rpc.bind_port],
             image: config.docker_image.clone().unwrap_or_else(|| {
                 let base_img = DEFAULT_CITREA_DOCKER_IMAGE;
-                let img = match std::env::var("SHORT_PREFIX") {
+                match std::env::var("SHORT_PREFIX") {
                     Ok(v) if v == "1" || v == "true" => format!("{base_img}-short-prefix"),
                     _ => base_img.to_string(),
-                };
-                println!("img : {:?}", img);
-                img
+                }
             }),
             cmd: args,
             log_path: config.dir.join("stdout.log"),
