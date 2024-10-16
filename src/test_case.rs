@@ -132,7 +132,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     /// * `path` - Location of the Citrea binary to be used when spawning binary.
     ///
-    pub fn citrea_path<P: AsRef<Path>>(self, path: P) -> Self {
+    pub fn set_citrea_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(CITREA_ENV, path)
     }
 
@@ -142,7 +142,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     /// * `path` - Location of the Bitcoin binary to be used when spawning binary.
     ///
-    pub fn bitcoin_path<P: AsRef<Path>>(self, path: P) -> Self {
+    pub fn set_bitcoin_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(BITCOIN_ENV, path)
     }
 
@@ -152,7 +152,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     /// * `path` - Location of the Clementine binary to be used when spawning binary.
     ///
-    pub fn clementine_path<P: AsRef<Path>>(self, path: P) -> Self {
+    pub fn set_clementine_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(CLEMENTINE_ENV, path)
     }
 }
