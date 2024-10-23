@@ -1,15 +1,14 @@
 use std::{
-    fs,
-    fs::File,
-    io,
-    io::{BufRead, BufReader},
+    fs::{self, File},
+    io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
 };
 
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use tracing::debug;
+
+use crate::node::Config;
 
 use super::Result;
 
@@ -27,19 +26,11 @@ pub fn get_workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
-/// Get citrea path from CITREA_E2E_TEST_BINARY env
+/// Get citrea path from `CITREA_E2E_TEST_BINARY` env
 pub fn get_citrea_path() -> Result<PathBuf> {
     std::env::var("CITREA_E2E_TEST_BINARY")
         .map(PathBuf::from)
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
-}
-
-pub fn get_stdout_path(dir: &Path) -> PathBuf {
-    dir.join("stdout.log")
-}
-
-pub fn get_stderr_path(dir: &Path) -> PathBuf {
-    dir.join("stderr.log")
 }
 
 /// Get genesis path from resources
@@ -52,8 +43,14 @@ pub fn get_default_genesis_path() -> PathBuf {
     path
 }
 
-pub fn get_genesis_path(dir: &Path) -> PathBuf {
-    dir.join("genesis")
+pub fn get_genesis_path(config: &impl Config) -> String {
+    config
+        .dir()
+        .parent()
+        .expect("Couldn't get parent dir")
+        .join("genesis")
+        .display()
+        .to_string()
 }
 
 pub fn generate_test_id() -> String {
@@ -90,6 +87,7 @@ pub fn copy_directory(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Resul
 }
 
 pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
+    println!("tailing path : {path:?}");
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let mut last_lines = Vec::with_capacity(lines);
@@ -103,7 +101,7 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     for line in last_lines {
-        debug!("{line}");
+        println!("{line}");
     }
 
     Ok(())

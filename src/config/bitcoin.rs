@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use bitcoin::Network;
 use tempfile::TempDir;
 
+use crate::{log_provider::LogPathProvider, node::NodeKind};
+
 #[derive(Debug, Clone)]
 pub struct BitcoinConfig {
     pub p2p_port: u16,
@@ -15,6 +17,7 @@ pub struct BitcoinConfig {
     pub docker_image: Option<String>,
     pub env: Vec<(&'static str, &'static str)>,
     pub idx: usize,
+    pub docker_host: Option<String>,
 }
 
 impl Default for BitcoinConfig {
@@ -32,6 +35,7 @@ impl Default for BitcoinConfig {
             docker_image: Some("bitcoin/bitcoin:28.0".to_string()),
             env: Vec::new(),
             idx: 0,
+            docker_host: None,
         }
     }
 }
@@ -60,5 +64,19 @@ impl BitcoinConfig {
             self.extra_args.iter().map(|&s| s.to_string()).collect(),
         ]
         .concat()
+    }
+}
+
+impl LogPathProvider for BitcoinConfig {
+    fn kind() -> NodeKind {
+        NodeKind::Bitcoin
+    }
+
+    fn log_path(&self) -> PathBuf {
+        self.data_dir.join("regtest").join("debug.log")
+    }
+
+    fn stderr_path(&self) -> PathBuf {
+        self.data_dir.join("stderr.log")
     }
 }

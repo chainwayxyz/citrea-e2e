@@ -87,7 +87,7 @@ impl Client {
         self.client
             .get_sequencer_commitments_on_slot_by_hash(hash)
             .await
-            .map_err(|e| e.into())
+            .map_err(Into::into)
     }
 
     pub async fn ledger_get_head_soft_confirmation_height(&self) -> Result<u64> {

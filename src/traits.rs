@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -6,14 +6,9 @@ use bollard::{container::StopContainerOptions, Docker};
 use tokio::process::Child;
 use tracing::info;
 
-use super::Result;
-use crate::node::NodeKind;
+use crate::docker::{ContainerSpawnOutput, DockerEnv};
 
-#[derive(Debug)]
-pub struct ContainerSpawnOutput {
-    pub id: String,
-    pub ip: String,
-}
+use super::Result;
 
 #[derive(Debug)]
 pub enum SpawnOutput {
@@ -29,7 +24,7 @@ pub trait NodeT: Send {
     type Client;
 
     /// Spawn a new node with specific config and return its child
-    fn spawn(test_config: &Self::Config) -> Result<SpawnOutput>;
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput>;
     fn spawn_output(&mut self) -> &mut SpawnOutput;
 
     fn config_mut(&mut self) -> &mut Self::Config;
@@ -80,31 +75,5 @@ pub trait Restart: NodeT + Send {
     async fn restart(&mut self, new_config: Option<Self::Config>) -> Result<()> {
         self.wait_until_stopped().await?;
         self.start(new_config).await
-    }
-}
-
-pub trait LogProvider: NodeT {
-    fn kind(&self) -> NodeKind;
-    fn log_path(&self) -> PathBuf;
-    fn as_erased(&self) -> &dyn LogProviderErased
-    where
-        Self: Sized,
-    {
-        self
-    }
-}
-
-pub trait LogProviderErased {
-    fn kind(&self) -> NodeKind;
-    fn log_path(&self) -> PathBuf;
-}
-
-impl<T: LogProvider> LogProviderErased for T {
-    fn kind(&self) -> NodeKind {
-        LogProvider::kind(self)
-    }
-
-    fn log_path(&self) -> PathBuf {
-        LogProvider::log_path(self)
     }
 }
