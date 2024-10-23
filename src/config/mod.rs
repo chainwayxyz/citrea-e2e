@@ -163,10 +163,7 @@ where
         let kind = Self::node_kind();
         self.node_config().map(|_| {
             let config_path = dir.join(format!("{kind}_config.toml"));
-            let node_kind_str = match &kind {
-                NodeKind::BatchProver | NodeKind::LightClientProver => "prover".to_string(),
-                kind => kind.to_string(),
-            };
+            let node_kind_str = kind.to_string();
             vec![
                 format!("--{node_kind_str}"),
                 config_path.display().to_string(),
