@@ -51,6 +51,14 @@ impl TestCase for DockerIntegrationTest {
 
         assert_eq!(commitments.len(), 1);
 
+        let unspent_sequencer = sequencer
+            .da
+            .list_unspent(None, None, None, None, None)
+            .await?;
+        let unspent_da = da.list_unspent(None, None, None, None, None).await?;
+        // Make sure sequencer.da and da don't hit the same wallet
+        assert_ne!(unspent_sequencer, unspent_da);
+
         Ok(())
     }
 }

@@ -99,28 +99,45 @@ impl TestFramework {
     }
 
     pub async fn init_nodes(&mut self) -> Result<()> {
+        // Use first node config for now, as we expect citrea nodes to interact only with this main node for now.
+        // Additional bitcoin node are solely used for simulating a bitcoin network and tx propagation/re-orgs
+        let bitcoin_config = &self.ctx.config.bitcoin[0];
+
         // Has to initialize sequencer first since provers and full node depend on it
         self.sequencer = create_optional(
             self.ctx.config.test_case.with_sequencer,
-            Sequencer::new(&self.ctx.config.sequencer, Arc::clone(&self.ctx.docker)),
+            Sequencer::new(
+                &self.ctx.config.sequencer,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
         )
         .await?;
 
         (self.batch_prover, self.light_client_prover, self.full_node) = tokio::try_join!(
             create_optional(
                 self.ctx.config.test_case.with_batch_prover,
-                BatchProver::new(&self.ctx.config.batch_prover, Arc::clone(&self.ctx.docker))
+                BatchProver::new(
+                    &self.ctx.config.batch_prover,
+                    bitcoin_config,
+                    Arc::clone(&self.ctx.docker)
+                )
             ),
             create_optional(
                 self.ctx.config.test_case.with_light_client_prover,
                 LightClientProver::new(
                     &self.ctx.config.light_client_prover,
+                    bitcoin_config,
                     Arc::clone(&self.ctx.docker)
                 )
             ),
             create_optional(
                 self.ctx.config.test_case.with_full_node,
-                FullNode::new(&self.ctx.config.full_node, Arc::clone(&self.ctx.docker))
+                FullNode::new(
+                    &self.ctx.config.full_node,
+                    bitcoin_config,
+                    Arc::clone(&self.ctx.docker)
+                )
             ),
         )?;
 
