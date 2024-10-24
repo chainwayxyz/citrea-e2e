@@ -18,13 +18,14 @@ use tracing::{debug, info, trace};
 
 use crate::{
     client::Client,
-    config::{DaLayer, DockerConfig, RollupConfig},
+    config::{BitcoinConfig, DaLayer, DockerConfig, RollupConfig},
     docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{get_citrea_path, get_genesis_path},
     Result,
 };
+use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum NodeKind {
@@ -81,6 +82,8 @@ pub struct Node<C: Config + LogPathProvider + Send + Sync> {
     spawn_output: SpawnOutput,
     config: C,
     pub client: Client,
+    // Bitcoin client targetting node's wallet endpoint
+    pub da: BitcoinClient,
 }
 
 impl<C> Node<C>
@@ -88,14 +91,32 @@ where
     C: Config + LogPathProvider + Send + Sync + Debug,
     DockerConfig: From<C>,
 {
-    pub async fn new(config: &C, docker: Arc<Option<DockerEnv>>) -> Result<Self> {
+    pub async fn new(
+        config: &C,
+        da_config: &BitcoinConfig,
+        docker: Arc<Option<DockerEnv>>,
+    ) -> Result<Self> {
         let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
         let client = Client::new(config.rpc_bind_host(), config.rpc_bind_port())?;
+
+        let da_rpc_url = format!(
+            "http://127.0.0.1:{}/wallet/{}",
+            da_config.rpc_port,
+            C::kind()
+        );
+        let da_client = BitcoinClient::new(
+            &da_rpc_url,
+            Auth::UserPass(da_config.rpc_user.clone(), da_config.rpc_password.clone()),
+        )
+        .await
+        .context("Failed to create RPC client")?;
+
         Ok(Self {
             spawn_output,
             config: config.clone(),
             client,
+            da: da_client,
         })
     }
 
