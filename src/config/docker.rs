@@ -11,7 +11,7 @@ use crate::utils::get_genesis_path;
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str =
-    "chainwayxyz/citrea-test:f4e3f560c083d949779b5bd0706f945ebd405622";
+    "chainwayxyz/citrea-test:57f9b46a366413f2e5b04a2bca07abcc21ad0dde";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
