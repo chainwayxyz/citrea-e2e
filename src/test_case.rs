@@ -112,9 +112,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         match result {
             Ok(Ok(())) => Ok(()),
             Ok(Err(e)) => Err(e),
-            Err(panic_error) => {
-                panic::resume_unwind(panic_error)
-            }
+            Err(panic_error) => panic::resume_unwind(panic_error),
         }
     }
 
