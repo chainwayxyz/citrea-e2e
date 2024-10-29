@@ -99,7 +99,7 @@ impl TestFramework {
     }
 
     pub async fn init_nodes(&mut self) -> Result<()> {
-        // Use first node config for now, as we expect citrea nodes to interact only with this main node for now.
+        // Use first node config for now, as citrea nodes are expected to interact only with this main node for now.
         // Additional bitcoin node are solely used for simulating a bitcoin network and tx propagation/re-orgs
         let bitcoin_config = &self.ctx.config.bitcoin[0];
 
@@ -525,7 +525,5 @@ fn setup_logging() {
                 .with(env_filter)
                 .try_init();
         }
-
-        log_panics::init();
     });
 }

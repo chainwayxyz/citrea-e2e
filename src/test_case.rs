@@ -113,10 +113,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             Ok(Ok(())) => Ok(()),
             Ok(Err(e)) => Err(e),
             Err(panic_error) => {
-                let panic_msg = panic_error
-                    .downcast_ref::<String>()
-                    .map_or_else(|| "Unknown panic".to_string(), ToString::to_string);
-                bail!(panic_msg)
+                panic::resume_unwind(panic_error)
             }
         }
     }
