@@ -350,6 +350,10 @@ impl BitcoinNodeCluster {
     pub fn get_mut(&mut self, index: usize) -> Option<&mut BitcoinNode> {
         self.inner.get_mut(index)
     }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, BitcoinNode> {
+        self.inner.iter()
+    }
 }
 
 async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Result<()> {
