@@ -222,22 +222,24 @@ impl TestFramework {
     }
 
     pub async fn fund_da_wallets(&mut self) -> Result<()> {
-        let da = self.bitcoin_nodes.get(0).unwrap();
+        for da in self.bitcoin_nodes.iter() {
+            da.create_wallet(&NodeKind::Sequencer.to_string(), None, None, None, None)
+                .await?;
+            da.create_wallet(&NodeKind::BatchProver.to_string(), None, None, None, None)
+                .await?;
+            da.create_wallet(
+                &NodeKind::LightClientProver.to_string(),
+                None,
+                None,
+                None,
+                None,
+            )
+            .await?;
+            da.create_wallet(&NodeKind::Bitcoin.to_string(), None, None, None, None)
+                .await?;
+        }
 
-        da.create_wallet(&NodeKind::Sequencer.to_string(), None, None, None, None)
-            .await?;
-        da.create_wallet(&NodeKind::BatchProver.to_string(), None, None, None, None)
-            .await?;
-        da.create_wallet(
-            &NodeKind::LightClientProver.to_string(),
-            None,
-            None,
-            None,
-            None,
-        )
-        .await?;
-        da.create_wallet(&NodeKind::Bitcoin.to_string(), None, None, None, None)
-            .await?;
+        let da = self.bitcoin_nodes.get(0).unwrap();
 
         let blocks_to_mature = 100;
         let blocks_to_fund = 25;
