@@ -12,8 +12,6 @@ pub struct RunnerConfig {
     pub sequencer_client_url: String,
     /// Saves sequencer soft confirmations if set to true
     pub include_tx_body: bool,
-    /// Only true for tests
-    pub accept_public_input_as_proven: Option<bool>,
     /// Number of blocks to request during sync
     #[serde(default = "default_sync_blocks_count")]
     pub sync_blocks_count: u64,
