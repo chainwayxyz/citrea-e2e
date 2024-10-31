@@ -353,7 +353,6 @@ impl TestFramework {
                 runner_bind_host, sequencer_rollup.rpc.bind_port,
             ),
             include_tx_body: true,
-            accept_public_input_as_proven: Some(true),
             sync_blocks_count: 10,
             pruning_config: None,
         });
