@@ -1,6 +1,18 @@
 //! This module provides the `TestCaseRunner` and `TestCase` trait for running and defining test cases.
 //! It handles setup, execution, and cleanup of test environments.
 
+use std::{
+    io::Write,
+    panic::{self},
+    path::Path,
+    time::Duration,
+};
+
+use anyhow::{bail, Context};
+use async_trait::async_trait;
+use futures::FutureExt;
+use tokio::signal;
+
 use super::{
     config::{BitcoinConfig, TestCaseConfig, TestCaseEnv},
     framework::TestFramework,
@@ -10,15 +22,6 @@ use crate::{
     config::{BatchProverConfig, LightClientProverConfig, SequencerConfig},
     traits::NodeT,
 };
-use anyhow::{bail, Context};
-use async_trait::async_trait;
-use futures::FutureExt;
-use std::{
-    panic::{self},
-    path::Path,
-    time::Duration,
-};
-use tokio::signal;
 
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
@@ -98,9 +101,11 @@ impl<T: TestCase> TestCaseRunner<T> {
             .as_mut()
             .with_context(|| format!("Framework not correctly initialized, result {result:?}"))?;
 
-        if let Err(_) | Ok(Err(_)) = result {
-            if let Err(e) = f.dump_logs() {
-                eprintln!("Error dumping log: {e}");
+        if std::env::var("DISABLE_DUMP_LOGS").is_err() {
+            if let Err(_) | Ok(Err(_)) = result {
+                if let Err(e) = f.dump_logs() {
+                    eprintln!("Error dumping log: {e}");
+                }
             }
         }
 
@@ -108,6 +113,9 @@ impl<T: TestCase> TestCaseRunner<T> {
 
         // Additional test cleanup
         self.0.cleanup().await?;
+
+        std::io::stdout().flush()?;
+        std::io::stderr().flush()?;
 
         match result {
             Ok(Ok(())) => Ok(()),

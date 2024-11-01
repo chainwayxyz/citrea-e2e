@@ -18,9 +18,8 @@ use futures::StreamExt;
 use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
-use crate::{config::TestCaseDockerConfig, node::NodeKind};
-
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
+use crate::{config::TestCaseDockerConfig, node::NodeKind};
 
 #[derive(Debug)]
 pub struct ContainerSpawnOutput {

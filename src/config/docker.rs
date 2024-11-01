@@ -1,13 +1,14 @@
-use std::fmt::Debug;
-use std::path::PathBuf;
+use std::{fmt::Debug, path::PathBuf};
 
 use serde::Serialize;
 use tracing::debug;
 
 use super::{BitcoinConfig, FullL2NodeConfig, NodeKindMarker};
-use crate::log_provider::LogPathProvider;
-use crate::node::{get_citrea_args, Config, NodeKind};
-use crate::utils::get_genesis_path;
+use crate::{
+    log_provider::LogPathProvider,
+    node::{get_citrea_args, Config, NodeKind},
+    utils::get_genesis_path,
+};
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str =
