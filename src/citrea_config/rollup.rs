@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
-use crate::config::{BitcoinConfig, BitcoinServiceConfig};
-
 use super::bitcoin::MonitoringConfig;
+use crate::config::{BitcoinConfig, BitcoinServiceConfig};
 
 /// Runner configuration.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
