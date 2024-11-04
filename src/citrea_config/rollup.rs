@@ -5,6 +5,8 @@ use tempfile::TempDir;
 
 use crate::config::{BitcoinConfig, BitcoinServiceConfig};
 
+use super::bitcoin::MonitoringConfig;
+
 /// Runner configuration.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RunnerConfig {
@@ -153,6 +155,7 @@ impl Default for FullNodeConfig<BitcoinServiceConfig> {
                     .into_path()
                     .display()
                     .to_string(),
+                monitoring: MonitoringConfig::default(),
             },
             public_keys: RollupPublicKeys {
                 sequencer_public_key: vec![
@@ -186,6 +189,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
             network: v.network,
             da_private_key: None,
             tx_backup_dir: String::new(),
+            monitoring: Default::default(),
         }
     }
 }
