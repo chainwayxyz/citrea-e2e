@@ -8,7 +8,6 @@ impl Default for MonitoringConfig {
         Self {
             check_interval: 1,
             history_limit: 100,
-            reorg_depth_threshold: FINALITY_DEPTH,
         }
     }
 }
@@ -17,7 +16,6 @@ impl Default for MonitoringConfig {
 pub struct MonitoringConfig {
     pub check_interval: u64,
     pub history_limit: usize,
-    pub reorg_depth_threshold: u64,
 }
 
 /// Runtime configuration for the DA service
