@@ -6,9 +6,8 @@ use bollard::{container::StopContainerOptions, Docker};
 use tokio::process::Child;
 use tracing::info;
 
-use crate::docker::{ContainerSpawnOutput, DockerEnv};
-
 use super::Result;
+use crate::docker::{ContainerSpawnOutput, DockerEnv};
 
 #[derive(Debug)]
 pub enum SpawnOutput {

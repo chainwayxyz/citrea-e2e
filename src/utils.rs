@@ -8,9 +8,8 @@ use std::{
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
-use crate::node::Config;
-
 use super::Result;
+use crate::node::Config;
 
 pub fn get_available_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;

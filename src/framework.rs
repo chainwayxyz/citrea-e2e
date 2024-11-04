@@ -10,28 +10,28 @@ use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use super::{
-    bitcoin::BitcoinNodeCluster, docker::DockerEnv, full_node::FullNode, node::NodeKind,
-    sequencer::Sequencer, traits::NodeT, Result,
-};
-use super::{
+    bitcoin::BitcoinNodeCluster,
     config::{
         BitcoinConfig, FullBatchProverConfig, FullFullNodeConfig, FullSequencerConfig,
         RollupConfig, TestCaseConfig, TestConfig,
     },
+    docker::DockerEnv,
+    full_node::FullNode,
+    node::NodeKind,
+    sequencer::Sequencer,
+    traits::NodeT,
     utils::{copy_directory, get_available_port},
+    Result,
 };
 use crate::{
     batch_prover::BatchProver,
-    light_client_prover::LightClientProver,
-    log_provider::{LogPathProvider, LogPathProviderErased},
-    test_case::TestCase,
-    utils::tail_file,
-};
-use crate::{
     config::{
         BitcoinServiceConfig, FullLightClientProverConfig, RpcConfig, RunnerConfig, StorageConfig,
     },
-    utils::{get_default_genesis_path, get_workspace_root},
+    light_client_prover::LightClientProver,
+    log_provider::{LogPathProvider, LogPathProviderErased},
+    test_case::TestCase,
+    utils::{get_default_genesis_path, get_workspace_root, tail_file},
 };
 
 pub struct TestContext {
@@ -76,7 +76,7 @@ impl TestFramework {
         } else {
             None
         };
-        let config = Self::generate_test_config::<T>(test_case, &docker)?;
+        let config = generate_test_config::<T>(test_case, &docker)?;
 
         anyhow::ensure!(
             config.test_case.n_nodes > 0,
@@ -265,209 +265,207 @@ impl TestFramework {
         self.initial_da_height = da.get_block_count().await?;
         Ok(())
     }
+}
 
-    fn generate_test_config<T: TestCase>(
-        test_case: TestCaseConfig,
-        docker: &Option<DockerEnv>,
-    ) -> Result<TestConfig> {
-        let env = T::test_env();
-        let bitcoin = T::bitcoin_config();
-        let batch_prover = T::batch_prover_config();
-        let light_client_prover = T::light_client_prover_config();
-        let sequencer = T::sequencer_config();
-        let sequencer_rollup = RollupConfig::default();
-        let batch_prover_rollup = RollupConfig::default();
-        let light_client_prover_rollup = RollupConfig::default();
-        let full_node_rollup = RollupConfig::default();
+fn generate_test_config<T: TestCase>(
+    test_case: TestCaseConfig,
+    docker: &Option<DockerEnv>,
+) -> Result<TestConfig> {
+    let env = T::test_env();
+    let bitcoin = T::bitcoin_config();
+    let batch_prover = T::batch_prover_config();
+    let light_client_prover = T::light_client_prover_config();
+    let sequencer = T::sequencer_config();
+    let sequencer_rollup = RollupConfig::default();
+    let batch_prover_rollup = RollupConfig::default();
+    let light_client_prover_rollup = RollupConfig::default();
+    let full_node_rollup = RollupConfig::default();
 
-        let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
-            create_dirs(&test_case.dir)?;
+    let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
+        create_dirs(&test_case.dir)?;
 
-        copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
+    copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
 
-        let mut bitcoin_confs = vec![];
-        for i in 0..test_case.n_nodes {
-            let data_dir = bitcoin_dir.join(i.to_string());
-            std::fs::create_dir_all(&data_dir)
-                .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
+    let mut bitcoin_confs = vec![];
+    for i in 0..test_case.n_nodes {
+        let data_dir = bitcoin_dir.join(i.to_string());
+        std::fs::create_dir_all(&data_dir)
+            .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
 
-            let p2p_port = get_available_port()?;
-            let rpc_port = get_available_port()?;
+        let p2p_port = get_available_port()?;
+        let rpc_port = get_available_port()?;
 
-            bitcoin_confs.push(BitcoinConfig {
-                p2p_port,
-                rpc_port,
-                data_dir,
-                env: env.bitcoin().clone(),
-                idx: i,
-                ..bitcoin.clone()
-            });
-        }
-
-        bitcoin_confs[0].docker_host = docker
-            .as_ref()
-            .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::Bitcoin)));
-
-        // Target first bitcoin node as DA for now
-        let da_config: BitcoinServiceConfig = bitcoin_confs[0].clone().into();
-
-        let runner_bind_host = match docker.as_ref() {
-            Some(d) if d.citrea() => d.get_hostname(&NodeKind::Sequencer),
-            _ => sequencer_rollup.rpc.bind_host.clone(),
-        };
-
-        let bind_host = match docker.as_ref() {
-            Some(d) if d.citrea() => "0.0.0.0".to_string(),
-            _ => sequencer_rollup.rpc.bind_host.clone(),
-        };
-
-        let sequencer_rollup = {
-            let bind_port = get_available_port()?;
-            let node_kind = NodeKind::Sequencer.to_string();
-            RollupConfig {
-                da: BitcoinServiceConfig {
-                    da_private_key: Some(
-                        "045FFC81A3C1FDB3AF1359DBF2D114B0B3EFBF7F29CC9C5DA01267AA39D2C78D"
-                            .to_string(),
-                    ),
-                    node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                    tx_backup_dir: tx_backup_dir.display().to_string(),
-                    ..da_config.clone()
-                },
-                storage: StorageConfig {
-                    path: dbs_dir.join(format!("{node_kind}-db")),
-                    db_max_open_files: None,
-                },
-                rpc: RpcConfig {
-                    bind_port,
-                    bind_host: bind_host.clone(),
-                    ..sequencer_rollup.rpc
-                },
-                ..sequencer_rollup
-            }
-        };
-
-        let runner_config = Some(RunnerConfig {
-            sequencer_client_url: format!(
-                "http://{}:{}",
-                runner_bind_host, sequencer_rollup.rpc.bind_port,
-            ),
-            include_tx_body: true,
-            sync_blocks_count: 10,
-            pruning_config: None,
+        bitcoin_confs.push(BitcoinConfig {
+            p2p_port,
+            rpc_port,
+            data_dir,
+            env: env.bitcoin().clone(),
+            idx: i,
+            ..bitcoin.clone()
         });
-
-        let batch_prover_rollup = {
-            let bind_port = get_available_port()?;
-            let node_kind = NodeKind::BatchProver.to_string();
-            RollupConfig {
-                da: BitcoinServiceConfig {
-                    da_private_key: Some(
-                        "75BAF964D074594600366E5B111A1DA8F86B2EFE2D22DA51C8D82126A0FCAC72"
-                            .to_string(),
-                    ),
-                    node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                    tx_backup_dir: tx_backup_dir.display().to_string(),
-                    ..da_config.clone()
-                },
-                storage: StorageConfig {
-                    path: dbs_dir.join(format!("{node_kind}-db")),
-                    db_max_open_files: None,
-                },
-                rpc: RpcConfig {
-                    bind_port,
-                    bind_host: bind_host.clone(),
-                    ..batch_prover_rollup.rpc
-                },
-                runner: runner_config.clone(),
-                ..batch_prover_rollup
-            }
-        };
-
-        let light_client_prover_rollup = {
-            let bind_port = get_available_port()?;
-            let node_kind = NodeKind::LightClientProver.to_string();
-            RollupConfig {
-                da: BitcoinServiceConfig {
-                    da_private_key: None,
-                    node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                    tx_backup_dir: tx_backup_dir.display().to_string(),
-                    ..da_config.clone()
-                },
-                storage: StorageConfig {
-                    path: dbs_dir.join(format!("{node_kind}-db")),
-                    db_max_open_files: None,
-                },
-                rpc: RpcConfig {
-                    bind_port,
-                    bind_host: bind_host.clone(),
-                    ..light_client_prover_rollup.rpc
-                },
-                runner: runner_config.clone(),
-                ..light_client_prover_rollup
-            }
-        };
-
-        let full_node_rollup = {
-            let bind_port = get_available_port()?;
-            let node_kind = NodeKind::FullNode.to_string();
-            RollupConfig {
-                da: BitcoinServiceConfig {
-                    node_url: format!(
-                        "http://{}/wallet/{}",
-                        da_config.node_url,
-                        NodeKind::Bitcoin // Use default wallet
-                    ),
-                    tx_backup_dir: tx_backup_dir.display().to_string(),
-                    ..da_config.clone()
-                },
-                storage: StorageConfig {
-                    path: dbs_dir.join(format!("{node_kind}-db")),
-                    db_max_open_files: None,
-                },
-                rpc: RpcConfig {
-                    bind_port,
-                    bind_host: bind_host.clone(),
-                    ..full_node_rollup.rpc
-                },
-                runner: runner_config.clone(),
-                ..full_node_rollup
-            }
-        };
-
-        Ok(TestConfig {
-            bitcoin: bitcoin_confs,
-            sequencer: FullSequencerConfig::new(
-                sequencer,
-                sequencer_rollup,
-                None,
-                sequencer_dir,
-                env.sequencer(),
-            )?,
-            batch_prover: FullBatchProverConfig::new(
-                batch_prover,
-                batch_prover_rollup,
-                None,
-                batch_prover_dir,
-                env.batch_prover(),
-            )?,
-            light_client_prover: FullLightClientProverConfig::new(
-                light_client_prover,
-                light_client_prover_rollup,
-                None,
-                light_client_prover_dir,
-                env.light_client_prover(),
-            )?,
-            full_node: FullFullNodeConfig::new(
-                (),
-                full_node_rollup,
-                None,
-                full_node_dir,
-                env.full_node(),
-            )?,
-            test_case,
-        })
     }
+
+    bitcoin_confs[0].docker_host = docker
+        .as_ref()
+        .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::Bitcoin)));
+
+    // Target first bitcoin node as DA for now
+    let da_config: BitcoinServiceConfig = bitcoin_confs[0].clone().into();
+
+    let runner_bind_host = match docker.as_ref() {
+        Some(d) if d.citrea() => d.get_hostname(&NodeKind::Sequencer),
+        _ => sequencer_rollup.rpc.bind_host.clone(),
+    };
+
+    let bind_host = match docker.as_ref() {
+        Some(d) if d.citrea() => "0.0.0.0".to_string(),
+        _ => sequencer_rollup.rpc.bind_host.clone(),
+    };
+
+    let sequencer_rollup = {
+        let bind_port = get_available_port()?;
+        let node_kind = NodeKind::Sequencer.to_string();
+        RollupConfig {
+            da: BitcoinServiceConfig {
+                da_private_key: Some(
+                    "045FFC81A3C1FDB3AF1359DBF2D114B0B3EFBF7F29CC9C5DA01267AA39D2C78D".to_string(),
+                ),
+                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                tx_backup_dir: tx_backup_dir.display().to_string(),
+                ..da_config.clone()
+            },
+            storage: StorageConfig {
+                path: dbs_dir.join(format!("{node_kind}-db")),
+                db_max_open_files: None,
+            },
+            rpc: RpcConfig {
+                bind_port,
+                bind_host: bind_host.clone(),
+                ..sequencer_rollup.rpc
+            },
+            ..sequencer_rollup
+        }
+    };
+
+    let runner_config = Some(RunnerConfig {
+        sequencer_client_url: format!(
+            "http://{}:{}",
+            runner_bind_host, sequencer_rollup.rpc.bind_port,
+        ),
+        include_tx_body: true,
+        sync_blocks_count: 10,
+        pruning_config: None,
+    });
+
+    let batch_prover_rollup = {
+        let bind_port = get_available_port()?;
+        let node_kind = NodeKind::BatchProver.to_string();
+        RollupConfig {
+            da: BitcoinServiceConfig {
+                da_private_key: Some(
+                    "75BAF964D074594600366E5B111A1DA8F86B2EFE2D22DA51C8D82126A0FCAC72".to_string(),
+                ),
+                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                tx_backup_dir: tx_backup_dir.display().to_string(),
+                ..da_config.clone()
+            },
+            storage: StorageConfig {
+                path: dbs_dir.join(format!("{node_kind}-db")),
+                db_max_open_files: None,
+            },
+            rpc: RpcConfig {
+                bind_port,
+                bind_host: bind_host.clone(),
+                ..batch_prover_rollup.rpc
+            },
+            runner: runner_config.clone(),
+            ..batch_prover_rollup
+        }
+    };
+
+    let light_client_prover_rollup = {
+        let bind_port = get_available_port()?;
+        let node_kind = NodeKind::LightClientProver.to_string();
+        RollupConfig {
+            da: BitcoinServiceConfig {
+                da_private_key: None,
+                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                tx_backup_dir: tx_backup_dir.display().to_string(),
+                ..da_config.clone()
+            },
+            storage: StorageConfig {
+                path: dbs_dir.join(format!("{node_kind}-db")),
+                db_max_open_files: None,
+            },
+            rpc: RpcConfig {
+                bind_port,
+                bind_host: bind_host.clone(),
+                ..light_client_prover_rollup.rpc
+            },
+            runner: runner_config.clone(),
+            ..light_client_prover_rollup
+        }
+    };
+
+    let full_node_rollup = {
+        let bind_port = get_available_port()?;
+        let node_kind = NodeKind::FullNode.to_string();
+        RollupConfig {
+            da: BitcoinServiceConfig {
+                node_url: format!(
+                    "http://{}/wallet/{}",
+                    da_config.node_url,
+                    NodeKind::Bitcoin // Use default wallet
+                ),
+                tx_backup_dir: tx_backup_dir.display().to_string(),
+                ..da_config.clone()
+            },
+            storage: StorageConfig {
+                path: dbs_dir.join(format!("{node_kind}-db")),
+                db_max_open_files: None,
+            },
+            rpc: RpcConfig {
+                bind_port,
+                bind_host: bind_host.clone(),
+                ..full_node_rollup.rpc
+            },
+            runner: runner_config.clone(),
+            ..full_node_rollup
+        }
+    };
+
+    Ok(TestConfig {
+        bitcoin: bitcoin_confs,
+        sequencer: FullSequencerConfig::new(
+            sequencer,
+            sequencer_rollup,
+            None,
+            sequencer_dir,
+            env.sequencer(),
+        )?,
+        batch_prover: FullBatchProverConfig::new(
+            batch_prover,
+            batch_prover_rollup,
+            None,
+            batch_prover_dir,
+            env.batch_prover(),
+        )?,
+        light_client_prover: FullLightClientProverConfig::new(
+            light_client_prover,
+            light_client_prover_rollup,
+            None,
+            light_client_prover_dir,
+            env.light_client_prover(),
+        )?,
+        full_node: FullFullNodeConfig::new(
+            (),
+            full_node_rollup,
+            None,
+            full_node_dir,
+            env.full_node(),
+        )?,
+        test_case,
+    })
 }
 
 fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {

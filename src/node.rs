@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
+use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 use serde::Serialize;
 use tokio::{
     process::Command,
@@ -25,7 +26,6 @@ use crate::{
     utils::{get_citrea_path, get_genesis_path},
     Result,
 };
-use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 
 #[derive(Debug, Clone, Eq, Hash, PartialEq)]
 pub enum NodeKind {
