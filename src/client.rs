@@ -53,13 +53,13 @@ impl Client {
         Ok(self.client.get_head_soft_confirmation().await?)
     }
 
-    pub async fn ledger_get_verified_proofs_by_slot_height(
+    pub async fn ledger_get_verified_batch_proofs_by_slot_height(
         &self,
         height: u64,
     ) -> Result<Option<Vec<VerifiedProofResponse>>> {
         Ok(self
             .client
-            .get_verified_proofs_by_slot_height(height)
+            .get_verified_batch_proofs_by_slot_height(height)
             .await?)
     }
 
