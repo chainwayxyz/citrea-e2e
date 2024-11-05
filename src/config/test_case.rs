@@ -27,12 +27,7 @@ impl TestCaseEnv {
     }
 
     pub fn batch_prover(&self) -> Vec<(&'static str, &'static str)> {
-        [
-            self.test_env(),
-            vec![("PARALLEL_PROOF_LIMIT", "1")],
-            self.batch_prover.clone(),
-        ]
-        .concat()
+        [self.test_env(), self.batch_prover.clone()].concat()
     }
 
     pub fn light_client_prover(&self) -> Vec<(&'static str, &'static str)> {

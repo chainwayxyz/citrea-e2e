@@ -12,7 +12,7 @@ use crate::{
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str =
-    "chainwayxyz/citrea-test:d3d9fe28cffa20a3c1c4801f935969c4fe9e6323";
+    "chainwayxyz/citrea-test:d3a6f5f25175cbfa925ff8fad5069828bd30c06c";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
