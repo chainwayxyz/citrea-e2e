@@ -1,8 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::bitcoin::FINALITY_DEPTH;
-
-// Test values for MonitoringConfig
 impl Default for MonitoringConfig {
     fn default() -> Self {
         Self {

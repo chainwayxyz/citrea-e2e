@@ -1,11 +1,13 @@
 use std::time::{Duration, SystemTime};
 
 use anyhow::{bail, Result};
+use jsonrpsee::core::client::Error;
 use jsonrpsee::{
-    core::client::ClientT,
+    core::{client::ClientT, traits::ToRpcParams},
     http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
 };
+use serde::de::DeserializeOwned;
 use sov_ledger_rpc::client::RpcClient;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,
@@ -25,6 +27,14 @@ impl Client {
             .request_timeout(Duration::from_secs(120))
             .build(host)?;
         Ok(Self { client })
+    }
+
+    pub async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, Error>
+    where
+        R: DeserializeOwned,
+        Params: ToRpcParams + Send,
+    {
+        self.client.request(method, params).await
     }
 }
 
