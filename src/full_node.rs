@@ -48,7 +48,7 @@ impl FullNode {
 
             match self
                 .client
-                .ledger_get_verified_proofs_by_slot_height(height)
+                .ledger_get_verified_batch_proofs_by_slot_height(height)
                 .await?
             {
                 Some(proofs) => return Ok(proofs),
