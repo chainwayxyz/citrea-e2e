@@ -4,7 +4,7 @@ use anyhow::bail;
 use async_trait::async_trait;
 use bitcoincore_rpc::{json::IndexStatus, RpcApi};
 use citrea_e2e::{
-    config::{BitcoinConfig, TestCaseConfig},
+    config::{BitcoinConfig, TestCaseConfig, TestCaseDockerConfig},
     framework::TestFramework,
     test_case::{TestCase, TestCaseRunner},
     traits::Restart,
@@ -20,6 +20,10 @@ impl TestCase for BasicSyncTest {
             with_sequencer: false,
             n_nodes: 2,
             timeout: Duration::from_secs(60),
+            docker: TestCaseDockerConfig {
+                bitcoin: true,
+                citrea: true,
+            },
             ..Default::default()
         }
     }
@@ -75,6 +79,10 @@ impl TestCase for RestartBitcoinTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_sequencer: false,
+            docker: TestCaseDockerConfig {
+                bitcoin: true,
+                citrea: true,
+            },
             ..Default::default()
         }
     }
