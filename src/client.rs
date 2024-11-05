@@ -59,7 +59,7 @@ impl Client {
     ) -> Result<Option<Vec<VerifiedProofResponse>>> {
         Ok(self
             .client
-            .get_verified_batch_proofs_by_slot_height(height)
+            .get_verified_proofs_by_slot_height(height)
             .await?)
     }
 
