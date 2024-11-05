@@ -30,6 +30,15 @@ impl TestCase for BasicSyncTest {
         };
         let initial_height = f.initial_da_height;
 
+        f.bitcoin_nodes.wait_for_sync(None).await?;
+        let height0 = da0.get_block_count().await?;
+        let height1 = da1.get_block_count().await?;
+
+        // Assert that nodes are in sync before disconnection
+        assert_eq!(height0, height1, "Block heights don't match");
+
+        f.bitcoin_nodes.disconnect_nodes().await?;
+
         // Generate some blocks on node0
         da0.generate(5, None).await?;
 
@@ -38,17 +47,16 @@ impl TestCase for BasicSyncTest {
 
         // Nodes are now out of sync
         assert_eq!(height0, initial_height + 5);
-        assert_eq!(height1, 0);
+        assert_eq!(height1, initial_height);
 
-        // Sync both nodes
-        f.bitcoin_nodes
-            .wait_for_sync(Some(Duration::from_secs(30)))
-            .await?;
+        // Reconnect nodes and sync
+        f.bitcoin_nodes.connect_nodes().await?;
+        f.bitcoin_nodes.wait_for_sync(None).await?;
 
         let height0 = da0.get_block_count().await?;
         let height1 = da1.get_block_count().await?;
 
-        // Assert that nodes are in sync
+        // Assert that nodes are back in sync
         assert_eq!(height0, height1, "Block heights don't match");
 
         Ok(())
