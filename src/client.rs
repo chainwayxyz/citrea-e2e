@@ -1,13 +1,11 @@
 use std::time::{Duration, SystemTime};
 
 use anyhow::{bail, Result};
-use jsonrpsee::core::client::Error;
 use jsonrpsee::{
-    core::{client::ClientT, traits::ToRpcParams},
+    core::client::ClientT,
     http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
 };
-use serde::de::DeserializeOwned;
 use sov_ledger_rpc::client::RpcClient;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,
