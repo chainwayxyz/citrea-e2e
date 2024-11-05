@@ -15,7 +15,7 @@ pub struct TestCaseEnv {
 impl TestCaseEnv {
     // Base env that should apply to every test cases
     fn base_env() -> Vec<(&'static str, &'static str)> {
-        vec![("NO_COLOR", "1")]
+        vec![("NO_COLOR", "1"), ("PARALLEL_PROOF_LIMIT", "1")]
     }
 
     fn test_env(&self) -> Vec<(&'static str, &'static str)> {
