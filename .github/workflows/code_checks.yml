@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        short_prefix: [0, 1]
+        ci_test_mode: [0, 1]
 
     steps:
     - uses: actions/checkout@v4
@@ -64,4 +64,4 @@ jobs:
         toolchain: stable
 
     - name: Run Cargo test
-      run: SHORT_PREFIX=${{ matrix.short_prefix }} cargo test
+      run: CI_TEST_MODE=${{ matrix.ci_test_mode }} cargo test

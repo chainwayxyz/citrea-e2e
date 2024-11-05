@@ -1,5 +1,5 @@
 use anyhow::bail;
-use sov_rollup_interface::rpc::{SequencerCommitmentResponse, VerifiedProofResponse};
+use sov_rollup_interface::rpc::{SequencerCommitmentResponse, VerifiedBatchProofResponse};
 use tokio::time::{sleep, Duration, Instant};
 
 use super::{config::FullFullNodeConfig, Result};
@@ -37,7 +37,7 @@ impl FullNode {
         &self,
         height: u64,
         timeout: Option<Duration>,
-    ) -> Result<Vec<VerifiedProofResponse>> {
+    ) -> Result<Vec<VerifiedBatchProofResponse>> {
         let start = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
 
@@ -48,7 +48,7 @@ impl FullNode {
 
             match self
                 .client
-                .ledger_get_verified_proofs_by_slot_height(height)
+                .ledger_get_verified_batch_proofs_by_slot_height(height)
                 .await?
             {
                 Some(proofs) => return Ok(proofs),
