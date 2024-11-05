@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use bitcoincore_rpc::RpcApi;
-use citrea_e2e::bitcoin::FINALITY_DEPTH;
-use citrea_e2e::config::{TestCaseConfig, TestCaseDockerConfig};
-use citrea_e2e::framework::TestFramework;
-use citrea_e2e::test_case::{TestCase, TestCaseRunner};
-use citrea_e2e::Result;
+use citrea_e2e::{
+    bitcoin::FINALITY_DEPTH,
+    config::{TestCaseConfig, TestCaseDockerConfig},
+    framework::TestFramework,
+    test_case::{TestCase, TestCaseRunner},
+    Result,
+};
 
 struct DockerIntegrationTest;
 

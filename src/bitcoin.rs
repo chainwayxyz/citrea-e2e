@@ -306,8 +306,9 @@ impl BitcoinNodeCluster {
         Ok(())
     }
 
-    pub async fn wait_for_sync(&self, timeout: Duration) -> Result<()> {
+    pub async fn wait_for_sync(&self, timeout: Option<Duration>) -> Result<()> {
         let start = Instant::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(30));
         while start.elapsed() < timeout {
             let mut heights = HashSet::new();
             for node in &self.inner {
@@ -326,16 +327,34 @@ impl BitcoinNodeCluster {
 
     // Connect all bitcoin nodes between them
     pub async fn connect_nodes(&self) -> Result<()> {
-        for (i, from_node) in self.inner.iter().enumerate() {
-            for (j, to_node) in self.inner.iter().enumerate() {
+        for (i, from_node) in self.iter().enumerate() {
+            for (j, to_node) in self.iter().enumerate() {
                 if i != j {
                     let ip = match &to_node.spawn_output {
                         SpawnOutput::Container(container) => container.ip.clone(),
                         SpawnOutput::Child(_) => "127.0.0.1".to_string(),
                     };
 
-                    let add_node_arg = format!("{}:{}", ip, to_node.config.p2p_port);
-                    from_node.add_node(&add_node_arg).await?;
+                    let target_node_addr = format!("{}:{}", ip, to_node.config.p2p_port);
+                    from_node.onetry_node(&target_node_addr).await?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn disconnect_nodes(&self) -> Result<()> {
+        for (i, from_node) in self.iter().enumerate() {
+            for (j, to_node) in self.iter().enumerate() {
+                if i != j {
+                    let ip = match &to_node.spawn_output {
+                        SpawnOutput::Container(container) => container.ip.clone(),
+                        SpawnOutput::Child(_) => "127.0.0.1".to_string(),
+                    };
+
+                    let target_node_addr = format!("{}:{}", ip, to_node.config.p2p_port);
+                    // from_node.remove_node(&target_node_addr).await?;
+                    from_node.disconnect_node(&target_node_addr).await?;
                 }
             }
         }
