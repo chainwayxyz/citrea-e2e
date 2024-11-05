@@ -29,12 +29,8 @@ impl Client {
         Ok(Self { client })
     }
 
-    pub async fn request<R, Params>(&self, method: &str, params: Params) -> Result<R, Error>
-    where
-        R: DeserializeOwned,
-        Params: ToRpcParams + Send,
-    {
-        self.client.request(method, params).await
+    pub fn http_client(&self) -> &HttpClient {
+        &self.client
     }
 }
 
