@@ -26,6 +26,10 @@ impl Client {
             .build(host)?;
         Ok(Self { client })
     }
+
+    pub fn http_client(&self) -> &HttpClient {
+        &self.client
+    }
 }
 
 impl Client {
