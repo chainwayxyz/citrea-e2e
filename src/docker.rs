@@ -161,6 +161,7 @@ impl DockerEnv {
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
+            env: Some(vec!["PARALLEL_PROOF_LIMIT=1".to_string()]), // Todo proper env handling
             host_config: Some(HostConfig {
                 port_bindings: Some(port_bindings),
                 mounts: Some(mounts),
