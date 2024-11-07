@@ -47,7 +47,7 @@ impl Client {
     pub async fn ledger_get_last_scanned_l1_height(&self) -> Result<u64> {
         Ok(self
             .client
-            .request("ledger_getLastScannedL1Hieght", rpc_params![])
+            .request("ledger_getLastScannedL1Height", rpc_params![])
             .await?)
     }
 
