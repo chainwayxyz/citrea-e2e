@@ -154,7 +154,7 @@ impl Default for FullNodeConfig<BitcoinServiceConfig> {
                     .into_path()
                     .display()
                     .to_string(),
-                monitoring: MonitoringConfig::default(),
+                monitoring: Some(MonitoringConfig::default()),
             },
             public_keys: RollupPublicKeys {
                 sequencer_public_key: vec![
@@ -188,7 +188,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
             network: v.network,
             da_private_key: None,
             tx_backup_dir: String::new(),
-            monitoring: Default::default(),
+            monitoring: Some(Default::default()),
         }
     }
 }

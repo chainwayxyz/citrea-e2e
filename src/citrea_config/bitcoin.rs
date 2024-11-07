@@ -5,6 +5,7 @@ impl Default for MonitoringConfig {
         Self {
             check_interval: 1,
             history_limit: 100,
+            max_history_size: 1_000_000, // Default to 1mb for test
         }
     }
 }
@@ -13,6 +14,7 @@ impl Default for MonitoringConfig {
 pub struct MonitoringConfig {
     pub check_interval: u64,
     pub history_limit: usize,
+    pub max_history_size: usize,
 }
 
 /// Runtime configuration for the DA service
@@ -32,5 +34,5 @@ pub struct BitcoinServiceConfig {
     // absolute path to the directory where the txs will be written to
     pub tx_backup_dir: String,
 
-    pub monitoring: MonitoringConfig,
+    pub monitoring: Option<MonitoringConfig>,
 }
