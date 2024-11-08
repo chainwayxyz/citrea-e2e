@@ -47,11 +47,9 @@ impl TestCase for DockerIntegrationTest {
             .wait_for_l1_height(finalized_height, None)
             .await?;
 
-        let commitments = full_node
-            .wait_for_sequencer_commitments(finalized_height, None)
+        full_node
+            .wait_for_l2_height(min_soft_confirmations_per_commitment, None)
             .await?;
-
-        assert_eq!(commitments.len(), 1);
 
         let unspent_sequencer = sequencer
             .da

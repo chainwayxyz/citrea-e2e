@@ -200,7 +200,7 @@ where
         while start.elapsed() < timeout {
             if self
                 .client
-                .ledger_get_head_soft_confirmation()
+                .ledger_get_head_soft_confirmation_height()
                 .await
                 .is_ok()
             {
