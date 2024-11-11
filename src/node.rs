@@ -3,7 +3,10 @@ use std::{
     fs::File,
     path::PathBuf,
     process::Stdio,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU8, Ordering},
+        Arc,
+    },
     time::{Duration, SystemTime},
 };
 
@@ -23,7 +26,7 @@ use crate::{
     docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
-    utils::{get_citrea_path, get_genesis_path},
+    utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
 };
 
@@ -64,6 +67,7 @@ pub trait Config: Clone {
     type NodeConfig: Serialize;
 
     fn dir(&self) -> &PathBuf;
+    fn set_dir(&mut self, new_dir: PathBuf);
     fn rpc_bind_host(&self) -> &str;
     fn rpc_bind_port(&self) -> u16;
     fn env(&self) -> Vec<(&'static str, &'static str)>;
@@ -248,9 +252,25 @@ where
 
     async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()> {
         let config = self.config_mut();
+
         if let Some(new_config) = new_config {
             *config = new_config;
         }
+
+        // Update and copy to new dir in order not to overwrite the previous datadir when re-spawning
+        // Keep track of multiple restarts by creating {node_kind}-{INDEX} directories per restart
+        static INDEX: AtomicU8 = AtomicU8::new(0);
+        INDEX.fetch_add(1, Ordering::SeqCst);
+
+        let old_dir = config.dir();
+        let new_dir = old_dir.parent().unwrap().join(format!(
+            "{}-{}",
+            Self::Config::node_kind(),
+            INDEX.load(Ordering::SeqCst)
+        ));
+        copy_directory(old_dir, &new_dir)?;
+        config.set_dir(new_dir);
+
         *self.spawn_output() = Self::spawn(config)?;
         self.wait_for_ready(None).await
     }
