@@ -129,6 +129,10 @@ where
         &self.dir
     }
 
+    fn set_dir(&mut self, new_dir: PathBuf) {
+        self.dir = new_dir
+    }
+
     fn rpc_bind_host(&self) -> &str {
         &self.rollup.rpc.bind_host
     }
