@@ -453,7 +453,7 @@ impl BitcoinNodeCluster {
 
 async fn wait_for_rpc_ready(client: &Client, timeout: Option<Duration>) -> Result<()> {
     let start = Instant::now();
-    let timeout = timeout.unwrap_or(Duration::from_secs(300));
+    let timeout = timeout.unwrap_or(Duration::from_secs(15));
     while start.elapsed() < timeout {
         match client.get_blockchain_info().await {
             Ok(_) => return Ok(()),
