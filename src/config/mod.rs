@@ -24,7 +24,7 @@ pub use crate::citrea_config::{
     bitcoin::BitcoinServiceConfig,
     light_client_prover::LightClientProverConfig,
     rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
-    sequencer::SequencerConfig,
+    sequencer::{SequencerConfig, SequencerMempoolConfig},
 };
 use crate::{
     log_provider::LogPathProvider,
