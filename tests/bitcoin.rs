@@ -44,7 +44,7 @@ impl TestCase for BasicSyncTest {
         f.bitcoin_nodes.disconnect_nodes().await?;
 
         // Generate some blocks on node0
-        da0.generate(5, None).await?;
+        da0.generate(5).await?;
 
         let height0 = da0.get_block_count().await?;
         let height1 = da1.get_block_count().await?;
