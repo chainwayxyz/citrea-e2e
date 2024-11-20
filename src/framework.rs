@@ -261,7 +261,7 @@ impl TestFramework {
         da.fund_wallet(NodeKind::Bitcoin.to_string(), blocks_to_fund)
             .await?;
 
-        da.generate(blocks_to_mature, None).await?;
+        da.generate(blocks_to_mature).await?;
         self.initial_da_height = da.get_block_count().await?;
         Ok(())
     }

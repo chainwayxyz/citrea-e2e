@@ -158,6 +158,13 @@ impl BitcoinNode {
             .context("Failed to spawn bitcoind process")
             .map(SpawnOutput::Child)
     }
+
+    pub async fn generate(
+        &self,
+        block_num: u64,
+    ) -> bitcoincore_rpc::Result<Vec<bitcoin::BlockHash>> {
+        RpcApi::generate(self, block_num, None).await
+    }
 }
 
 #[async_trait]

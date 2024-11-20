@@ -40,7 +40,7 @@ impl TestCase for DockerIntegrationTest {
         // Wait for blob inscribe tx to be in mempool
         da.wait_mempool_len(1, None).await?;
 
-        da.generate(FINALITY_DEPTH, None).await?;
+        da.generate(FINALITY_DEPTH).await?;
         let finalized_height = da.get_finalized_height().await?;
 
         batch_prover
