@@ -28,11 +28,13 @@ pub struct FeeServiceConfig {
     fee_multipler_scalar: f64,
 }
 
+// Default FeeServiceConfig for e2e test.
+// Bandwidth duration and size are reduced to 4096/30s for ease of testing
 impl Default for FeeServiceConfig {
     fn default() -> Self {
         Self {
-            max_da_bandwidth_bytes: 4 * 1024 * 1024, // 4MB
-            window_duration_secs: 600,               // 10min
+            max_da_bandwidth_bytes: 4 * 1024, // 4096 bytes
+            window_duration_secs: 30,         // 30secs
             capacity_threshold: 0.5,
             base_fee_multiplier: 1.0,
             max_fee_multiplier: 4.0,
