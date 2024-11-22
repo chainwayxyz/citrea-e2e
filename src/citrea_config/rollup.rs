@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
-use super::bitcoin::MonitoringConfig;
+use super::bitcoin::{FeeServiceConfig, MonitoringConfig};
 use crate::config::{BitcoinConfig, BitcoinServiceConfig};
 
 /// Runner configuration.
@@ -155,6 +155,7 @@ impl Default for FullNodeConfig<BitcoinServiceConfig> {
                     .display()
                     .to_string(),
                 monitoring: Some(MonitoringConfig::default()),
+                fee: Some(FeeServiceConfig::default()),
             },
             public_keys: RollupPublicKeys {
                 sequencer_public_key: vec![
@@ -189,6 +190,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
             da_private_key: None,
             tx_backup_dir: String::new(),
             monitoring: Some(Default::default()),
+            fee: Some(Default::default()),
         }
     }
 }

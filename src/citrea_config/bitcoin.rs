@@ -17,6 +17,31 @@ pub struct MonitoringConfig {
     pub max_history_size: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct FeeServiceConfig {
+    max_da_bandwidth_bytes: u64,
+    window_duration_secs: u64,
+    capacity_threshold: f64,
+    base_fee_multiplier: f64,
+    max_fee_multiplier: f64,
+    fee_exponential_factor: f64,
+    fee_multipler_scalar: f64,
+}
+
+impl Default for FeeServiceConfig {
+    fn default() -> Self {
+        Self {
+            max_da_bandwidth_bytes: 4 * 1024 * 1024, // 4MB
+            window_duration_secs: 600,               // 10min
+            capacity_threshold: 0.5,
+            base_fee_multiplier: 1.0,
+            max_fee_multiplier: 4.0,
+            fee_exponential_factor: 4.0,
+            fee_multipler_scalar: 10.0,
+        }
+    }
+}
+
 /// Runtime configuration for the DA service
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct BitcoinServiceConfig {
@@ -35,4 +60,5 @@ pub struct BitcoinServiceConfig {
     pub tx_backup_dir: String,
 
     pub monitoring: Option<MonitoringConfig>,
+    pub fee: Option<FeeServiceConfig>,
 }
