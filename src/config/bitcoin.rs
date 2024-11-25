@@ -55,6 +55,7 @@ impl BitcoinConfig {
             "-addresstype=bech32m".to_string(),
             "-debug=net".to_string(),
             "-debug=rpc".to_string(),
+            "-debug=mempool".to_string(),
         ]
     }
 
