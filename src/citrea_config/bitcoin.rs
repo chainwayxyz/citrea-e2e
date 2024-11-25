@@ -5,7 +5,9 @@ impl Default for MonitoringConfig {
         Self {
             check_interval: 1,
             history_limit: 100,
-            max_history_size: 1_000_000, // Default to 1mb for test
+            max_history_size: 1_000_000,      // Default to 1mb for test
+            max_da_bandwidth_bytes: 4 * 1024, // 4096 bytes
+            window_duration_secs: 30,         // 30secs
         }
     }
 }
@@ -15,12 +17,12 @@ pub struct MonitoringConfig {
     pub check_interval: u64,
     pub history_limit: usize,
     pub max_history_size: usize,
+    pub max_da_bandwidth_bytes: u64,
+    pub window_duration_secs: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct FeeServiceConfig {
-    max_da_bandwidth_bytes: u64,
-    window_duration_secs: u64,
     capacity_threshold: f64,
     base_fee_multiplier: f64,
     max_fee_multiplier: f64,
@@ -28,13 +30,9 @@ pub struct FeeServiceConfig {
     fee_multipler_scalar: f64,
 }
 
-// Default FeeServiceConfig for e2e test.
-// Bandwidth duration and size are reduced to 4096/30s for ease of testing
 impl Default for FeeServiceConfig {
     fn default() -> Self {
         Self {
-            max_da_bandwidth_bytes: 4 * 1024, // 4096 bytes
-            window_duration_secs: 30,         // 30secs
             capacity_threshold: 0.5,
             base_fee_multiplier: 1.0,
             max_fee_multiplier: 4.0,
