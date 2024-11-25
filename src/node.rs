@@ -284,6 +284,7 @@ where
     let rollup_config_args = config.get_rollup_config_args();
 
     [
+        vec!["--dev".to_string()],
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,
