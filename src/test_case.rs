@@ -80,6 +80,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     /// This sets up the framework, executes the test, and ensures cleanup is performed even if a panic occurs.
     pub async fn run(mut self) -> Result<()> {
         let mut framework = None;
+        let mut shutdown_requested = false;
 
         let result = panic::AssertUnwindSafe(async {
             tokio::select! {
@@ -89,6 +90,7 @@ impl<T: TestCase> TestCaseRunner<T> {
                     self.run_test_case(f).await
                  } => res,
                 _ = signal::ctrl_c() => {
+                    shutdown_requested = true;
                     println!("Initiating shutdown...");
                     bail!("Shutdown received before completion")
                 }
@@ -101,7 +103,7 @@ impl<T: TestCase> TestCaseRunner<T> {
             .as_mut()
             .with_context(|| format!("Framework not correctly initialized, result {result:?}"))?;
 
-        if std::env::var("DISABLE_DUMP_LOGS").is_err() {
+        if std::env::var("DISABLE_DUMP_LOGS").is_err() && !shutdown_requested {
             if let Err(_) | Ok(Err(_)) = result {
                 if let Err(e) = f.dump_logs() {
                     eprintln!("Error dumping log: {e}");
