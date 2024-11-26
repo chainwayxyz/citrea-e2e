@@ -8,7 +8,7 @@ resolver = "2"
 anyhow = { version = "1.0.68", default-features = false, features = ["std"] }
 async-trait = "0.1.71"
 bitcoin = { version = "0.32.2", features = ["serde", "rand"] }
-bitcoincore-rpc = { version = "0.18.0" }
+bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "c863fd0" }
 bollard = { version = "0.17.1" }
 futures = "0.3"
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
@@ -21,6 +21,3 @@ tokio = { version = "1.39", features = ["full"] }
 toml = "0.8.0"
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json", "fmt"] }
-
-[patch.crates-io]
-bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "5ce1bed" }
