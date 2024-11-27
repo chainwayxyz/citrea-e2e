@@ -17,6 +17,7 @@ pub struct SequencerConfig {
     pub da_update_interval_ms: u64,
     /// Block production interval in ms
     pub block_production_interval_ms: u64,
+    pub fee_throttle: FeeThrottleConfig,
 }
 
 impl Default for SequencerConfig {
@@ -30,6 +31,7 @@ impl Default for SequencerConfig {
             block_production_interval_ms: 100,
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
+            fee_throttle: FeeThrottleConfig::default(),
         }
     }
 }
@@ -68,6 +70,27 @@ impl Default for SequencerMempoolConfig {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct FeeThrottleConfig {
+    capacity_threshold: f64,
+    base_fee_multiplier: f64,
+    max_fee_multiplier: f64,
+    fee_exponential_factor: f64,
+    fee_multiplier_scalar: f64,
+}
+
+impl Default for FeeThrottleConfig {
+    fn default() -> Self {
+        Self {
+            capacity_threshold: 0.5,
+            base_fee_multiplier: 1.0,
+            max_fee_multiplier: 4.0,
+            fee_exponential_factor: 4.0,
+            fee_multiplier_scalar: 10.0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::io::Write;
@@ -100,6 +123,12 @@ mod tests {
             base_fee_tx_limit = 100000
             base_fee_tx_size = 200
             max_account_slots = 16
+            [fee_throttle]
+            capacity_threshold = 0.5
+            base_fee_multiplier = 1.0
+            max_fee_multiplier = 4.0
+            fee_exponential_factor = 4.0
+            fee_multiplier_scalar = 10.0
         "#;
 
         let config_file = create_config_from(config);
@@ -123,6 +152,13 @@ mod tests {
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
+            fee_throttle: FeeThrottleConfig {
+                capacity_threshold: 0.5,
+                base_fee_multiplier: 1.0,
+                max_fee_multiplier: 4.0,
+                fee_exponential_factor: 4.0,
+                fee_multiplier_scalar: 10.0,
+            },
         };
         assert_eq!(config, expected);
     }

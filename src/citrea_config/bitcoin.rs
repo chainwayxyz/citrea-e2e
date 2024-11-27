@@ -60,5 +60,4 @@ pub struct BitcoinServiceConfig {
     pub tx_backup_dir: String,
 
     pub monitoring: Option<MonitoringConfig>,
-    pub fee: Option<FeeServiceConfig>,
 }
