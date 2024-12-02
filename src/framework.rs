@@ -434,33 +434,34 @@ fn generate_test_config<T: TestCase>(
         }
     };
 
+    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
         sequencer: FullSequencerConfig::new(
             sequencer,
             sequencer_rollup,
-            None,
+            citrea_docker_image.clone(),
             sequencer_dir,
             env.sequencer(),
         )?,
         batch_prover: FullBatchProverConfig::new(
             batch_prover,
             batch_prover_rollup,
-            None,
+            citrea_docker_image.clone(),
             batch_prover_dir,
             env.batch_prover(),
         )?,
         light_client_prover: FullLightClientProverConfig::new(
             light_client_prover,
             light_client_prover_rollup,
-            None,
+            citrea_docker_image.clone(),
             light_client_prover_dir,
             env.light_client_prover(),
         )?,
         full_node: FullFullNodeConfig::new(
             (),
             full_node_rollup,
-            None,
+            citrea_docker_image,
             full_node_dir,
             env.full_node(),
         )?,
