@@ -121,6 +121,8 @@ pub struct FullNodeConfig<BitcoinServiceConfig> {
     pub da: BitcoinServiceConfig,
     /// Important pubkeys
     pub public_keys: RollupPublicKeys,
+    /// Telemetry config
+    pub telemetry: TelemetryConfig,
 }
 
 impl Default for FullNodeConfig<BitcoinServiceConfig> {
@@ -174,6 +176,25 @@ impl Default for FullNodeConfig<BitcoinServiceConfig> {
                     84, 172, 112, 13, 54, 9, 206, 106, 138, 251, 218, 15, 28, 137, 112, 127,
                 ],
             },
+            telemetry: Default::default(),
+        }
+    }
+}
+
+/// Telemetry configuration.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct TelemetryConfig {
+    /// Server host.
+    pub bind_host: String,
+    /// Server port.
+    pub bind_port: u16,
+}
+
+impl Default for TelemetryConfig {
+    fn default() -> Self {
+        Self {
+            bind_host: "0.0.0.0".to_owned(),
+            bind_port: 8081,
         }
     }
 }
