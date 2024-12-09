@@ -194,7 +194,7 @@ impl Default for TelemetryConfig {
     fn default() -> Self {
         Self {
             bind_host: "0.0.0.0".to_owned(),
-            bind_port: 8081,
+            bind_port: 0,
         }
     }
 }
