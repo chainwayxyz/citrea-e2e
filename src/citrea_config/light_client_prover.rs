@@ -63,6 +63,7 @@ mod tests {
             proving_mode = "skip"
             proof_sampling_number = 500
             enable_recovery = true
+            initial_da_height = 15
         "#;
 
         let config_file = create_config_from(config);
@@ -72,6 +73,7 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,
+            initial_da_height: 15,
         };
         assert_eq!(config, expected);
     }
