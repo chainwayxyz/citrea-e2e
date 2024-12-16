@@ -209,3 +209,7 @@ where
         self.dir().join("stderr.log")
     }
 }
+
+pub trait Validate {
+    fn validate(&self) -> Result<()>;
+}

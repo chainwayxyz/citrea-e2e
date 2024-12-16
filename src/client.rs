@@ -36,7 +36,7 @@ impl Client {
             .request("citrea_testPublishBlock", rpc_params![])
             .await
             .map_err(Into::into);
-        sleep(Duration::from_millis(100)).await;
+        // sleep(Duration::from_millis(100)).await;
         r
     }
 

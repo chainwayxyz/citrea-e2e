@@ -27,6 +27,7 @@ use crate::{
     batch_prover::BatchProver,
     config::{
         BitcoinServiceConfig, FullLightClientProverConfig, RpcConfig, RunnerConfig, StorageConfig,
+        Validate,
     },
     light_client_prover::LightClientProver,
     log_provider::{LogPathProvider, LogPathProviderErased},
@@ -276,6 +277,8 @@ fn generate_test_config<T: TestCase>(
     let batch_prover = T::batch_prover_config();
     let light_client_prover = T::light_client_prover_config();
     let sequencer = T::sequencer_config();
+    sequencer.validate()?;
+
     let sequencer_rollup = RollupConfig::default();
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();

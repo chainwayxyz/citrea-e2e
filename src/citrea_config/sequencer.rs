@@ -1,4 +1,7 @@
+use anyhow::ensure;
 use serde::{Deserialize, Serialize};
+
+use crate::{bitcoin::FINALITY_DEPTH, config::Validate};
 
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -24,13 +27,24 @@ impl Default for SequencerConfig {
         SequencerConfig {
             private_key: "1212121212121212121212121212121212121212121212121212121212121212"
                 .to_string(),
-            min_soft_confirmations_per_commitment: 4,
+            min_soft_confirmations_per_commitment: FINALITY_DEPTH * 2,
             test_mode: true,
             deposit_mempool_fetch_limit: 10,
             block_production_interval_ms: 100,
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
         }
+    }
+}
+
+impl Validate for SequencerConfig {
+    fn validate(&self) -> anyhow::Result<()> {
+        ensure!(
+            self.min_soft_confirmations_per_commitment >= FINALITY_DEPTH * 2,
+            "min_soft_confirmations_per_commitment should be set higher than FINALITY_DEPTH * 2"
+        );
+
+        Ok(())
     }
 }
 
