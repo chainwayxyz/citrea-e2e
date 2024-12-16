@@ -11,6 +11,8 @@ pub struct LightClientProverConfig {
     pub proof_sampling_number: usize,
     /// If true prover will try to recover ongoing proving sessions
     pub enable_recovery: bool,
+    /// The starting DA block to sync from
+    pub initial_da_height: u64,
 }
 
 impl Default for LightClientProverConfig {
@@ -19,6 +21,7 @@ impl Default for LightClientProverConfig {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
             enable_recovery: true,
+            initial_da_height: 1,
         }
     }
 }
@@ -60,6 +63,7 @@ mod tests {
             proving_mode = "skip"
             proof_sampling_number = 500
             enable_recovery = true
+            initial_da_height = 15
         "#;
 
         let config_file = create_config_from(config);
@@ -69,6 +73,7 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,
+            initial_da_height: 15,
         };
         assert_eq!(config, expected);
     }
