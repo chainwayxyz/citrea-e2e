@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{log_provider::LogPathProvider, node::NodeKind};
 
-pub const FINALITY_DEPTH: u64 = 8;
+pub const FINALITY_DEPTH: u64 = 30;
 
 pub struct BitcoinNode {
     spawn_output: SpawnOutput,
