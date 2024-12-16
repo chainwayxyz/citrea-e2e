@@ -31,10 +31,13 @@ impl Client {
 impl Client {
     // TODO Use SequencerRpcClient trait
     pub async fn send_publish_batch_request(&self) -> Result<()> {
-        self.client
+        let r = self
+            .client
             .request("citrea_testPublishBlock", rpc_params![])
             .await
-            .map_err(Into::into)
+            .map_err(Into::into);
+        // sleep(Duration::from_millis(100)).await;
+        r
     }
 
     pub async fn ledger_get_last_scanned_l1_height(&self) -> Result<u64> {
