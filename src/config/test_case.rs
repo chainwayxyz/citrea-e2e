@@ -98,8 +98,8 @@ pub struct TestCaseDockerConfig {
 impl Default for TestCaseDockerConfig {
     fn default() -> Self {
         TestCaseDockerConfig {
-            bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER"),
-            citrea: parse_bool_env("TEST_CITREA_DOCKER"),
+            bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER").unwrap_or(true),
+            citrea: parse_bool_env("TEST_CITREA_DOCKER").unwrap_or(false),
         }
     }
 }
@@ -110,8 +110,8 @@ impl TestCaseDockerConfig {
     }
 }
 
-pub fn parse_bool_env(key: &str) -> bool {
+pub fn parse_bool_env(key: &str) -> Option<bool> {
     env::var(key)
+        .ok()
         .map(|v| &v == "1" || &v.to_lowercase() == "true")
-        .unwrap_or(false)
 }
