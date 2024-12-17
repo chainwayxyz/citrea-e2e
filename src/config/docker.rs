@@ -3,10 +3,9 @@ use std::{fmt::Debug, path::PathBuf};
 use serde::Serialize;
 use tracing::debug;
 
-use super::{BitcoinConfig, FullL2NodeConfig, NodeKindMarker};
+use super::{BitcoinConfig, FullL2NodeConfig};
 use crate::{
-    log_provider::LogPathProvider,
-    node::{get_citrea_args, Config, NodeKind},
+    node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
 };
 
@@ -62,11 +61,10 @@ impl From<&BitcoinConfig> for DockerConfig {
 
 impl<T> From<FullL2NodeConfig<T>> for DockerConfig
 where
-    T: Clone + Serialize + Debug,
-    FullL2NodeConfig<T>: NodeKindMarker,
+    T: Clone + Debug + Serialize + Send + Sync,
 {
     fn from(config: FullL2NodeConfig<T>) -> Self {
-        let kind = FullL2NodeConfig::<T>::kind();
+        let kind = config.kind();
 
         debug!("Converting config {config:?} for {kind} to docker config");
 
@@ -75,18 +73,19 @@ where
         Self {
             ports: vec![config.rollup.rpc.bind_port],
             image: config
+                .base
                 .docker_image
                 .clone()
                 .unwrap_or(DEFAULT_CITREA_DOCKER_IMAGE.to_string()),
             cmd: args,
-            log_path: config.dir.join("stdout.log"),
+            log_path: config.dir().join("stdout.log"),
             volume: VolumeConfig {
                 name: format!("{kind}"),
                 target: format!("/{kind}/data"),
             },
             host_dir: Some(vec![
                 config.dir().to_owned().display().to_string(),
-                get_genesis_path(&config),
+                get_genesis_path(config.dir()),
             ]),
             kind,
         }

@@ -9,29 +9,22 @@ use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use super::{
+use crate::{
     bitcoin::BitcoinNodeCluster,
     config::{
-        BitcoinConfig, FullBatchProverConfig, FullFullNodeConfig, FullSequencerConfig,
-        RollupConfig, TestCaseConfig, TestConfig,
+        BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
+        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, RollupConfig,
+        RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
     },
     docker::DockerEnv,
-    full_node::FullNode,
-    node::NodeKind,
-    sequencer::Sequencer,
-    traits::NodeT,
-    utils::{copy_directory, get_available_port},
-    Result,
-};
-use crate::{
-    batch_prover::BatchProver,
-    config::{
-        BitcoinServiceConfig, FullLightClientProverConfig, RpcConfig, RunnerConfig, StorageConfig,
-    },
-    light_client_prover::LightClientProver,
     log_provider::{LogPathProvider, LogPathProviderErased},
+    node::{BatchProver, FullNode, LightClientProver, NodeKind, Sequencer},
     test_case::TestCase,
-    utils::{get_default_genesis_path, get_workspace_root, tail_file},
+    traits::NodeT,
+    utils::{
+        copy_directory, get_available_port, get_default_genesis_path, get_workspace_root, tail_file,
+    },
+    Result,
 };
 
 pub struct TestContext {
@@ -438,6 +431,7 @@ fn generate_test_config<T: TestCase>(
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
         sequencer: FullSequencerConfig::new(
+            NodeKind::Sequencer,
             sequencer,
             sequencer_rollup,
             citrea_docker_image.clone(),
@@ -445,6 +439,7 @@ fn generate_test_config<T: TestCase>(
             env.sequencer(),
         )?,
         batch_prover: FullBatchProverConfig::new(
+            NodeKind::BatchProver,
             batch_prover,
             batch_prover_rollup,
             citrea_docker_image.clone(),
@@ -452,6 +447,7 @@ fn generate_test_config<T: TestCase>(
             env.batch_prover(),
         )?,
         light_client_prover: FullLightClientProverConfig::new(
+            NodeKind::LightClientProver,
             light_client_prover,
             light_client_prover_rollup,
             citrea_docker_image.clone(),
@@ -459,7 +455,8 @@ fn generate_test_config<T: TestCase>(
             env.light_client_prover(),
         )?,
         full_node: FullFullNodeConfig::new(
-            (),
+            NodeKind::FullNode,
+            EmptyConfig,
             full_node_rollup,
             citrea_docker_image,
             full_node_dir,
