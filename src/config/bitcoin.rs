@@ -1,9 +1,25 @@
 use std::path::PathBuf;
 
 use bitcoin::Network;
+use citrea_config::BitcoinServiceConfig;
 use tempfile::TempDir;
 
 use crate::{log_provider::LogPathProvider, node::NodeKind};
+
+impl From<BitcoinConfig> for BitcoinServiceConfig {
+    fn from(v: BitcoinConfig) -> Self {
+        let ip = v.docker_host.unwrap_or(String::from("127.0.0.1"));
+        Self {
+            node_url: format!("{}:{}", ip, v.rpc_port),
+            node_username: v.rpc_user,
+            node_password: v.rpc_password,
+            network: v.network,
+            da_private_key: None,
+            tx_backup_dir: String::new(),
+            monitoring: Some(Default::default()),
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BitcoinConfig {

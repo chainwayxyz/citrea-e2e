@@ -19,18 +19,12 @@ pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use utils::config_to_file;
 
-pub use crate::citrea_config::{
-    batch_prover::{BatchProverConfig, ProverGuestRunConfig},
-    bitcoin::BitcoinServiceConfig,
-    light_client_prover::LightClientProverConfig,
-    rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
-    sequencer::{SequencerConfig, SequencerMempoolConfig},
-};
 use crate::{
     log_provider::LogPathProvider,
     node::{Config, NodeKind},
     Result,
 };
+pub use citrea_config::*;
 
 #[derive(Clone, Debug, Default)]
 pub enum DaLayer {
