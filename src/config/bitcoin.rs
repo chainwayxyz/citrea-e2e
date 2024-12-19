@@ -68,7 +68,7 @@ impl BitcoinConfig {
 }
 
 impl LogPathProvider for BitcoinConfig {
-    fn kind() -> NodeKind {
+    fn kind(&self) -> NodeKind {
         NodeKind::Bitcoin
     }
 
