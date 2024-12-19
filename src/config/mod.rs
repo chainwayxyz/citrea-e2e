@@ -1,6 +1,5 @@
 mod bitcoin;
 mod docker;
-mod rollup;
 mod test;
 mod test_case;
 mod utils;
@@ -10,10 +9,8 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::Context;
 pub use bitcoin::BitcoinConfig;
 pub use docker::DockerConfig;
-pub use rollup::RollupConfig;
 use serde::Serialize;
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
@@ -23,14 +20,10 @@ pub use crate::citrea_config::{
     batch_prover::{BatchProverConfig, ProverGuestRunConfig},
     bitcoin::BitcoinServiceConfig,
     light_client_prover::LightClientProverConfig,
-    rollup::{FullNodeConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
+    rollup::{RollupConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
     sequencer::{SequencerConfig, SequencerMempoolConfig},
 };
-use crate::{
-    log_provider::LogPathProvider,
-    node::{Config, NodeKind},
-    Result,
-};
+use crate::{log_provider::LogPathProvider, node::NodeKind, Result};
 
 #[derive(Clone, Debug, Default)]
 pub enum DaLayer {
@@ -49,46 +42,59 @@ impl fmt::Display for DaLayer {
     }
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct FullL2NodeConfig<T> {
-    pub node: T,
-    pub rollup: RollupConfig,
-    pub docker_image: Option<String>,
+#[derive(Clone, Debug)]
+pub struct BaseNodeConfig {
     pub dir: PathBuf,
     pub env: Vec<(&'static str, &'static str)>,
-    pub da_layer: Option<DaLayer>,
+    pub da_layer: DaLayer,
+    pub docker_image: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct FullL2NodeConfig<T>
+where
+    T: Serialize,
+{
+    pub base: BaseNodeConfig,
+    pub node: T,
+    pub rollup: RollupConfig,
+    kind: NodeKind,
 }
 
 impl<T> FullL2NodeConfig<T>
 where
-    T: Clone + Serialize + Debug,
-    FullL2NodeConfig<T>: NodeKindMarker,
+    T: Clone + Serialize + Debug + Send + Sync,
 {
     pub fn new(
+        kind: NodeKind,
         node: T,
         rollup: RollupConfig,
         docker_image: Option<String>,
         dir: PathBuf,
         env: Vec<(&'static str, &'static str)>,
     ) -> Result<Self> {
-        let conf = Self {
-            node,
-            rollup,
-            docker_image,
-            dir,
+        let base = BaseNodeConfig {
+            dir: dir.clone(),
             env,
-            da_layer: None,
+            da_layer: DaLayer::Bitcoin,
+            docker_image,
         };
 
-        let kind = FullL2NodeConfig::<T>::kind();
-        let node_config_args = conf.get_node_config_args().unwrap_or_default();
-        if let (Some(config), Some(config_path)) = (conf.node_config(), node_config_args.get(1)) {
-            config_to_file(config, &config_path)
-                .with_context(|| format!("Error writing {kind} config to file"))?;
+        let conf = Self {
+            base,
+            node,
+            rollup,
+            kind,
+        };
+
+        // Write configs to files
+        if let Some(config) = conf.node_config() {
+            let config_path = dir.join(format!("{}_config.toml", conf.kind));
+            config_to_file(config, &config_path)?;
         }
 
-        let rollup_config_args = conf.get_rollup_config_args();
-        config_to_file(&conf.rollup_config(), &rollup_config_args[1])?;
+        let rollup_path = dir.join(format!("{}_rollup_config.toml", conf.kind));
+        config_to_file(&conf.rollup, &rollup_path)?;
 
         Ok(conf)
     }
@@ -97,74 +103,56 @@ where
 pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
 pub type FullBatchProverConfig = FullL2NodeConfig<BatchProverConfig>;
 pub type FullLightClientProverConfig = FullL2NodeConfig<LightClientProverConfig>;
-pub type FullFullNodeConfig = FullL2NodeConfig<()>;
 
-pub trait NodeKindMarker {
-    const KIND: NodeKind;
-}
+#[derive(Serialize, Clone, Debug)]
+pub struct EmptyConfig;
 
-impl NodeKindMarker for FullSequencerConfig {
-    const KIND: NodeKind = NodeKind::Sequencer;
-}
+pub type FullFullNodeConfig = FullL2NodeConfig<EmptyConfig>;
 
-impl NodeKindMarker for FullBatchProverConfig {
-    const KIND: NodeKind = NodeKind::BatchProver;
-}
-
-impl NodeKindMarker for FullLightClientProverConfig {
-    const KIND: NodeKind = NodeKind::LightClientProver;
-}
-
-impl NodeKindMarker for FullFullNodeConfig {
-    const KIND: NodeKind = NodeKind::FullNode;
-}
-
-impl<T: Clone + Serialize> Config for FullL2NodeConfig<T>
+impl<T> FullL2NodeConfig<T>
 where
-    FullL2NodeConfig<T>: NodeKindMarker,
+    T: Clone + Serialize + Debug + Send + Sync,
 {
-    type NodeConfig = T;
-
-    fn dir(&self) -> &PathBuf {
-        &self.dir
+    pub fn dir(&self) -> &PathBuf {
+        &self.base.dir
     }
 
-    fn set_dir(&mut self, new_dir: PathBuf) {
-        self.dir = new_dir
+    pub fn set_dir(&mut self, new_dir: PathBuf) {
+        self.base.dir = new_dir
     }
 
-    fn rpc_bind_host(&self) -> &str {
+    pub fn rpc_bind_host(&self) -> &str {
         &self.rollup.rpc.bind_host
     }
 
-    fn rpc_bind_port(&self) -> u16 {
+    pub fn rpc_bind_port(&self) -> u16 {
         self.rollup.rpc.bind_port
     }
 
-    fn env(&self) -> Vec<(&'static str, &'static str)> {
-        self.env.clone()
+    pub fn env(&self) -> Vec<(&'static str, &'static str)> {
+        self.base.env.clone()
     }
 
-    fn node_kind() -> NodeKind {
-        <Self as NodeKindMarker>::KIND
+    pub fn kind(&self) -> NodeKind {
+        self.kind
     }
 
-    fn node_config(&self) -> Option<&Self::NodeConfig> {
+    pub fn node_config(&self) -> Option<&T> {
         if std::mem::size_of::<T>() == 0 {
             None
         } else {
             Some(&self.node)
         }
     }
-    fn rollup_config(&self) -> &RollupConfig {
+    pub fn rollup_config(&self) -> &RollupConfig {
         &self.rollup
     }
 
     // Get node config path argument and path.
     // Not required for `full-node`
-    fn get_node_config_args(&self) -> Option<Vec<String>> {
+    pub fn get_node_config_args(&self) -> Option<Vec<String>> {
         let dir = self.dir();
-        let kind = Self::node_kind();
+        let kind = self.kind();
         self.node_config().map(|_| {
             let config_path = dir.join(format!("{kind}_config.toml"));
             let node_kind_str = kind.to_string();
@@ -176,29 +164,29 @@ where
     }
 
     // Get rollup config path argument and path.
-    fn get_rollup_config_args(&self) -> Vec<String> {
-        let kind = Self::node_kind();
+    pub fn get_rollup_config_args(&self) -> Vec<String> {
+        let kind = self.kind();
         vec![
             format!("--rollup-config-path"),
-            self.dir()
+            self.base
+                .dir
                 .join(format!("{kind}_rollup_config.toml"))
                 .display()
                 .to_string(),
         ]
     }
 
-    fn da_layer(&self) -> DaLayer {
-        self.da_layer.clone().unwrap_or_default()
+    pub fn da_layer(&self) -> &DaLayer {
+        &self.base.da_layer
     }
 }
 
 impl<T> LogPathProvider for FullL2NodeConfig<T>
 where
-    T: Clone,
-    FullL2NodeConfig<T>: Config,
+    T: Clone + Serialize + Debug + Send + Sync,
 {
-    fn kind() -> NodeKind {
-        Self::node_kind()
+    fn kind(&self) -> NodeKind {
+        self.kind()
     }
 
     fn log_path(&self) -> PathBuf {
