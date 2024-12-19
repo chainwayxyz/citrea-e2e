@@ -10,6 +10,7 @@ use citrea_e2e::{
     Result,
 };
 
+#[allow(clippy::duplicate_mod)]
 #[path = "common/mod.rs"]
 mod common;
 use common::*;
