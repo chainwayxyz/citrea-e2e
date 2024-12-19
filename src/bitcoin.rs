@@ -22,7 +22,7 @@ use super::{
     traits::{NodeT, Restart, SpawnOutput},
     Result,
 };
-use crate::{log_provider::LogPathProvider, node::NodeKind};
+use crate::{config::ConfigBounds, log_provider::LogPathProvider, node::NodeKind};
 
 pub const FINALITY_DEPTH: u64 = 30;
 
@@ -293,7 +293,12 @@ pub struct BitcoinNodeCluster {
 }
 
 impl BitcoinNodeCluster {
-    pub async fn new(ctx: &TestContext) -> Result<Self> {
+    pub async fn new<S, BP, LP>(ctx: &TestContext<S, BP, LP>) -> Result<Self>
+    where
+        S: ConfigBounds,
+        BP: ConfigBounds,
+        LP: ConfigBounds,
+    {
         let n_nodes = ctx.config.test_case.n_nodes;
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),

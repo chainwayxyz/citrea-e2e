@@ -1,9 +1,8 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use serde::Serialize;
 use tracing::debug;
 
-use super::{BitcoinConfig, FullL2NodeConfig};
+use super::{BitcoinConfig, ConfigBounds, FullL2NodeConfig};
 use crate::{
     node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
@@ -61,7 +60,7 @@ impl From<&BitcoinConfig> for DockerConfig {
 
 impl<T> From<FullL2NodeConfig<T>> for DockerConfig
 where
-    T: Clone + Debug + Serialize + Send + Sync,
+    T: ConfigBounds,
 {
     fn from(config: FullL2NodeConfig<T>) -> Self {
         let kind = config.kind();

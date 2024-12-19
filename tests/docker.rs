@@ -2,16 +2,24 @@ use async_trait::async_trait;
 use bitcoincore_rpc::RpcApi;
 use citrea_e2e::{
     bitcoin::FINALITY_DEPTH,
-    config::{TestCaseConfig, TestCaseDockerConfig},
-    framework::TestFramework,
+    config::{
+        BatchProverConfig, LightClientProverConfig, SequencerConfig, TestCaseConfig,
+        TestCaseDockerConfig,
+    },
     test_case::{TestCase, TestCaseRunner},
     Result,
 };
 
+#[path = "common/mod.rs"]
+mod common;
+use common::*;
+
 struct DockerIntegrationTest;
 
 #[async_trait]
-impl TestCase for DockerIntegrationTest {
+impl TestCase<SequencerConfig, BatchProverConfig, LightClientProverConfig>
+    for DockerIntegrationTest
+{
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_batch_prover: true,

@@ -12,13 +12,13 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 use crate::{
     bitcoin::BitcoinNodeCluster,
     config::{
-        BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
-        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, RollupConfig,
-        RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
+        BitcoinConfig, BitcoinServiceConfig, ConfigBounds, EmptyConfig, FullFullNodeConfig,
+        FullL2NodeConfig, RollupConfig, RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig,
+        TestConfig,
     },
     docker::DockerEnv,
     log_provider::{LogPathProvider, LogPathProviderErased},
-    node::{BatchProver, FullNode, LightClientProver, NodeKind, Sequencer},
+    node::{FullNode, Node, NodeKind},
     test_case::TestCase,
     traits::NodeT,
     utils::{
@@ -27,13 +27,23 @@ use crate::{
     Result,
 };
 
-pub struct TestContext {
-    pub config: TestConfig,
+pub struct TestContext<S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
+    pub config: TestConfig<S, BP, LP>,
     pub docker: Arc<Option<DockerEnv>>,
 }
 
-impl TestContext {
-    fn new(config: TestConfig, docker: Option<DockerEnv>) -> Self {
+impl<S, BP, LP> TestContext<S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
+    fn new(config: TestConfig<S, BP, LP>, docker: Option<DockerEnv>) -> Self {
         Self {
             config,
             docker: Arc::new(docker),
@@ -41,12 +51,17 @@ impl TestContext {
     }
 }
 
-pub struct TestFramework {
-    ctx: TestContext,
+pub struct TestFramework<S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
+    ctx: TestContext<S, BP, LP>,
     pub bitcoin_nodes: BitcoinNodeCluster,
-    pub sequencer: Option<Sequencer>,
-    pub batch_prover: Option<BatchProver>,
-    pub light_client_prover: Option<LightClientProver>,
+    pub sequencer: Option<Node<S>>,
+    pub batch_prover: Option<Node<BP>>,
+    pub light_client_prover: Option<Node<LP>>,
     pub full_node: Option<FullNode>,
     pub initial_da_height: u64,
 }
@@ -59,8 +74,13 @@ async fn create_optional<T>(pred: bool, f: impl Future<Output = Result<T>>) -> R
     }
 }
 
-impl TestFramework {
-    pub async fn new<T: TestCase>() -> Result<Self> {
+impl<S, BP, LP> TestFramework<S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
+    pub async fn new<T: TestCase<S, BP, LP>>() -> Result<Self> {
         setup_logging();
 
         let test_case = T::test_config();
@@ -69,7 +89,7 @@ impl TestFramework {
         } else {
             None
         };
-        let config = generate_test_config::<T>(test_case, &docker)?;
+        let config = generate_test_config::<T, S, BP, LP>(test_case, &docker)?;
 
         anyhow::ensure!(
             config.test_case.n_nodes > 0,
@@ -99,7 +119,7 @@ impl TestFramework {
         // Has to initialize sequencer first since provers and full node depend on it
         self.sequencer = create_optional(
             self.ctx.config.test_case.with_sequencer,
-            Sequencer::new(
+            Node::<S>::new(
                 &self.ctx.config.sequencer,
                 bitcoin_config,
                 Arc::clone(&self.ctx.docker),
@@ -110,7 +130,7 @@ impl TestFramework {
         (self.batch_prover, self.light_client_prover, self.full_node) = tokio::try_join!(
             create_optional(
                 self.ctx.config.test_case.with_batch_prover,
-                BatchProver::new(
+                Node::<BP>::new(
                     &self.ctx.config.batch_prover,
                     bitcoin_config,
                     Arc::clone(&self.ctx.docker)
@@ -118,7 +138,7 @@ impl TestFramework {
             ),
             create_optional(
                 self.ctx.config.test_case.with_light_client_prover,
-                LightClientProver::new(
+                Node::<LP>::new(
                     &self.ctx.config.light_client_prover,
                     bitcoin_config,
                     Arc::clone(&self.ctx.docker)
@@ -260,10 +280,15 @@ impl TestFramework {
     }
 }
 
-fn generate_test_config<T: TestCase>(
+fn generate_test_config<T: TestCase<S, BP, LP>, S, BP, LP>(
     test_case: TestCaseConfig,
     docker: &Option<DockerEnv>,
-) -> Result<TestConfig> {
+) -> Result<TestConfig<S, BP, LP>>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
     let env = T::test_env();
     let bitcoin = T::bitcoin_config();
     let batch_prover = T::batch_prover_config();
@@ -430,7 +455,7 @@ fn generate_test_config<T: TestCase>(
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
-        sequencer: FullSequencerConfig::new(
+        sequencer: FullL2NodeConfig::<S>::new(
             NodeKind::Sequencer,
             sequencer,
             sequencer_rollup,
@@ -438,7 +463,7 @@ fn generate_test_config<T: TestCase>(
             sequencer_dir,
             env.sequencer(),
         )?,
-        batch_prover: FullBatchProverConfig::new(
+        batch_prover: FullL2NodeConfig::<BP>::new(
             NodeKind::BatchProver,
             batch_prover,
             batch_prover_rollup,
@@ -446,7 +471,7 @@ fn generate_test_config<T: TestCase>(
             batch_prover_dir,
             env.batch_prover(),
         )?,
-        light_client_prover: FullLightClientProverConfig::new(
+        light_client_prover: FullL2NodeConfig::<LP>::new(
             NodeKind::LightClientProver,
             light_client_prover,
             light_client_prover_rollup,

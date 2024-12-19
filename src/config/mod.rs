@@ -25,6 +25,9 @@ pub use crate::citrea_config::{
 };
 use crate::{log_provider::LogPathProvider, node::NodeKind, Result};
 
+pub trait ConfigBounds: Clone + Serialize + Debug + Send + Sync + Default {}
+impl<T> ConfigBounds for T where T: Clone + Serialize + Debug + Send + Sync + Default {}
+
 #[derive(Clone, Debug, Default)]
 pub enum DaLayer {
     #[default]
@@ -63,7 +66,7 @@ where
 
 impl<T> FullL2NodeConfig<T>
 where
-    T: Clone + Serialize + Debug + Send + Sync,
+    T: ConfigBounds,
 {
     pub fn new(
         kind: NodeKind,
@@ -100,18 +103,14 @@ where
     }
 }
 
-pub type FullSequencerConfig = FullL2NodeConfig<SequencerConfig>;
-pub type FullBatchProverConfig = FullL2NodeConfig<BatchProverConfig>;
-pub type FullLightClientProverConfig = FullL2NodeConfig<LightClientProverConfig>;
-
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct EmptyConfig;
 
 pub type FullFullNodeConfig = FullL2NodeConfig<EmptyConfig>;
 
 impl<T> FullL2NodeConfig<T>
 where
-    T: Clone + Serialize + Debug + Send + Sync,
+    T: ConfigBounds,
 {
     pub fn dir(&self) -> &PathBuf {
         &self.base.dir
@@ -183,7 +182,7 @@ where
 
 impl<T> LogPathProvider for FullL2NodeConfig<T>
 where
-    T: Clone + Serialize + Debug + Send + Sync,
+    T: ConfigBounds,
 {
     fn kind(&self) -> NodeKind {
         self.kind()

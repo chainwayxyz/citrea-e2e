@@ -3,6 +3,7 @@
 
 use std::{
     io::Write,
+    marker::PhantomData,
     panic::{self},
     path::Path,
     time::Duration,
@@ -18,10 +19,7 @@ use super::{
     framework::TestFramework,
     Result,
 };
-use crate::{
-    config::{BatchProverConfig, LightClientProverConfig, SequencerConfig},
-    traits::NodeT,
-};
+use crate::{config::ConfigBounds, traits::NodeT};
 
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
@@ -31,16 +29,32 @@ const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
 /// runs the test case, and performs cleanup afterwards. The `run` method handles any panics that
 /// might occur during test execution and takes care of cleaning up and stopping the child processes.
-pub struct TestCaseRunner<T: TestCase>(T);
+pub struct TestCaseRunner<T: TestCase<S, BP, LP>, S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
+    test_case: T,
+    _marker: PhantomData<(S, BP, LP)>,
+}
 
-impl<T: TestCase> TestCaseRunner<T> {
+impl<T: TestCase<S, BP, LP>, S, BP, LP> TestCaseRunner<T, S, BP, LP>
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
     /// Creates a new `TestCaseRunner`` with the given test case.
     pub fn new(test_case: T) -> Self {
-        Self(test_case)
+        Self {
+            test_case,
+            _marker: PhantomData,
+        }
     }
 
     /// Internal method to fund the wallets, connect the nodes, wait for them to be ready.
-    async fn prepare(&self, f: &mut TestFramework) -> Result<()> {
+    async fn prepare(&self, f: &mut TestFramework<S, BP, LP>) -> Result<()> {
         f.fund_da_wallets().await?;
         f.init_nodes().await?;
         f.bitcoin_nodes.connect_nodes().await?;
@@ -69,10 +83,10 @@ impl<T: TestCase> TestCaseRunner<T> {
         Ok(())
     }
 
-    async fn run_test_case(&mut self, f: &mut TestFramework) -> Result<()> {
+    async fn run_test_case(&mut self, f: &mut TestFramework<S, BP, LP>) -> Result<()> {
         self.prepare(f).await?;
-        self.0.setup(f).await?;
-        self.0.run_test(f).await
+        self.test_case.setup(f).await?;
+        self.test_case.run_test(f).await
     }
 
     /// Executes the test case, handling any panics and performing cleanup.
@@ -112,7 +126,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         f.stop().await?;
 
         // Additional test cleanup
-        self.0.cleanup().await?;
+        self.test_case.cleanup().await?;
 
         std::io::stdout().flush()?;
         std::io::stderr().flush()?;
@@ -124,7 +138,7 @@ impl<T: TestCase> TestCaseRunner<T> {
         }
     }
 
-    pub fn set_binary_path<S: AsRef<str>, P: AsRef<Path>>(self, env_var: S, path: P) -> Self {
+    pub fn set_binary_path<V: AsRef<str>, P: AsRef<Path>>(self, env_var: V, path: P) -> Self {
         std::env::set_var(env_var.as_ref(), path.as_ref().display().to_string());
         self
     }
@@ -166,7 +180,12 @@ impl<T: TestCase> TestCaseRunner<T> {
 /// and inner test logic. It provides default configurations that should be sane for most test cases,
 /// which can be overridden by implementing the associated methods.
 #[async_trait]
-pub trait TestCase: Send + Sync + 'static {
+pub trait TestCase<S, BP, LP>: Send + Sync + 'static
+where
+    S: ConfigBounds,
+    BP: ConfigBounds,
+    LP: ConfigBounds,
+{
     /// Returns the test case configuration.
     /// Override this method to provide custom test configurations.
     fn test_config() -> TestCaseConfig {
@@ -187,25 +206,25 @@ pub trait TestCase: Send + Sync + 'static {
 
     /// Returns the sequencer configuration for the test.
     /// Override this method to provide a custom sequencer configuration.
-    fn sequencer_config() -> SequencerConfig {
-        SequencerConfig::default()
+    fn sequencer_config() -> S {
+        S::default()
     }
 
     /// Returns the batch prover configuration for the test.
     /// Override this method to provide a custom batch prover configuration.
-    fn batch_prover_config() -> BatchProverConfig {
-        BatchProverConfig::default()
+    fn batch_prover_config() -> BP {
+        BP::default()
     }
 
     /// Returns the light client prover configuration for the test.
     /// Override this method to provide a custom light client prover configuration.
-    fn light_client_prover_config() -> LightClientProverConfig {
-        LightClientProverConfig::default()
+    fn light_client_prover_config() -> LP {
+        LP::default()
     }
 
     /// Returns the test setup
     /// Override this method to add custom initialization logic
-    async fn setup(&self, _framework: &mut TestFramework) -> Result<()> {
+    async fn setup(&self, _framework: &mut TestFramework<S, BP, LP>) -> Result<()> {
         Ok(())
     }
 
@@ -216,7 +235,7 @@ pub trait TestCase: Send + Sync + 'static {
     ///
     /// # Arguments
     /// * `framework` - A reference to the TestFramework instance
-    async fn run_test(&mut self, framework: &mut TestFramework) -> Result<()>;
+    async fn run_test(&mut self, framework: &mut TestFramework<S, BP, LP>) -> Result<()>;
 
     async fn cleanup(&self) -> Result<()> {
         Ok(())

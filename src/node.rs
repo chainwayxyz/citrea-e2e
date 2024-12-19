@@ -1,5 +1,5 @@
 use std::{
-    fmt::{self, Debug},
+    fmt::{self},
     fs::File,
     process::Stdio,
     sync::{
@@ -12,7 +12,6 @@ use std::{
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoincore_rpc::{Auth, Client as BitcoinClient};
-use serde::Serialize;
 use tokio::{
     process::Command,
     time::{sleep, Instant},
@@ -22,8 +21,8 @@ use tracing::{debug, info, trace};
 use crate::{
     client::Client,
     config::{
-        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig, SequencerConfig,
+        BatchProverConfig, BitcoinConfig, ConfigBounds, DockerConfig, EmptyConfig,
+        FullL2NodeConfig, LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
@@ -72,7 +71,7 @@ pub type BatchProver = Node<BatchProverConfig>;
 
 pub struct Node<C>
 where
-    C: Clone + Debug + Serialize + Send + Sync,
+    C: ConfigBounds,
 {
     spawn_output: SpawnOutput,
     pub config: FullL2NodeConfig<C>,
@@ -83,7 +82,7 @@ where
 
 impl<C> Node<C>
 where
-    C: Clone + Debug + Serialize + Send + Sync,
+    C: ConfigBounds,
 {
     pub async fn new(
         config: &FullL2NodeConfig<C>,
@@ -192,7 +191,7 @@ where
 #[async_trait]
 impl<C> NodeT for Node<C>
 where
-    C: Clone + Debug + Serialize + Send + Sync,
+    C: ConfigBounds,
     DockerConfig: From<FullL2NodeConfig<C>>,
 {
     type Config = FullL2NodeConfig<C>;
@@ -246,7 +245,7 @@ where
 #[async_trait]
 impl<C> Restart for Node<C>
 where
-    C: Clone + Serialize + Debug + Send + Sync,
+    C: ConfigBounds,
     DockerConfig: From<FullL2NodeConfig<C>>,
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
@@ -286,7 +285,7 @@ where
 
 pub fn get_citrea_args<C>(config: &FullL2NodeConfig<C>) -> Vec<String>
 where
-    C: Clone + Debug + Serialize + Send + Sync,
+    C: ConfigBounds,
 {
     let node_config_args = config.get_node_config_args().unwrap_or_default();
     let rollup_config_args = config.get_rollup_config_args();

@@ -4,17 +4,22 @@ use anyhow::bail;
 use async_trait::async_trait;
 use bitcoincore_rpc::{json::IndexStatus, RpcApi};
 use citrea_e2e::{
-    config::{BitcoinConfig, TestCaseConfig, TestCaseDockerConfig},
-    framework::TestFramework,
+    config::{
+        BatchProverConfig, BitcoinConfig, LightClientProverConfig, SequencerConfig, TestCaseConfig,
+        TestCaseDockerConfig,
+    },
     test_case::{TestCase, TestCaseRunner},
     traits::Restart,
     Result,
 };
+#[path = "common/mod.rs"]
+mod common;
+use common::*;
 
 struct BasicSyncTest;
 
 #[async_trait]
-impl TestCase for BasicSyncTest {
+impl TestCase<SequencerConfig, BatchProverConfig, LightClientProverConfig> for BasicSyncTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_sequencer: false,
@@ -75,7 +80,7 @@ async fn test_basic_sync() -> Result<()> {
 struct RestartBitcoinTest;
 
 #[async_trait]
-impl TestCase for RestartBitcoinTest {
+impl TestCase<SequencerConfig, BatchProverConfig, LightClientProverConfig> for RestartBitcoinTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_sequencer: false,
