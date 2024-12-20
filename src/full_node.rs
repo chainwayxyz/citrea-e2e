@@ -1,4 +1,5 @@
 use anyhow::bail;
+use reth_primitives::U64;
 use sov_rollup_interface::rpc::{SequencerCommitmentResponse, VerifiedProofResponse};
 use tokio::time::{sleep, Duration, Instant};
 
@@ -23,7 +24,7 @@ impl FullNode {
 
             match self
                 .client
-                .ledger_get_sequencer_commitments_on_slot_by_number(height)
+                .ledger_get_sequencer_commitments_on_slot_by_number(U64::from(height))
                 .await
             {
                 Ok(Some(commitments)) => return Ok(commitments),
@@ -48,7 +49,7 @@ impl FullNode {
 
             match self
                 .client
-                .ledger_get_verified_proofs_by_slot_height(height)
+                .ledger_get_verified_proofs_by_slot_height(U64::from(height))
                 .await?
             {
                 Some(proofs) => return Ok(proofs),

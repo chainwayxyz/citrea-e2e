@@ -6,7 +6,9 @@ use jsonrpsee::{
     http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
 };
+use reth_primitives::U64;
 use sov_ledger_rpc::client::RpcClient;
+use sov_ledger_rpc::HexHash;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,
 };
@@ -54,7 +56,7 @@ impl Client {
 
     pub async fn ledger_get_verified_proofs_by_slot_height(
         &self,
-        height: u64,
+        height: U64,
     ) -> Result<Option<Vec<VerifiedProofResponse>>> {
         Ok(self
             .client
@@ -64,7 +66,7 @@ impl Client {
 
     pub async fn ledger_get_sequencer_commitments_on_slot_by_number(
         &self,
-        height: u64,
+        height: U64,
     ) -> Result<Option<Vec<SequencerCommitmentResponse>>> {
         Ok(self
             .client
@@ -74,14 +76,14 @@ impl Client {
 
     pub async fn ledger_get_soft_confirmation_by_number(
         &self,
-        num: u64,
+        num: U64,
     ) -> Result<Option<SoftConfirmationResponse>> {
         Ok(self.client.get_soft_confirmation_by_number(num).await?)
     }
 
     pub async fn ledger_get_sequencer_commitments_on_slot_by_hash(
         &self,
-        hash: [u8; 32],
+        hash: HexHash,
     ) -> Result<Option<Vec<SequencerCommitmentResponse>>> {
         self.client
             .get_sequencer_commitments_on_slot_by_hash(hash)
