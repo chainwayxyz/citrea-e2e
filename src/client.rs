@@ -7,8 +7,8 @@ use jsonrpsee::{
     rpc_params,
 };
 use reth_primitives::U64;
-use sov_ledger_rpc::client::RpcClient;
 use sov_ledger_rpc::HexHash;
+use sov_ledger_rpc::LedgerRpcClient;
 use sov_rollup_interface::rpc::{
     SequencerCommitmentResponse, SoftConfirmationResponse, VerifiedProofResponse,
 };
@@ -44,7 +44,7 @@ impl Client {
     pub async fn ledger_get_last_scanned_l1_height(&self) -> Result<u64> {
         Ok(self
             .client
-            .request("ledger_getLastScannedL1Hieght", rpc_params![])
+            .request("ledger_getLastScannedL1Height", rpc_params![])
             .await?)
     }
 

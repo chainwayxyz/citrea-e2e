@@ -25,8 +25,8 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json", "fm
 reth-primitives = { git = "https://github.com/paradigmxyz/reth", rev = "a206eb3690e5a51d3c797fed2a6ed722e36863eb", default-features = false }
 
 # Citrea dependencies
-sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "879a075590250cd26e721f31c4cedf3b28832cb0", default-features = false, features = ["client"] }
-sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "879a075590250cd26e721f31c4cedf3b28832cb0" }
+sov-ledger-rpc = { git = "https://github.com/chainwayxyz/citrea", rev = "6dbcc54de4df455b23675dd1ee51e05835d877b9", default-features = false, features = ["client"] }
+sov-rollup-interface = { git = "https://github.com/chainwayxyz/citrea", rev = "6dbcc54de4df455b23675dd1ee51e05835d877b9" }
 
 [patch.crates-io]
 bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "ede8097" }
