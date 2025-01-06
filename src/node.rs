@@ -283,8 +283,13 @@ where
     let node_config_args = config.get_node_config_args().unwrap_or_default();
     let rollup_config_args = config.get_rollup_config_args();
 
+    let network_arg = match std::env::var("CITREA_NETWORK") {
+        Ok(network) => vec!["--network".to_string(), network],
+        _ => vec!["--dev".to_string()],
+    };
+
     [
-        vec!["--dev".to_string()],
+        network_arg,
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,
