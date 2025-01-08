@@ -328,7 +328,7 @@ fn generate_test_config<T: TestCase>(
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: Some(
-                    "045FFC81A3C1FDB3AF1359DBF2D114B0B3EFBF7F29CC9C5DA01267AA39D2C78D".to_string(),
+                    "E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262".to_string(),
                 ),
                 node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
@@ -363,7 +363,7 @@ fn generate_test_config<T: TestCase>(
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: Some(
-                    "75BAF964D074594600366E5B111A1DA8F86B2EFE2D22DA51C8D82126A0FCAC72".to_string(),
+                    "56D08C2DDE7F412F80EC99A0A328F76688C904BD4D1435281EFC9270EC8C8707".to_string(),
                 ),
                 node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
@@ -434,33 +434,34 @@ fn generate_test_config<T: TestCase>(
         }
     };
 
+    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
         sequencer: FullSequencerConfig::new(
             sequencer,
             sequencer_rollup,
-            None,
+            citrea_docker_image.clone(),
             sequencer_dir,
             env.sequencer(),
         )?,
         batch_prover: FullBatchProverConfig::new(
             batch_prover,
             batch_prover_rollup,
-            None,
+            citrea_docker_image.clone(),
             batch_prover_dir,
             env.batch_prover(),
         )?,
         light_client_prover: FullLightClientProverConfig::new(
             light_client_prover,
             light_client_prover_rollup,
-            None,
+            citrea_docker_image.clone(),
             light_client_prover_dir,
             env.light_client_prover(),
         )?,
         full_node: FullFullNodeConfig::new(
             (),
             full_node_rollup,
-            None,
+            citrea_docker_image,
             full_node_dir,
             env.full_node(),
         )?,

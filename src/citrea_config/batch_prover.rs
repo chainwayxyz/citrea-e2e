@@ -39,6 +39,8 @@ pub struct BatchProverConfig {
     pub proof_sampling_number: usize,
     /// If true prover will try to recover ongoing proving sessions
     pub enable_recovery: bool,
+    /// Wether to always use the latest ELF or not
+    pub use_latest_elf: bool,
 }
 
 impl Default for BatchProverConfig {
@@ -47,6 +49,7 @@ impl Default for BatchProverConfig {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
             enable_recovery: true,
+            use_latest_elf: true,
         }
     }
 }
@@ -97,6 +100,7 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,
+            use_latest_elf: true,
         };
         assert_eq!(config, expected);
     }

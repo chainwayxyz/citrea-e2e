@@ -2,6 +2,8 @@ use std::{env, path::PathBuf, time::Duration};
 
 use tempfile::TempDir;
 
+use crate::utils::generate_test_id;
+
 #[derive(Clone, Default)]
 pub struct TestCaseEnv {
     pub test: Vec<(&'static str, &'static str)>,
@@ -57,10 +59,12 @@ pub struct TestCaseConfig {
     // Or an absolute path.
     // Defaults to resources/genesis/bitcoin-regtest
     pub genesis_dir: Option<String>,
+    pub test_id: String,
 }
 
 impl Default for TestCaseConfig {
     fn default() -> Self {
+        let test_id = generate_test_id();
         TestCaseConfig {
             n_nodes: 1,
             with_sequencer: true,
@@ -68,11 +72,19 @@ impl Default for TestCaseConfig {
             with_light_client_prover: false,
             with_full_node: false,
             timeout: Duration::from_secs(60),
-            dir: TempDir::new()
-                .expect("Failed to create temporary directory")
-                .into_path(),
+            dir: std::env::var("TEST_OUT_DIR")
+                .map_or_else(
+                    |_| {
+                        TempDir::new()
+                            .expect("Failed to create temporary directory")
+                            .into_path()
+                    },
+                    PathBuf::from,
+                )
+                .join(test_id.clone()),
             docker: TestCaseDockerConfig::default(),
             genesis_dir: None,
+            test_id,
         }
     }
 }
@@ -86,8 +98,8 @@ pub struct TestCaseDockerConfig {
 impl Default for TestCaseDockerConfig {
     fn default() -> Self {
         TestCaseDockerConfig {
-            bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER"),
-            citrea: parse_bool_env("TEST_CITREA_DOCKER"),
+            bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER").unwrap_or(true),
+            citrea: parse_bool_env("TEST_CITREA_DOCKER").unwrap_or(false),
         }
     }
 }
@@ -98,8 +110,8 @@ impl TestCaseDockerConfig {
     }
 }
 
-pub fn parse_bool_env(key: &str) -> bool {
+pub fn parse_bool_env(key: &str) -> Option<bool> {
     env::var(key)
+        .ok()
         .map(|v| &v == "1" || &v.to_lowercase() == "true")
-        .unwrap_or(false)
 }

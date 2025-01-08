@@ -12,7 +12,7 @@ use crate::{
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str =
-    "chainwayxyz/citrea-test:c9fea47c64530dd68ba22faf1f4c70c0e0ea4ff3";
+    "chainwayxyz/citrea-test:5310950a46d06d678d2c7bc75cfbe1b92c754de9";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
@@ -74,13 +74,10 @@ where
 
         Self {
             ports: vec![config.rollup.rpc.bind_port],
-            image: config.docker_image.clone().unwrap_or_else(|| {
-                let base_img = DEFAULT_CITREA_DOCKER_IMAGE;
-                match std::env::var("CI_TEST_MODE") {
-                    Ok(v) if v == "1" || v == "true" => format!("{base_img}-ci"),
-                    _ => base_img.to_string(),
-                }
-            }),
+            image: config
+                .docker_image
+                .clone()
+                .unwrap_or(DEFAULT_CITREA_DOCKER_IMAGE.to_string()),
             cmd: args,
             log_path: config.dir.join("stdout.log"),
             volume: VolumeConfig {
