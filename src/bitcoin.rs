@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::File,
     future::Future,
     process::Stdio,
@@ -172,7 +172,7 @@ impl BitcoinNode {
         output: String,
         // Either raw txs or txids, should be in mempool and in correct order
         transactions: Vec<String>,
-    ) -> bitcoincore_rpc::Result<bitcoin::BlockHash> {
+    ) -> bitcoincore_rpc::Result<HashMap<String, String>> {
         RpcApi::call(self, "generateblock", &[output.into(), transactions.into()]).await
     }
 }
