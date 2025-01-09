@@ -53,7 +53,7 @@ impl fmt::Display for DaLayer {
 pub enum CitreaMode {
     #[default]
     Dev,
-    AllForks,
+    DevAllForks,
 }
 
 impl fmt::Display for CitreaMode {
@@ -61,7 +61,7 @@ impl fmt::Display for CitreaMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             CitreaMode::Dev => write!(f, "dev"),
-            CitreaMode::AllForks => write!(f, "all-forks"),
+            CitreaMode::DevAllForks => write!(f, "dev-all-forks"),
         }
     }
 }
