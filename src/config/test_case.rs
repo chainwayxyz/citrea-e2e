@@ -4,6 +4,8 @@ use tempfile::TempDir;
 
 use crate::utils::generate_test_id;
 
+use super::CitreaMode;
+
 #[derive(Clone, Default)]
 pub struct TestCaseEnv {
     pub test: Vec<(&'static str, &'static str)>,
@@ -60,6 +62,7 @@ pub struct TestCaseConfig {
     // Defaults to resources/genesis/bitcoin-regtest
     pub genesis_dir: Option<String>,
     pub test_id: String,
+    pub mode: CitreaMode,
 }
 
 impl Default for TestCaseConfig {
@@ -85,6 +88,7 @@ impl Default for TestCaseConfig {
             docker: TestCaseDockerConfig::default(),
             genesis_dir: None,
             test_id,
+            mode: CitreaMode::Dev,
         }
     }
 }

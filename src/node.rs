@@ -22,7 +22,7 @@ use tracing::{debug, info, trace};
 
 use crate::{
     client::Client,
-    config::{BitcoinConfig, DaLayer, DockerConfig, RollupConfig},
+    config::{BitcoinConfig, CitreaMode, DaLayer, DockerConfig, RollupConfig},
     docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
@@ -80,6 +80,7 @@ pub trait Config: Clone {
     // Not required for `full-node`
     fn get_node_config_args(&self) -> Option<Vec<String>>;
     fn get_rollup_config_args(&self) -> Vec<String>;
+    fn mode(&self) -> CitreaMode;
 }
 
 pub struct Node<C: Config + LogPathProvider + Send + Sync> {
@@ -283,13 +284,8 @@ where
     let node_config_args = config.get_node_config_args().unwrap_or_default();
     let rollup_config_args = config.get_rollup_config_args();
 
-    let network_arg = match std::env::var("CITREA_NETWORK") {
-        Ok(network) => vec!["--network".to_string(), network],
-        _ => vec!["--dev".to_string()],
-    };
-
     [
-        network_arg,
+        vec![format!("--{}", config.mode())],
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,
