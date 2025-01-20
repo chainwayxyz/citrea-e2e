@@ -2,9 +2,8 @@ use std::{env, path::PathBuf, time::Duration};
 
 use tempfile::TempDir;
 
-use crate::utils::generate_test_id;
-
 use super::CitreaMode;
+use crate::utils::generate_test_id;
 
 #[derive(Clone, Default)]
 pub struct TestCaseEnv {

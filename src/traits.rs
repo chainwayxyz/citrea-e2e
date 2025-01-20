@@ -68,11 +68,19 @@ pub trait NodeT: Send {
 #[async_trait]
 pub trait Restart: NodeT + Send {
     async fn wait_until_stopped(&mut self) -> Result<()>;
-    async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()>;
+    async fn start(
+        &mut self,
+        new_config: Option<Self::Config>,
+        extra_args: Option<Vec<String>>,
+    ) -> Result<()>;
 
     // Default implementation to support waiting for node to be fully shutdown and brough back up with new config.
-    async fn restart(&mut self, new_config: Option<Self::Config>) -> Result<()> {
+    async fn restart(
+        &mut self,
+        new_config: Option<Self::Config>,
+        extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         self.wait_until_stopped().await?;
-        self.start(new_config).await
+        self.start(new_config, extra_args).await
     }
 }

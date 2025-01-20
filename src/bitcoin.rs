@@ -7,7 +7,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use anyhow::{anyhow, bail, Context};
+use anyhow::{bail, Context};
 use async_trait::async_trait;
 use bitcoin::Address;
 use bitcoincore_rpc::{json::AddressType::Bech32m, Auth, Client, RpcApi};
@@ -283,7 +283,11 @@ impl Restart for BitcoinNode {
         }
     }
 
-    async fn start(&mut self, config: Option<Self::Config>) -> Result<()> {
+    async fn start(
+        &mut self,
+        config: Option<Self::Config>,
+        _extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         if let Some(config) = config {
             self.config = config;
         }
