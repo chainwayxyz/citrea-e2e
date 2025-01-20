@@ -125,7 +125,7 @@ where
         })
     }
 
-    fn spawn(config: &C) -> Result<SpawnOutput> {
+    fn spawn(config: &C, extra_args: Option<Vec<String>>) -> Result<SpawnOutput> {
         let citrea = get_citrea_path()?;
 
         let kind = C::node_kind();
@@ -145,6 +145,7 @@ where
 
         Command::new(citrea)
             .args(get_citrea_args(config))
+            .args(extra_args.unwrap_or_default())
             .envs(config.env())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
@@ -191,7 +192,7 @@ where
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
             Some(docker) if docker.citrea() => docker.spawn(config.to_owned().into()).await,
-            _ => Self::spawn(config),
+            _ => Self::spawn(config, None),
         }
     }
 
@@ -251,7 +252,11 @@ where
         Ok(())
     }
 
-    async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()> {
+    async fn start(
+        &mut self,
+        new_config: Option<Self::Config>,
+        extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         let config = self.config_mut();
 
         if let Some(new_config) = new_config {
@@ -272,7 +277,7 @@ where
         copy_directory(old_dir, &new_dir)?;
         config.set_dir(new_dir);
 
-        *self.spawn_output() = Self::spawn(config)?;
+        *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
 }
