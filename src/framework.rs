@@ -443,6 +443,7 @@ fn generate_test_config<T: TestCase>(
             citrea_docker_image.clone(),
             sequencer_dir,
             env.sequencer(),
+            test_case.mode,
         )?,
         batch_prover: FullBatchProverConfig::new(
             batch_prover,
@@ -450,6 +451,7 @@ fn generate_test_config<T: TestCase>(
             citrea_docker_image.clone(),
             batch_prover_dir,
             env.batch_prover(),
+            test_case.mode,
         )?,
         light_client_prover: FullLightClientProverConfig::new(
             light_client_prover,
@@ -457,6 +459,7 @@ fn generate_test_config<T: TestCase>(
             citrea_docker_image.clone(),
             light_client_prover_dir,
             env.light_client_prover(),
+            test_case.mode,
         )?,
         full_node: FullFullNodeConfig::new(
             (),
@@ -464,6 +467,7 @@ fn generate_test_config<T: TestCase>(
             citrea_docker_image,
             full_node_dir,
             env.full_node(),
+            test_case.mode,
         )?,
         test_case,
     })

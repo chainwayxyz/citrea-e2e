@@ -49,6 +49,23 @@ impl fmt::Display for DaLayer {
     }
 }
 
+#[derive(Clone, Debug, Default, Copy)]
+pub enum CitreaMode {
+    #[default]
+    Dev,
+    DevAllForks,
+}
+
+impl fmt::Display for CitreaMode {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            CitreaMode::Dev => write!(f, "dev"),
+            CitreaMode::DevAllForks => write!(f, "dev-all-forks"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct FullL2NodeConfig<T> {
     pub node: T,
@@ -57,6 +74,7 @@ pub struct FullL2NodeConfig<T> {
     pub dir: PathBuf,
     pub env: Vec<(&'static str, &'static str)>,
     pub da_layer: Option<DaLayer>,
+    pub mode: CitreaMode,
 }
 
 impl<T> FullL2NodeConfig<T>
@@ -70,6 +88,7 @@ where
         docker_image: Option<String>,
         dir: PathBuf,
         env: Vec<(&'static str, &'static str)>,
+        mode: CitreaMode,
     ) -> Result<Self> {
         let conf = Self {
             node,
@@ -78,6 +97,7 @@ where
             dir,
             env,
             da_layer: None,
+            mode,
         };
 
         let kind = FullL2NodeConfig::<T>::kind();
@@ -189,6 +209,10 @@ where
 
     fn da_layer(&self) -> DaLayer {
         self.da_layer.clone().unwrap_or_default()
+    }
+
+    fn mode(&self) -> CitreaMode {
+        self.mode
     }
 }
 

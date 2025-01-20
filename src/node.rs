@@ -22,7 +22,7 @@ use tracing::{debug, info, trace};
 
 use crate::{
     client::Client,
-    config::{BitcoinConfig, DaLayer, DockerConfig, RollupConfig},
+    config::{BitcoinConfig, CitreaMode, DaLayer, DockerConfig, RollupConfig},
     docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
@@ -80,6 +80,7 @@ pub trait Config: Clone {
     // Not required for `full-node`
     fn get_node_config_args(&self) -> Option<Vec<String>>;
     fn get_rollup_config_args(&self) -> Vec<String>;
+    fn mode(&self) -> CitreaMode;
 }
 
 pub struct Node<C: Config + LogPathProvider + Send + Sync> {
@@ -124,7 +125,7 @@ where
         })
     }
 
-    fn spawn(config: &C) -> Result<SpawnOutput> {
+    fn spawn(config: &C, extra_args: Option<Vec<String>>) -> Result<SpawnOutput> {
         let citrea = get_citrea_path()?;
 
         let kind = C::node_kind();
@@ -144,6 +145,7 @@ where
 
         Command::new(citrea)
             .args(get_citrea_args(config))
+            .args(extra_args.unwrap_or_default())
             .envs(config.env())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
@@ -190,7 +192,7 @@ where
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
             Some(docker) if docker.citrea() => docker.spawn(config.to_owned().into()).await,
-            _ => Self::spawn(config),
+            _ => Self::spawn(config, None),
         }
     }
 
@@ -250,7 +252,11 @@ where
         Ok(())
     }
 
-    async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()> {
+    async fn start(
+        &mut self,
+        new_config: Option<Self::Config>,
+        extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         let config = self.config_mut();
 
         if let Some(new_config) = new_config {
@@ -271,7 +277,7 @@ where
         copy_directory(old_dir, &new_dir)?;
         config.set_dir(new_dir);
 
-        *self.spawn_output() = Self::spawn(config)?;
+        *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
 }
@@ -284,7 +290,7 @@ where
     let rollup_config_args = config.get_rollup_config_args();
 
     [
-        vec!["--dev".to_string()],
+        vec![format!("--{}", config.mode())],
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,
