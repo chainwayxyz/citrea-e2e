@@ -1,5 +1,6 @@
 use std::time::{Duration, SystemTime};
 
+use alloy_primitives::U64;
 use anyhow::{bail, Result};
 use jsonrpsee::{
     core::client::ClientT,
@@ -44,14 +45,16 @@ impl Client {
         Ok(self
             .client
             .request("ledger_getLastScannedL1Height", rpc_params![])
-            .await?)
+            .await
+            .map(|v: U64| v.try_into().expect("U64 to u64 must succeed"))?)
     }
 
     pub async fn ledger_get_head_soft_confirmation_height(&self) -> Result<u64> {
         Ok(self
             .client
             .request("ledger_getHeadSoftConfirmationHeight", rpc_params![])
-            .await?)
+            .await
+            .map(|v: U64| v.try_into().expect("U64 to u64 must succeed"))?)
     }
 
     pub async fn wait_for_l2_block(&self, num: u64, timeout: Option<Duration>) -> Result<()> {
