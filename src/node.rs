@@ -10,7 +10,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use async_trait::async_trait;
 use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 use serde::Serialize;
@@ -203,21 +203,20 @@ where
     async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
         let start = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
-        while start.elapsed() < timeout {
-            if self
-                .client
-                .ledger_get_head_soft_confirmation_height()
-                .await
-                .is_ok()
-            {
-                return Ok(());
-            }
+        let mut response = Err(anyhow!("initial response value"));
+
+        while response.is_err() && (start.elapsed() < timeout) {
+            response = self.client.ledger_get_head_soft_confirmation_height().await;
             sleep(Duration::from_millis(500)).await;
         }
-        anyhow::bail!(
-            "{} failed to become ready within the specified timeout",
-            C::node_kind()
-        )
+        match response {
+            Ok(_) => return Ok(()),
+            Err(e) => anyhow::bail!(
+                "{} failed to become ready within the specified timeout, latest ledger_get_head_soft_confirmation_height error: {}",
+                C::node_kind(),
+                e
+            )
+        }
     }
 
     fn client(&self) -> &Self::Client {
