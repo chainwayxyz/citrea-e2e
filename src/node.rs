@@ -205,10 +205,7 @@ where
         let mut response = Err(anyhow!("initial response value"));
 
         while response.is_err() && (start.elapsed() < timeout) {
-            response = self
-                .client
-                .ledger_get_head_soft_confirmation_height()
-                .await;
+            response = self.client.ledger_get_head_soft_confirmation_height().await;
             sleep(Duration::from_millis(500)).await;
         }
         match response {
@@ -219,7 +216,6 @@ where
                 e
             )
         }
-
     }
 
     fn client(&self) -> &Self::Client {
