@@ -110,7 +110,7 @@ pub struct RollupPublicKeys {
 
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub struct FullNodeConfig<BitcoinServiceConfig> {
+pub struct RollupConfig {
     /// RPC configuration
     pub rpc: RpcConfig,
     /// Currently rollup config runner only supports storage path parameter
@@ -125,7 +125,7 @@ pub struct FullNodeConfig<BitcoinServiceConfig> {
     pub telemetry: TelemetryConfig,
 }
 
-impl Default for FullNodeConfig<BitcoinServiceConfig> {
+impl Default for RollupConfig {
     fn default() -> Self {
         Self {
             rpc: RpcConfig {

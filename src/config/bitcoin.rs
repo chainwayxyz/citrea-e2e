@@ -46,9 +46,7 @@ impl BitcoinConfig {
             "-regtest".to_string(),
             format!("-datadir={}", self.data_dir.display()),
             format!("-port={}", self.p2p_port),
-            format!("-bind=0.0.0.0:{}", self.p2p_port),
             format!("-rpcport={}", self.rpc_port),
-            format!("-bind=0.0.0.0:{}", self.rpc_port),
             format!("-rpcuser={}", self.rpc_user),
             format!("-rpcpassword={}", self.rpc_password),
             "-server".to_string(),
@@ -68,10 +66,23 @@ impl BitcoinConfig {
         ]
         .concat()
     }
+
+    /// Args to use whe running local bitcoind node
+    /// This prevents odd port conflict when assigning rpc/p2p ports
+    pub fn local_args(&self) -> Vec<String> {
+        [
+            self.base_args(),
+            vec![
+                format!("-bind=0.0.0.0:{}", self.p2p_port),
+                format!("-bind=0.0.0.0:{}", self.rpc_port),
+            ],
+        ]
+        .concat()
+    }
 }
 
 impl LogPathProvider for BitcoinConfig {
-    fn kind() -> NodeKind {
+    fn kind(&self) -> NodeKind {
         NodeKind::Bitcoin
     }
 

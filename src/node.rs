@@ -1,7 +1,6 @@
 use std::{
     fmt::{self, Debug},
     fs::File,
-    path::PathBuf,
     process::Stdio,
     sync::{
         atomic::{AtomicU8, Ordering},
@@ -22,7 +21,10 @@ use tracing::{debug, info, trace};
 
 use crate::{
     client::Client,
-    config::{BitcoinConfig, CitreaMode, DaLayer, DockerConfig, RollupConfig},
+    config::{
+        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
+        LightClientProverConfig, SequencerConfig,
+    },
     docker::DockerEnv,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
@@ -30,7 +32,7 @@ use crate::{
     Result,
 };
 
-#[derive(Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum NodeKind {
     Bitcoin,
     BatchProver,
@@ -63,29 +65,17 @@ impl fmt::Display for NodeKind {
     }
 }
 
-pub trait Config: Clone {
-    type NodeConfig: Serialize;
+pub type Sequencer = Node<SequencerConfig>;
+pub type FullNode = Node<EmptyConfig>;
+pub type LightClientProver = Node<LightClientProverConfig>;
+pub type BatchProver = Node<BatchProverConfig>;
 
-    fn dir(&self) -> &PathBuf;
-    fn set_dir(&mut self, new_dir: PathBuf);
-    fn rpc_bind_host(&self) -> &str;
-    fn rpc_bind_port(&self) -> u16;
-    fn env(&self) -> Vec<(&'static str, &'static str)>;
-    fn node_config(&self) -> Option<&Self::NodeConfig>;
-    fn node_kind() -> NodeKind;
-    fn rollup_config(&self) -> &RollupConfig;
-    fn da_layer(&self) -> DaLayer;
-
-    // Get node config path argument and path.
-    // Not required for `full-node`
-    fn get_node_config_args(&self) -> Option<Vec<String>>;
-    fn get_rollup_config_args(&self) -> Vec<String>;
-    fn mode(&self) -> CitreaMode;
-}
-
-pub struct Node<C: Config + LogPathProvider + Send + Sync> {
+pub struct Node<C>
+where
+    C: Clone + Debug + Serialize + Send + Sync,
+{
     spawn_output: SpawnOutput,
-    config: C,
+    pub config: FullL2NodeConfig<C>,
     pub client: Client,
     // Bitcoin client targetting node's wallet endpoint
     pub da: BitcoinClient,
@@ -93,11 +83,10 @@ pub struct Node<C: Config + LogPathProvider + Send + Sync> {
 
 impl<C> Node<C>
 where
-    C: Config + LogPathProvider + Send + Sync + Debug,
-    DockerConfig: From<C>,
+    C: Clone + Debug + Serialize + Send + Sync,
 {
     pub async fn new(
-        config: &C,
+        config: &FullL2NodeConfig<C>,
         da_config: &BitcoinConfig,
         docker: Arc<Option<DockerEnv>>,
     ) -> Result<Self> {
@@ -108,7 +97,7 @@ where
         let da_rpc_url = format!(
             "http://127.0.0.1:{}/wallet/{}",
             da_config.rpc_port,
-            C::kind()
+            config.kind()
         );
         let da_client = BitcoinClient::new(
             &da_rpc_url,
@@ -125,10 +114,10 @@ where
         })
     }
 
-    fn spawn(config: &C, extra_args: Option<Vec<String>>) -> Result<SpawnOutput> {
+    fn spawn(config: &FullL2NodeConfig<C>, extra_args: Option<Vec<String>>) -> Result<SpawnOutput> {
         let citrea = get_citrea_path()?;
 
-        let kind = C::node_kind();
+        let kind = config.kind();
 
         debug!("Spawning {kind} with config {config:?}");
 
@@ -178,15 +167,36 @@ where
         }
         Ok(())
     }
+
+    pub async fn wait_for_l1_height(&self, height: u64, timeout: Option<Duration>) -> Result<()> {
+        let start = SystemTime::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(600));
+        loop {
+            trace!("Waiting for batch prover height {}", height);
+            let latest_block = self.client.ledger_get_last_scanned_l1_height().await?;
+
+            if latest_block >= height {
+                break;
+            }
+
+            let now = SystemTime::now();
+            if start + timeout <= now {
+                bail!("Timeout. Latest batch prover L1 height is {}", latest_block);
+            }
+
+            sleep(Duration::from_secs(1)).await;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl<C> NodeT for Node<C>
 where
-    C: Config + LogPathProvider + Send + Sync + Debug,
-    DockerConfig: From<C>,
+    C: Clone + Debug + Serialize + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
 {
-    type Config = C;
+    type Config = FullL2NodeConfig<C>;
     type Client = Client;
 
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
@@ -213,7 +223,7 @@ where
             Ok(_) => return Ok(()),
             Err(e) => anyhow::bail!(
                 "{} failed to become ready within the specified timeout, latest ledger_get_head_soft_confirmation_height error: {}",
-                C::node_kind(),
+                self.config.kind(),
                 e
             )
         }
@@ -239,8 +249,8 @@ where
 #[async_trait]
 impl<C> Restart for Node<C>
 where
-    C: Config + LogPathProvider + Send + Sync + Debug,
-    DockerConfig: From<C>,
+    C: Clone + Serialize + Debug + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
@@ -270,7 +280,7 @@ where
         let old_dir = config.dir();
         let new_dir = old_dir.parent().unwrap().join(format!(
             "{}-{}",
-            Self::Config::node_kind(),
+            config.kind(),
             INDEX.load(Ordering::SeqCst)
         ));
         copy_directory(old_dir, &new_dir)?;
@@ -281,9 +291,9 @@ where
     }
 }
 
-pub fn get_citrea_args<C>(config: &C) -> Vec<String>
+pub fn get_citrea_args<C>(config: &FullL2NodeConfig<C>) -> Vec<String>
 where
-    C: Config,
+    C: Clone + Debug + Serialize + Send + Sync,
 {
     let node_config_args = config.get_node_config_args().unwrap_or_default();
     let rollup_config_args = config.get_rollup_config_args();
@@ -293,7 +303,10 @@ where
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,
-        vec!["--genesis-paths".to_string(), get_genesis_path(config)],
+        vec![
+            "--genesis-paths".to_string(),
+            get_genesis_path(config.dir()),
+        ],
     ]
     .concat()
 }

@@ -9,7 +9,6 @@ use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 
 use super::Result;
-use crate::node::Config;
 
 pub fn get_available_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
@@ -42,9 +41,8 @@ pub fn get_default_genesis_path() -> PathBuf {
     path
 }
 
-pub fn get_genesis_path(config: &impl Config) -> String {
-    config
-        .dir()
+pub fn get_genesis_path(base_dir: &Path) -> String {
+    base_dir
         .parent()
         .expect("Couldn't get parent dir")
         .join("genesis")
