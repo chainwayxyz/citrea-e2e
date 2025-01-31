@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::File,
     future::Future,
     process::Stdio,
@@ -165,6 +165,16 @@ impl BitcoinNode {
     ) -> bitcoincore_rpc::Result<Vec<bitcoin::BlockHash>> {
         RpcApi::generate(self, block_num, None).await
     }
+
+    pub async fn generate_block(
+        &self,
+        // Address to send the block reward to
+        output: String,
+        // Either raw txs or txids, should be in mempool and in correct order
+        transactions: Vec<String>,
+    ) -> bitcoincore_rpc::Result<HashMap<String, String>> {
+        RpcApi::call(self, "generateblock", &[output.into(), transactions.into()]).await
+    }
 }
 
 #[async_trait]
@@ -273,7 +283,11 @@ impl Restart for BitcoinNode {
         }
     }
 
-    async fn start(&mut self, config: Option<Self::Config>) -> Result<()> {
+    async fn start(
+        &mut self,
+        config: Option<Self::Config>,
+        _extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         if let Some(config) = config {
             self.config = config;
         }

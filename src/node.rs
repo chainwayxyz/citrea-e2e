@@ -9,7 +9,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::{bail, Context};
+use anyhow::{anyhow, bail, Context};
 use async_trait::async_trait;
 use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 use serde::Serialize;
@@ -22,8 +22,8 @@ use tracing::{debug, info, trace};
 use crate::{
     client::Client,
     config::{
-        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig, SequencerConfig,
+        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig,
+        FullL2NodeConfig, LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
@@ -114,7 +114,7 @@ where
         })
     }
 
-    fn spawn(config: &FullL2NodeConfig<C>) -> Result<SpawnOutput> {
+    fn spawn(config: &FullL2NodeConfig<C>, extra_args: Option<Vec<String>>) -> Result<SpawnOutput> {
         let citrea = get_citrea_path()?;
 
         let kind = config.kind();
@@ -134,6 +134,7 @@ where
 
         Command::new(citrea)
             .args(get_citrea_args(config))
+            .args(extra_args.unwrap_or_default())
             .envs(config.env())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
@@ -200,8 +201,8 @@ where
 
     async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         match docker.as_ref() {
-            Some(docker) if docker.citrea() => docker.spawn(config.clone().into()).await,
-            _ => Self::spawn(config),
+            Some(docker) if docker.citrea() => docker.spawn(config.to_owned().into()).await,
+            _ => Self::spawn(config, None),
         }
     }
 
@@ -212,18 +213,20 @@ where
     async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
         let start = Instant::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
-        while start.elapsed() < timeout {
-            if self
-                .client
-                .ledger_get_head_soft_confirmation_height()
-                .await
-                .is_ok()
-            {
-                return Ok(());
-            }
+        let mut response = Err(anyhow!("initial response value"));
+
+        while response.is_err() && (start.elapsed() < timeout) {
+            response = self.client.ledger_get_head_soft_confirmation_height().await;
             sleep(Duration::from_millis(500)).await;
         }
-        anyhow::bail!("TODO failed to become ready within the specified timeout",)
+        match response {
+            Ok(_) => return Ok(()),
+            Err(e) => anyhow::bail!(
+                "{} failed to become ready within the specified timeout, latest ledger_get_head_soft_confirmation_height error: {}",
+                self.config.kind(),
+                e
+            )
+        }
     }
 
     fn client(&self) -> &Self::Client {
@@ -258,7 +261,11 @@ where
         Ok(())
     }
 
-    async fn start(&mut self, new_config: Option<Self::Config>) -> Result<()> {
+    async fn start(
+        &mut self,
+        new_config: Option<Self::Config>,
+        extra_args: Option<Vec<String>>,
+    ) -> Result<()> {
         let config = self.config_mut();
 
         if let Some(new_config) = new_config {
@@ -279,7 +286,7 @@ where
         copy_directory(old_dir, &new_dir)?;
         config.set_dir(new_dir);
 
-        *self.spawn_output() = Self::spawn(config)?;
+        *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
 }
@@ -292,7 +299,7 @@ where
     let rollup_config_args = config.get_rollup_config_args();
 
     [
-        vec!["--dev".to_string()],
+        vec![format!("--{}", config.mode())],
         vec!["--da-layer".to_string(), config.da_layer().to_string()],
         node_config_args,
         rollup_config_args,

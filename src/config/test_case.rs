@@ -2,6 +2,7 @@ use std::{env, path::PathBuf, time::Duration};
 
 use tempfile::TempDir;
 
+use super::CitreaMode;
 use crate::utils::generate_test_id;
 
 #[derive(Clone, Default)]
@@ -60,6 +61,7 @@ pub struct TestCaseConfig {
     // Defaults to resources/genesis/bitcoin-regtest
     pub genesis_dir: Option<String>,
     pub test_id: String,
+    pub mode: CitreaMode,
 }
 
 impl Default for TestCaseConfig {
@@ -85,6 +87,7 @@ impl Default for TestCaseConfig {
             docker: TestCaseDockerConfig::default(),
             genesis_dir: None,
             test_id,
+            mode: CitreaMode::Dev,
         }
     }
 }

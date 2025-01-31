@@ -108,7 +108,7 @@ impl TestCase for RestartBitcoinTest {
         assert_eq!(info.txindex, None);
 
         // Restart node with txindex
-        da.restart(Some(new_conf)).await?;
+        da.restart(Some(new_conf), None).await?;
 
         let block_after = da.get_block_count().await?;
         let info = da.get_index_info().await?;
