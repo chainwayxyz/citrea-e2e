@@ -177,7 +177,7 @@ impl TestFramework {
         let n_lines = std::env::var("TAIL_N_LINES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
-            .unwrap_or(25);
+            .unwrap_or(100);
         for provider in self.get_nodes_as_log_provider() {
             println!("{} logs (last {n_lines} lines):", provider.kind());
             let _ = tail_file(&provider.log_path(), n_lines);

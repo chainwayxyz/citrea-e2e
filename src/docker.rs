@@ -327,7 +327,7 @@ impl DockerEnv {
     }
 
     fn dump_logs_cli(&self, container_id: &str) -> Result<()> {
-        let n_lines = std::env::var("TAIL_N_LINES").unwrap_or_else(|_| "25".to_string());
+        let n_lines = std::env::var("TAIL_N_LINES").unwrap_or_else(|_| "100".to_string());
 
         let output = std::process::Command::new("docker")
             .args(["logs", container_id, "-n", &n_lines])
