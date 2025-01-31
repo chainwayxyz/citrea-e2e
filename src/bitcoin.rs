@@ -138,7 +138,7 @@ impl BitcoinNode {
     }
 
     fn spawn(config: &BitcoinConfig) -> Result<SpawnOutput> {
-        let args = config.args();
+        let args = config.local_args();
         debug!("Running bitcoind with args : {args:?}");
 
         info!(
