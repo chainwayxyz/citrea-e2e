@@ -6,6 +6,7 @@ mod docker;
 pub mod framework;
 mod log_provider;
 pub mod node;
+mod sequencer;
 pub mod test_case;
 pub mod traits;
 mod utils;

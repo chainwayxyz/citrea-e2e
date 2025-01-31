@@ -19,11 +19,12 @@ use tokio::{
 };
 use tracing::{debug, info, trace};
 
+pub use crate::sequencer::Sequencer;
 use crate::{
     client::Client,
     config::{
         BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig, SequencerConfig,
+        LightClientProverConfig,
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
@@ -65,7 +66,6 @@ impl fmt::Display for NodeKind {
     }
 }
 
-pub type Sequencer = Node<SequencerConfig>;
 pub type FullNode = Node<EmptyConfig>;
 pub type LightClientProver = Node<LightClientProverConfig>;
 pub type BatchProver = Node<BatchProverConfig>;
