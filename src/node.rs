@@ -22,8 +22,8 @@ use tracing::{debug, info, trace};
 use crate::{
     client::Client,
     config::{
-        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig,
-        FullL2NodeConfig, LightClientProverConfig, SequencerConfig,
+        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
+        LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
