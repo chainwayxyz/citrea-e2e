@@ -108,6 +108,29 @@ pub struct RollupPublicKeys {
     pub prover_da_pub_key: Vec<u8>,
 }
 
+impl Default for RollupPublicKeys {
+    fn default() -> Self {
+        Self {
+            sequencer_public_key: vec![
+                32, 64, 64, 227, 100, 193, 15, 43, 236, 156, 31, 229, 0, 161, 205, 76, 36, 124,
+                137, 214, 80, 160, 30, 215, 232, 44, 171, 168, 103, 135, 124, 33,
+            ],
+            // private key E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262
+            // Private Key (WIF): 5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF
+            sequencer_da_pub_key: vec![
+                2, 88, 141, 32, 42, 252, 193, 238, 74, 181, 37, 76, 120, 71, 236, 37, 185, 161, 53,
+                187, 218, 15, 43, 198, 158, 225, 167, 20, 116, 159, 215, 125, 201,
+            ],
+            // private key 56D08C2DDE7F412F80EC99A0A328F76688C904BD4D1435281EFC9270EC8C8707
+            // Private Key (WIF): 5JUX9MqyVroDAjP2itrbaenEKNTioGVnnDSYn3PmLgb23TCLWMs
+            prover_da_pub_key: vec![
+                3, 238, 218, 184, 136, 228, 95, 59, 220, 62, 201, 145, 140, 73, 28, 17, 229, 207,
+                122, 240, 169, 31, 56, 185, 127, 188, 30, 19, 90, 228, 5, 102, 1,
+            ],
+        }
+    }
+}
+
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RollupConfig {
@@ -158,24 +181,7 @@ impl Default for RollupConfig {
                     .to_string(),
                 monitoring: Some(MonitoringConfig::default()),
             },
-            public_keys: RollupPublicKeys {
-                sequencer_public_key: vec![
-                    32, 64, 64, 227, 100, 193, 15, 43, 236, 156, 31, 229, 0, 161, 205, 76, 36, 124,
-                    137, 214, 80, 160, 30, 215, 232, 44, 171, 168, 103, 135, 124, 33,
-                ],
-                // private key E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262
-                // Private Key (WIF): 5Kb8kLf9zgWQnogidDA76MzPL6TsZZY36hWXMssSzNydYXYB9KF
-                sequencer_da_pub_key: vec![
-                    2, 88, 141, 32, 42, 252, 193, 238, 74, 181, 37, 76, 120, 71, 236, 37, 185, 161,
-                    53, 187, 218, 15, 43, 198, 158, 225, 167, 20, 116, 159, 215, 125, 201,
-                ],
-                // private key 56D08C2DDE7F412F80EC99A0A328F76688C904BD4D1435281EFC9270EC8C8707
-                // Private Key (WIF): 5JUX9MqyVroDAjP2itrbaenEKNTioGVnnDSYn3PmLgb23TCLWMs
-                prover_da_pub_key: vec![
-                    3, 238, 218, 184, 136, 228, 95, 59, 220, 62, 201, 145, 140, 73, 28, 17, 229,
-                    207, 122, 240, 169, 31, 56, 185, 127, 188, 30, 19, 90, 228, 5, 102, 1,
-                ],
-            },
+            public_keys: RollupPublicKeys::default(),
             telemetry: Default::default(),
         }
     }
