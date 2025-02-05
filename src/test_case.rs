@@ -19,7 +19,7 @@ use super::{
     Result,
 };
 use crate::{
-    config::{BatchProverConfig, LightClientProverConfig, SequencerConfig},
+    config::{BatchProverConfig, LightClientProverConfig, RollupPublicKeys, SequencerConfig},
     traits::NodeT,
 };
 
@@ -201,6 +201,10 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom light client prover configuration.
     fn light_client_prover_config() -> LightClientProverConfig {
         LightClientProverConfig::default()
+    }
+
+    fn rollup_public_keys() -> RollupPublicKeys {
+        RollupPublicKeys::default()
     }
 
     /// Returns the test setup

@@ -273,6 +273,7 @@ fn generate_test_config<T: TestCase>(
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
+    let keys = T::rollup_public_keys();
 
     let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
         create_dirs(&test_case.dir)?;
@@ -336,6 +337,7 @@ fn generate_test_config<T: TestCase>(
                 bind_host: bind_host.clone(),
                 ..sequencer_rollup.rpc
             },
+            public_keys: keys.clone(),
             ..sequencer_rollup
         }
     };
@@ -372,6 +374,7 @@ fn generate_test_config<T: TestCase>(
                 ..batch_prover_rollup.rpc
             },
             runner: runner_config.clone(),
+            public_keys: keys.clone(),
             ..batch_prover_rollup
         }
     };
@@ -396,6 +399,7 @@ fn generate_test_config<T: TestCase>(
                 ..light_client_prover_rollup.rpc
             },
             runner: runner_config.clone(),
+            public_keys: keys.clone(),
             ..light_client_prover_rollup
         }
     };
@@ -423,6 +427,7 @@ fn generate_test_config<T: TestCase>(
                 ..full_node_rollup.rpc
             },
             runner: runner_config.clone(),
+            public_keys: keys.clone(),
             ..full_node_rollup
         }
     };
