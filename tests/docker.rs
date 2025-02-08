@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use bitcoincore_rpc::RpcApi;
 use citrea_e2e::{
-    bitcoin::FINALITY_DEPTH,
+    bitcoin::DEFAULT_FINALITY_DEPTH,
     config::{TestCaseConfig, TestCaseDockerConfig},
     framework::TestFramework,
     test_case::{TestCase, TestCaseRunner},
@@ -40,8 +40,8 @@ impl TestCase for DockerIntegrationTest {
         // Wait for blob inscribe tx to be in mempool
         da.wait_mempool_len(1, None).await?;
 
-        da.generate(FINALITY_DEPTH).await?;
-        let finalized_height = da.get_finalized_height().await?;
+        da.generate(DEFAULT_FINALITY_DEPTH).await?;
+        let finalized_height = da.get_finalized_height(None).await?;
 
         batch_prover
             .wait_for_l1_height(finalized_height, None)
