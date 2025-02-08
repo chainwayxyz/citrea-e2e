@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{log_provider::LogPathProvider, node::NodeKind};
 
-pub const FINALITY_DEPTH: u64 = 30;
+pub const DEFAULT_FINALITY_DEPTH: u64 = 5;
 
 pub struct BitcoinNode {
     spawn_output: SpawnOutput,
@@ -98,8 +98,8 @@ impl BitcoinNode {
         Ok(())
     }
 
-    pub async fn get_finalized_height(&self) -> Result<u64> {
-        Ok(self.get_block_count().await? - FINALITY_DEPTH + 1)
+    pub async fn get_finalized_height(&self, finality_depth: Option<u64>) -> Result<u64> {
+        Ok(self.get_block_count().await? - finality_depth.unwrap_or(DEFAULT_FINALITY_DEPTH) + 1)
     }
 
     async fn wait_for_shutdown(&self) -> Result<()> {
