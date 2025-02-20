@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::PRE_FORK2_BRIDGE_INITIALIZE_PARAMS;
+
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct SequencerConfig {
@@ -17,6 +19,8 @@ pub struct SequencerConfig {
     pub da_update_interval_ms: u64,
     /// Block production interval in ms
     pub block_production_interval_ms: u64,
+    /// Bridge system contract initialize function parameters
+    pub bridge_initialize_params: String,
 }
 
 impl Default for SequencerConfig {
@@ -30,6 +34,7 @@ impl Default for SequencerConfig {
             block_production_interval_ms: 100,
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
+            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
         }
     }
 }
@@ -92,6 +97,7 @@ mod tests {
             deposit_mempool_fetch_limit = 10
             da_update_interval_ms = 1000
             block_production_interval_ms = 1000
+            bridge_initialize_params = "000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000002d4a209fb3a961d8b1f4ec1caa220c6a50b815febc0b689ddf0b9ddfbf99cb74479e41ac0063066369747265611400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a08000000003b9aca006800000000000000000000000000000000000000000000"
             [mempool_conf]
             pending_tx_limit = 100000
             pending_tx_size = 200
@@ -123,6 +129,7 @@ mod tests {
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
+            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
         };
         assert_eq!(config, expected);
     }
