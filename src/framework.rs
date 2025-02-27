@@ -167,15 +167,42 @@ impl TestFramework {
     pub fn dump_logs(&self) -> Result<()> {
         debug!("Dumping logs:");
 
+        let forced_dump = std::env::var("ENABLE_DUMP_LOGS")
+            .map(|v| {
+                v.split(',')
+                    .map(|s| s.trim().to_lowercase())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+
         let n_lines = std::env::var("TAIL_N_LINES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
-            .unwrap_or(100);
+            .unwrap_or(50);
+
         for provider in self.get_nodes_as_log_provider() {
-            println!("{} logs (last {n_lines} lines):", provider.kind());
-            let _ = tail_file(&provider.log_path(), n_lines);
-            println!("{} stderr logs (last {n_lines} lines):", provider.kind());
-            let _ = tail_file(&provider.stderr_path(), n_lines);
+            let kind = provider.kind().to_string().to_lowercase();
+            let force_dump =
+                forced_dump.contains(&kind) || forced_dump.contains(&"all".to_string());
+
+            let had_error = has_errors_or_panics(&provider.log_path())?;
+            if force_dump || had_error {
+                println!("{} logs (last {n_lines} lines):", provider.kind());
+
+                let _ = tail_file(
+                    &provider.log_path(),
+                    if had_error { n_lines * 10 } else { n_lines },
+                );
+            }
+
+            let had_error = has_errors_or_panics(&provider.stderr_path())?;
+            if force_dump || had_error {
+                println!("{} stderr logs (last {n_lines} lines):", provider.kind());
+                let _ = tail_file(
+                    &provider.stderr_path(),
+                    if had_error { n_lines * 10 } else { n_lines },
+                );
+            }
         }
         Ok(())
     }
@@ -527,4 +554,32 @@ fn setup_logging() {
                 .try_init();
         }
     });
+}
+
+fn has_errors_or_panics(path: &Path) -> Result<bool> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    const ERROR_KEYWORDS: [&str; 2] = ["error", "panic"];
+
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+
+    for line in reader.lines() {
+        let line = line?;
+        let lowercase = line.to_lowercase();
+
+        if ERROR_KEYWORDS
+            .iter()
+            .any(|&keyword| lowercase.contains(keyword))
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
