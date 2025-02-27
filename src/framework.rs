@@ -300,6 +300,7 @@ fn generate_test_config<T: TestCase>(
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
+    let l1_start_height = T::l1_start_height();
 
     let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
         create_dirs(&test_case.dir)?;
@@ -375,6 +376,7 @@ fn generate_test_config<T: TestCase>(
         include_tx_body: true,
         sync_blocks_count: 10,
         pruning_config: None,
+        l1_start_height,
     });
 
     let batch_prover_rollup = {
@@ -557,8 +559,10 @@ fn setup_logging() {
 }
 
 fn has_errors_or_panics(path: &Path) -> Result<bool> {
-    use std::fs::File;
-    use std::io::{BufRead, BufReader};
+    use std::{
+        fs::File,
+        io::{BufRead, BufReader},
+    };
 
     const ERROR_KEYWORDS: [&str; 2] = ["error", "panic"];
 
