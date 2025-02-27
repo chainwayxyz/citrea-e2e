@@ -183,6 +183,12 @@ pub trait TestCase: Send + Sync + 'static {
         BitcoinConfig::default()
     }
 
+    /// Returns the l1 start height for full node and batch prover
+    /// Override this method to provide a custom full node and batch prover l1 start height configuration.
+    fn l1_start_height() -> Option<u64> {
+        Some(1)
+    }
+
     /// Returns the sequencer configuration for the test.
     /// Override this method to provide a custom sequencer configuration.
     fn sequencer_config() -> SequencerConfig {
