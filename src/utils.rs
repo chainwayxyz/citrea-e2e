@@ -87,13 +87,14 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     println!("tailing path : {path:?}");
     let file = File::open(path)?;
     let reader = BufReader::new(file);
-    let mut last_lines = Vec::with_capacity(lines);
+    let mut last_lines = Vec::new();
 
     for line in reader.lines() {
         let line = line?;
         if last_lines.len() >= lines {
             last_lines.remove(0);
         }
+
         last_lines.push(line);
     }
 
