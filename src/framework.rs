@@ -300,11 +300,7 @@ fn generate_test_config<T: TestCase>(
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
-<<<<<<< HEAD
-    let l1_start_height = T::l1_start_height();
-=======
     let scan_l1_start_height = T::scan_l1_start_height();
->>>>>>> add-l1-start-height-to-runner-config
 
     let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
         create_dirs(&test_case.dir)?;
