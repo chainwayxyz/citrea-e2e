@@ -19,8 +19,8 @@ pub struct RunnerConfig {
     /// Configurations for pruning
     pub pruning_config: Option<PruningConfig>,
     /// Scan L1 start height
-    #[serde(default = "default_l1_start_height")]
-    pub l1_start_height: Option<u64>,
+    #[serde(default = "default_scan_l1_start_height")]
+    pub scan_l1_start_height: u64,
 }
 
 /// RPC configuration.
@@ -77,8 +77,8 @@ const fn default_sync_blocks_count() -> u64 {
 }
 
 #[inline]
-const fn default_l1_start_height() -> Option<u64> {
-    Some(1)
+const fn default_scan_l1_start_height() -> u64 {
+    1
 }
 
 #[inline]
