@@ -376,11 +376,7 @@ fn generate_test_config<T: TestCase>(
         include_tx_body: true,
         sync_blocks_count: 10,
         pruning_config: None,
-<<<<<<< HEAD
-        l1_start_height,
-=======
         scan_l1_start_height,
->>>>>>> add-l1-start-height-to-runner-config
     });
 
     let batch_prover_rollup = {
