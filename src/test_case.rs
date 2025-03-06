@@ -185,8 +185,8 @@ pub trait TestCase: Send + Sync + 'static {
 
     /// Returns the l1 start height for full node and batch prover
     /// Override this method to provide a custom full node and batch prover l1 start height configuration.
-    fn scan_l1_start_height() -> u64 {
-        1
+    fn scan_l1_start_height() -> Option<u64> {
+        Some(1)
     }
 
     /// Returns the sequencer configuration for the test.

@@ -14,6 +14,7 @@ struct DockerIntegrationTest;
 impl TestCase for DockerIntegrationTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
+            with_batch_prover: true,
             with_full_node: true,
             docker: TestCaseDockerConfig {
                 bitcoin: true,
@@ -26,6 +27,7 @@ impl TestCase for DockerIntegrationTest {
     async fn run_test(&mut self, f: &mut TestFramework) -> Result<()> {
         let sequencer = f.sequencer.as_ref().unwrap();
         let full_node = f.full_node.as_ref().unwrap();
+        let batch_prover = f.batch_prover.as_ref().unwrap();
         let da = f.bitcoin_nodes.get(0).unwrap();
 
         let min_soft_confirmations_per_commitment =
@@ -39,6 +41,11 @@ impl TestCase for DockerIntegrationTest {
         da.wait_mempool_len(1, None).await?;
 
         da.generate(DEFAULT_FINALITY_DEPTH).await?;
+        let finalized_height = da.get_finalized_height(None).await?;
+
+        batch_prover
+            .wait_for_l1_height(finalized_height, None)
+            .await?;
         full_node
             .wait_for_l2_height(min_soft_confirmations_per_commitment, None)
             .await?;
