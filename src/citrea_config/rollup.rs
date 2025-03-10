@@ -11,7 +11,7 @@ use crate::config::{BitcoinConfig, BitcoinServiceConfig};
 pub struct RunnerConfig {
     /// Sequencer client configuration.
     pub sequencer_client_url: String,
-    /// Saves sequencer soft confirmations if set to true
+    /// Saves sequencer l2 blocks if set to true
     pub include_tx_body: bool,
     /// Number of blocks to request during sync
     #[serde(default = "default_sync_blocks_count")]
@@ -103,10 +103,10 @@ pub struct StorageConfig {
 /// Important public keys for the rollup
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct RollupPublicKeys {
-    /// Soft confirmation signing public key of the Sequencer
+    /// l2 block signing public key of the Sequencer
     #[serde(with = "hex::serde")]
     pub sequencer_public_key: Vec<u8>,
-    /// Soft confirmation signing public key of the Sequencer
+    /// l2 block signing public key of the Sequencer
     #[serde(with = "hex::serde")]
     pub sequencer_k256_public_key: Vec<u8>,
     /// DA Signing Public Key of the Sequencer

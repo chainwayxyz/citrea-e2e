@@ -49,10 +49,10 @@ impl Client {
             .map(|v: U64| v.try_into().expect("U64 to u64 must succeed"))?)
     }
 
-    pub async fn ledger_get_head_soft_confirmation_height(&self) -> Result<u64> {
+    pub async fn ledger_get_head_l2_block_height(&self) -> Result<u64> {
         Ok(self
             .client
-            .request("ledger_getHeadSoftConfirmationHeight", rpc_params![])
+            .request("ledger_getHeadL2BlockHeight", rpc_params![])
             .await
             .map(|v: U64| v.try_into().expect("U64 to u64 must succeed"))?)
     }
@@ -61,8 +61,8 @@ impl Client {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            trace!("Waiting for soft confirmation {}", num);
-            let latest_block = self.ledger_get_head_soft_confirmation_height().await?;
+            trace!("Waiting for l2 block {}", num);
+            let latest_block = self.ledger_get_head_l2_block_height().await?;
 
             if latest_block >= num {
                 break;
