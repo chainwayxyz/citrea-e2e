@@ -106,9 +106,6 @@ pub struct RollupPublicKeys {
     /// l2 block signing public key of the Sequencer
     #[serde(with = "hex::serde")]
     pub sequencer_public_key: Vec<u8>,
-    /// l2 block signing public key of the Sequencer
-    #[serde(with = "hex::serde")]
-    pub sequencer_k256_public_key: Vec<u8>,
     /// DA Signing Public Key of the Sequencer
     /// serialized as hex
     #[serde(with = "hex::serde")]
@@ -171,10 +168,6 @@ impl Default for RollupConfig {
             },
             public_keys: RollupPublicKeys {
                 sequencer_public_key: vec![
-                    32, 64, 64, 227, 100, 193, 15, 43, 236, 156, 31, 229, 0, 161, 205, 76, 36, 124,
-                    137, 214, 80, 160, 30, 215, 232, 44, 171, 168, 103, 135, 124, 33,
-                ],
-                sequencer_k256_public_key: vec![
                     3, 99, 96, 232, 86, 49, 12, 229, 210, 148, 232, 190, 51, 252, 128, 112, 119,
                     220, 86, 172, 128, 217, 93, 156, 212, 221, 189, 33, 50, 94, 255, 115, 247,
                 ],
