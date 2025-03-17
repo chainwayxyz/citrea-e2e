@@ -71,7 +71,7 @@ impl BitcoinConfig {
     /// This prevents odd port conflict when assigning rpc/p2p ports
     pub fn local_args(&self) -> Vec<String> {
         [
-            self.base_args(),
+            self.args(),
             vec![
                 format!("-bind=0.0.0.0:{}", self.p2p_port),
                 format!("-bind=0.0.0.0:{}", self.rpc_port),
