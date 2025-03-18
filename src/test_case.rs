@@ -24,6 +24,7 @@ use crate::{
 };
 
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
+pub const CITREA_CLI_ENV: &str = "CITREA_CLI_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
 const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 
@@ -135,6 +136,16 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     pub fn set_citrea_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(CITREA_ENV, path)
+    }
+
+    /// Sets the path for the Citrea-cli binary in the environment.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Location of the Citrea binary to be used when spawning binary.
+    ///
+    pub fn set_citrea_cli_path<P: AsRef<Path>>(self, path: P) -> Self {
+        self.set_binary_path(CITREA_CLI_ENV, path)
     }
 
     /// Sets the path for the Bitcoin binary in the environment.

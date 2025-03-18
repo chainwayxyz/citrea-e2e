@@ -11,6 +11,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 
 use crate::{
     bitcoin::BitcoinNodeCluster,
+    citrea_cli::CitreaCli,
     config::{
         BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
         FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, RollupConfig,
@@ -19,7 +20,7 @@ use crate::{
     docker::DockerEnv,
     log_provider::{LogPathProvider, LogPathProviderErased},
     node::{BatchProver, FullNode, LightClientProver, NodeKind, Sequencer},
-    test_case::TestCase,
+    test_case::{TestCase, CITREA_CLI_ENV},
     traits::NodeT,
     utils::{
         copy_directory, get_available_port, get_default_genesis_path, get_workspace_root, tail_file,
@@ -49,6 +50,7 @@ pub struct TestFramework {
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
     pub initial_da_height: u64,
+    pub citrea_cli: Option<CitreaCli>,
 }
 
 async fn create_optional<T>(pred: bool, f: impl Future<Output = Result<T>>) -> Result<Option<T>> {
@@ -69,6 +71,10 @@ impl TestFramework {
         } else {
             None
         };
+        let citrea_cli = match &test_case.with_citrea_cli {
+            false => None,
+            true => Some(CitreaCli::new(CITREA_CLI_ENV)?),
+        };
         let config = generate_test_config::<T>(test_case, &docker)?;
 
         anyhow::ensure!(
@@ -88,6 +94,7 @@ impl TestFramework {
             full_node: None,
             ctx,
             initial_da_height: 0,
+            citrea_cli,
         })
     }
 

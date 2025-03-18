@@ -53,6 +53,7 @@ pub struct TestCaseConfig {
     pub with_full_node: bool,
     pub with_batch_prover: bool,
     pub with_light_client_prover: bool,
+    pub with_citrea_cli: bool,
     pub timeout: Duration,
     pub dir: PathBuf,
     pub docker: TestCaseDockerConfig,
@@ -73,6 +74,7 @@ impl Default for TestCaseConfig {
             with_batch_prover: false,
             with_light_client_prover: false,
             with_full_node: false,
+            with_citrea_cli: false,
             timeout: Duration::from_secs(60),
             dir: std::env::var("TEST_OUT_DIR")
                 .map_or_else(
