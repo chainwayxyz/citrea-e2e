@@ -149,10 +149,7 @@ where
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
             trace!("Waiting for l2 block {}", num);
-            let latest_block = self
-                .client
-                .ledger_get_head_l2_block_height()
-                .await?;
+            let latest_block = self.client.ledger_get_head_l2_block_height().await?;
 
             if latest_block >= num {
                 break;
