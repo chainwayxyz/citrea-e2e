@@ -7,8 +7,8 @@ use crate::PRE_FORK2_BRIDGE_INITIALIZE_PARAMS;
 pub struct SequencerConfig {
     /// Private key of the sequencer
     pub private_key: String,
-    /// Min. soft confirmaitons for sequencer to commit
-    pub min_soft_confirmations_per_commitment: u64,
+    /// Min. l2 blocks for sequencer to commit
+    pub min_l2_blocks_per_commitment: u64,
     /// Whether or not the sequencer is running in test mode
     pub test_mode: bool,
     /// Limit for the number of deposit transactions to be included in the block
@@ -28,7 +28,7 @@ impl Default for SequencerConfig {
         SequencerConfig {
             private_key: "1212121212121212121212121212121212121212121212121212121212121212"
                 .to_string(),
-            min_soft_confirmations_per_commitment: 4,
+            min_l2_blocks_per_commitment: 4,
             test_mode: true,
             deposit_mempool_fetch_limit: 10,
             block_production_interval_ms: 100,
@@ -92,7 +92,7 @@ mod tests {
     fn test_correct_config_sequencer() {
         let config = r#"
             private_key = "1212121212121212121212121212121212121212121212121212121212121212"
-            min_soft_confirmations_per_commitment = 123
+            min_l2_blocks_per_commitment = 123
             test_mode = false
             deposit_mempool_fetch_limit = 10
             da_update_interval_ms = 1000
@@ -115,7 +115,7 @@ mod tests {
         let expected = SequencerConfig {
             private_key: "1212121212121212121212121212121212121212121212121212121212121212"
                 .to_string(),
-            min_soft_confirmations_per_commitment: 123,
+            min_l2_blocks_per_commitment: 123,
             test_mode: false,
             deposit_mempool_fetch_limit: 10,
             mempool_conf: SequencerMempoolConfig {

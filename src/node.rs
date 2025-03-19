@@ -148,11 +148,8 @@ where
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            trace!("Waiting for soft confirmation {}", num);
-            let latest_block = self
-                .client
-                .ledger_get_head_soft_confirmation_height()
-                .await?;
+            trace!("Waiting for l2 block {}", num);
+            let latest_block = self.client.ledger_get_head_l2_block_height().await?;
 
             if latest_block >= num {
                 break;
@@ -216,13 +213,13 @@ where
         let mut response = Err(anyhow!("initial response value"));
 
         while response.is_err() && (start.elapsed() < timeout) {
-            response = self.client.ledger_get_head_soft_confirmation_height().await;
+            response = self.client.ledger_get_head_l2_block_height().await;
             sleep(Duration::from_millis(500)).await;
         }
         match response {
             Ok(_) => return Ok(()),
             Err(e) => anyhow::bail!(
-                "{} failed to become ready within the specified timeout, latest ledger_get_head_soft_confirmation_height error: {}",
+                "{} failed to become ready within the specified timeout, latest ledger_get_head_l2_block_height error: {}",
                 self.config.kind(),
                 e
             )
