@@ -30,10 +30,9 @@ impl TestCase for DockerIntegrationTest {
         let batch_prover = f.batch_prover.as_ref().unwrap();
         let da = f.bitcoin_nodes.get(0).unwrap();
 
-        let min_soft_confirmations_per_commitment =
-            Self::sequencer_config().min_soft_confirmations_per_commitment;
+        let min_l2_blocks_per_commitment = Self::sequencer_config().min_l2_blocks_per_commitment;
 
-        for _ in 0..min_soft_confirmations_per_commitment {
+        for _ in 0..min_l2_blocks_per_commitment {
             sequencer.client.send_publish_batch_request().await?;
         }
 
@@ -47,7 +46,7 @@ impl TestCase for DockerIntegrationTest {
             .wait_for_l1_height(finalized_height, None)
             .await?;
         full_node
-            .wait_for_l2_height(min_soft_confirmations_per_commitment, None)
+            .wait_for_l2_height(min_l2_blocks_per_commitment, None)
             .await?;
 
         let unspent_sequencer = sequencer
