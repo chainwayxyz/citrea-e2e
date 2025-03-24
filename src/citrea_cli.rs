@@ -1,8 +1,6 @@
-use anyhow::anyhow;
-use anyhow::bail;
-use std::env;
-use std::path::PathBuf;
-use std::process::Stdio;
+use std::{env, path::PathBuf, process::Stdio};
+
+use anyhow::{anyhow, bail};
 use tokio::process::Command;
 
 pub struct CitreaCli {

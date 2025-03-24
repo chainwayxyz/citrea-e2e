@@ -102,9 +102,11 @@ impl<T: TestCase> TestCaseRunner<T> {
             .as_mut()
             .with_context(|| format!("Framework not correctly initialized, result {result:?}"))?;
 
-        if let Err(_) | Ok(Err(_)) = result {
-            if let Err(e) = f.dump_logs() {
-                eprintln!("Error dumping log: {e}");
+        if std::env::var("DISABLE_DUMP_LOGS").is_err() {
+            if let Err(_) | Ok(Err(_)) = result {
+                if let Err(e) = f.dump_logs() {
+                    eprintln!("Error dumping log: {e}");
+                }
             }
         }
 
