@@ -235,7 +235,10 @@ pub trait TestCase: Send + Sync + 'static {
     /// * `framework` - A reference to the TestFramework instance
     async fn run_test(&mut self, framework: &mut TestFramework) -> Result<()>;
 
-    async fn cleanup(&self) -> Result<()> {
+    async fn cleanup(self) -> Result<()>
+    where
+        Self: Sized,
+    {
         Ok(())
     }
 }
