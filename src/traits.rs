@@ -3,6 +3,10 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Context;
 use async_trait::async_trait;
 use bollard::{container::StopContainerOptions, Docker};
+use nix::{
+    sys::signal::{self, Signal},
+    unistd::Pid,
+};
 use tokio::process::Child;
 use tracing::info;
 
@@ -33,10 +37,10 @@ pub trait NodeT: Send {
     async fn stop(&mut self) -> Result<()> {
         match self.spawn_output() {
             SpawnOutput::Child(process) => {
-                process
-                    .kill()
-                    .await
-                    .context("Failed to kill child process")?;
+                let pid = process.id().expect("Process missing id") as i32;
+                info!("Killing process {}", pid);
+                signal::kill(Pid::from_raw(pid), Signal::SIGTERM)
+                    .context("Failed to send SIGTERM signal to process")?;
                 Ok(())
             }
             SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => {
