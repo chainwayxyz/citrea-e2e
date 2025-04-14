@@ -3,7 +3,7 @@ use std::{fmt::Debug, path::PathBuf};
 use serde::Serialize;
 use tracing::debug;
 
-use super::{BitcoinConfig, FullL2NodeConfig};
+use super::{throttle::ThrottleConfig, BitcoinConfig, FullL2NodeConfig};
 use crate::{
     node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
@@ -11,7 +11,7 @@ use crate::{
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:28.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str =
-    "chainwayxyz/citrea-test:2dc23c1a7ab6f38ca597540f676134e9b957eb5d";
+    "chainwayxyz/citrea-test:05ae8e85015a0c7a5da7d67e6f011fc7be9564b5";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
@@ -28,6 +28,7 @@ pub struct DockerConfig {
     pub volume: VolumeConfig,
     pub host_dir: Option<Vec<String>>,
     pub kind: NodeKind,
+    pub throttle: Option<ThrottleConfig>,
 }
 
 impl From<&BitcoinConfig> for DockerConfig {
@@ -55,6 +56,7 @@ impl From<&BitcoinConfig> for DockerConfig {
             },
             host_dir: None,
             kind: NodeKind::Bitcoin,
+            throttle: None, // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
         }
     }
 }
@@ -88,6 +90,7 @@ where
                 get_genesis_path(config.dir()),
             ]),
             kind,
+            throttle: config.throttle.clone(),
         }
     }
 }

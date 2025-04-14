@@ -237,13 +237,14 @@ impl TestFramework {
             info!("Successfully stopped full_node");
         }
 
-        let _ = self.bitcoin_nodes.stop_all().await;
-        info!("Successfully stopped bitcoin nodes");
-
         if let Some(docker) = self.ctx.docker.as_ref() {
             let _ = docker.cleanup().await;
             info!("Successfully cleaned docker");
         }
+
+        // Stop bitcoin last
+        let _ = self.bitcoin_nodes.stop_all().await;
+        info!("Successfully stopped bitcoin nodes");
 
         Ok(())
     }
@@ -308,6 +309,7 @@ fn generate_test_config<T: TestCase>(
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
     let scan_l1_start_height = T::scan_l1_start_height();
+    let throttle_config = T::throttle_config();
 
     let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
         create_dirs(&test_case.dir)?;
@@ -474,6 +476,7 @@ fn generate_test_config<T: TestCase>(
             sequencer_dir,
             env.sequencer(),
             test_case.mode,
+            throttle_config.clone(),
         )?,
         batch_prover: FullBatchProverConfig::new(
             NodeKind::BatchProver,
@@ -483,6 +486,7 @@ fn generate_test_config<T: TestCase>(
             batch_prover_dir,
             env.batch_prover(),
             test_case.mode,
+            throttle_config.clone(),
         )?,
         light_client_prover: FullLightClientProverConfig::new(
             NodeKind::LightClientProver,
@@ -492,6 +496,7 @@ fn generate_test_config<T: TestCase>(
             light_client_prover_dir,
             env.light_client_prover(),
             test_case.mode,
+            throttle_config.clone(),
         )?,
         full_node: FullFullNodeConfig::new(
             NodeKind::FullNode,
@@ -501,6 +506,7 @@ fn generate_test_config<T: TestCase>(
             full_node_dir,
             env.full_node(),
             test_case.mode,
+            throttle_config.clone(),
         )?,
         test_case,
     })

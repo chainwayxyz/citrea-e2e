@@ -156,17 +156,32 @@ impl DockerEnv {
             }
         }
 
+        let mut host_config = HostConfig {
+            port_bindings: Some(port_bindings),
+            mounts: Some(mounts),
+            ..Default::default()
+        };
+
+        if let Some(throttle) = &config.throttle {
+            debug!("Running container with throttle: {:?}", throttle);
+
+            if let Some(cpu) = &throttle.cpu {
+                host_config.nano_cpus = Some((cpu.cpus * 1_000_000_000.0) as i64);
+            }
+
+            if let Some(memory) = &throttle.memory {
+                host_config.memory = Some(memory.limit as i64);
+                host_config.oom_kill_disable = Some(true);
+            }
+        }
+
         let container_config = Config {
             hostname: Some(format!("{}-{}", config.kind, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
             env: Some(vec!["PARALLEL_PROOF_LIMIT=1".to_string()]), // Todo proper env handling
-            host_config: Some(HostConfig {
-                port_bindings: Some(port_bindings),
-                mounts: Some(mounts),
-                ..Default::default()
-            }),
+            host_config: Some(host_config),
             networking_config: Some(NetworkingConfig {
                 endpoints_config: network_config,
             }),

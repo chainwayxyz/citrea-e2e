@@ -2,6 +2,7 @@ mod bitcoin;
 mod docker;
 mod test;
 mod test_case;
+mod throttle;
 mod utils;
 
 use std::{
@@ -14,6 +15,7 @@ pub use docker::DockerConfig;
 use serde::Serialize;
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
+pub use throttle::ThrottleConfig;
 pub use utils::config_to_file;
 
 pub use crate::citrea_config::{
@@ -77,6 +79,7 @@ where
     pub node: T,
     pub rollup: RollupConfig,
     kind: NodeKind,
+    pub throttle: Option<ThrottleConfig>,
 }
 
 impl<T> FullL2NodeConfig<T>
@@ -91,6 +94,7 @@ where
         dir: PathBuf,
         env: Vec<(&'static str, &'static str)>,
         mode: CitreaMode,
+        throttle: Option<ThrottleConfig>,
     ) -> Result<Self> {
         let base = BaseNodeConfig {
             dir: dir.clone(),
@@ -105,6 +109,7 @@ where
             node,
             rollup,
             kind,
+            throttle,
         };
 
         // Write configs to files
