@@ -1,18 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Default)]
 pub struct ThrottleConfig {
     pub cpu: Option<CpuThrottle>,
     pub memory: Option<MemoryThrottle>,
-}
-
-impl Default for ThrottleConfig {
-    fn default() -> Self {
-        Self {
-            cpu: None,
-            memory: None,
-        }
-    }
 }
 
 impl ThrottleConfig {

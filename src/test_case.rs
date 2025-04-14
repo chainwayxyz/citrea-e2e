@@ -5,7 +5,6 @@ use std::{
     io::Write,
     panic::{self},
     path::Path,
-    time::Duration,
 };
 
 use anyhow::{bail, Context};

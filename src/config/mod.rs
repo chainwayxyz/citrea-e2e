@@ -86,6 +86,7 @@ impl<T> FullL2NodeConfig<T>
 where
     T: Clone + Serialize + Debug + Send + Sync,
 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         kind: NodeKind,
         node: T,
