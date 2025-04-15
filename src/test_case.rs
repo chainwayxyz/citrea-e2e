@@ -5,7 +5,6 @@ use std::{
     io::Write,
     panic::{self},
     path::Path,
-    time::Duration,
 };
 
 use anyhow::{bail, Context};
@@ -19,7 +18,7 @@ use super::{
     Result,
 };
 use crate::{
-    config::{BatchProverConfig, LightClientProverConfig, SequencerConfig},
+    config::{BatchProverConfig, LightClientProverConfig, SequencerConfig, ThrottleConfig},
     traits::NodeT,
 };
 
@@ -47,24 +46,16 @@ impl<T: TestCase> TestCaseRunner<T> {
         f.bitcoin_nodes.connect_nodes().await?;
 
         if let Some(sequencer) = &f.sequencer {
-            sequencer
-                .wait_for_ready(Some(Duration::from_secs(5)))
-                .await?;
+            sequencer.wait_for_ready(None).await?;
         }
         if let Some(batch_prover) = &f.batch_prover {
-            batch_prover
-                .wait_for_ready(Some(Duration::from_secs(5)))
-                .await?;
+            batch_prover.wait_for_ready(None).await?;
         }
         if let Some(light_client_prover) = &f.light_client_prover {
-            light_client_prover
-                .wait_for_ready(Some(Duration::from_secs(5)))
-                .await?;
+            light_client_prover.wait_for_ready(None).await?;
         }
         if let Some(full_node) = &f.full_node {
-            full_node
-                .wait_for_ready(Some(Duration::from_secs(5)))
-                .await?;
+            full_node.wait_for_ready(None).await?;
         }
 
         Ok(())
@@ -200,6 +191,11 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom full node and batch prover l1 start height configuration.
     fn scan_l1_start_height() -> Option<u64> {
         Some(1)
+    }
+
+    /// Returns the throttle config
+    fn throttle_config() -> Option<ThrottleConfig> {
+        None
     }
 
     /// Returns the sequencer configuration for the test.
