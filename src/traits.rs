@@ -37,10 +37,15 @@ pub trait NodeT: Send {
     async fn stop(&mut self) -> Result<()> {
         match self.spawn_output() {
             SpawnOutput::Child(process) => {
-                let pid = process.id().expect("Process missing id") as i32;
-                info!("Killing process {}", pid);
-                signal::kill(Pid::from_raw(pid), Signal::SIGTERM)
-                    .context("Failed to send SIGTERM signal to process")?;
+                if let Some(pid) = process.id() {
+                    info!("Killing process {}", pid);
+                    signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
+                        .context("Failed to send SIGTERM signal to process")?;
+                } else {
+                    info!("Process ID not found Killing process");
+                    process.kill().await.context("Failed to kill process")?;
+                }
+
                 Ok(())
             }
             SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => {
