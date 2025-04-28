@@ -322,8 +322,8 @@ fn generate_test_config<T: TestCase>(
         std::fs::create_dir_all(&data_dir)
             .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
 
-        let p2p_port = get_available_port()?;
         let rpc_port = get_available_port()?;
+        let p2p_port = get_available_port()?;
 
         bitcoin_confs.push(BitcoinConfig {
             p2p_port,
