@@ -5,7 +5,7 @@ edition = "2021"
 resolver = "2"
 
 [dependencies]
-alloy-primitives = { version = "0.8.12", default-features = false, features = ["serde"] }
+alloy-primitives = { version = "1.0", default-features = false, features = ["serde"] }
 anyhow = { version = "1.0.68", default-features = false, features = ["std"] }
 async-trait = "0.1.71"
 bitcoin = { version = "0.32.2", features = ["serde", "rand"] }
