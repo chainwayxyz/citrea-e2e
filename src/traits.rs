@@ -41,6 +41,11 @@ pub trait NodeT: Send {
                     info!("Killing process {}", pid);
                     signal::kill(Pid::from_raw(pid as i32), Signal::SIGTERM)
                         .context("Failed to send SIGTERM signal to process")?;
+
+                    // TODO Sleep until coverage file is written
+                    if std::env::var("CARGO_LLVM_COV").is_ok() {
+                        tokio::time::sleep(Duration::from_millis(5000)).await;
+                    }
                 } else {
                     info!("Process ID not found Killing process");
                     process.kill().await.context("Failed to kill process")?;

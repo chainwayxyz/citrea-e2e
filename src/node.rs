@@ -132,15 +132,31 @@ where
         let stderr_path = config.stderr_path();
         let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
 
-        Command::new(citrea)
+        let mut env_vars: Vec<_> = config
+            .env()
+            .into_iter()
+            .map(|(k, v)| (k, v.to_string()))
+            .collect();
+
+        for var in &["RUSTFLAGS", "CARGO_LLVM_COV", "LLVM_PROFILE_FILE"] {
+            if let Ok(val) = std::env::var(var) {
+                env_vars.push((var, val));
+            }
+        }
+
+        Command::new(&citrea)
             .args(get_citrea_args(config))
             .args(extra_args.unwrap_or_default())
-            .envs(config.env())
+            .envs(env_vars)
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
-            .kill_on_drop(true)
             .spawn()
-            .context(format!("Failed to spawn {kind} process"))
+            .map_err(|e| {
+                anyhow!(
+                    "Failed to spawn {kind} at path {} process: {e}",
+                    citrea.display()
+                )
+            })
             .map(SpawnOutput::Child)
     }
 
