@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// The possible configurations of the prover.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum ProverGuestRunConfig {
     /// Skip proving.
     Skip,
