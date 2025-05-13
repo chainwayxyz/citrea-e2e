@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// The possible configurations of the prover.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProverGuestRunConfig {
     /// Skip proving.
