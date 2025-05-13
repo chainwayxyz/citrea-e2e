@@ -14,22 +14,6 @@ pub enum ProverGuestRunConfig {
     ProveWithFakes,
 }
 
-impl<'de> Deserialize<'de> for ProverGuestRunConfig {
-    fn deserialize<D>(deserializer: D) -> Result<ProverGuestRunConfig, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let s = String::deserialize(deserializer)?;
-        match s.as_str() {
-            "skip" => Ok(ProverGuestRunConfig::Skip),
-            "execute" => Ok(ProverGuestRunConfig::Execute),
-            "prove" => Ok(ProverGuestRunConfig::Prove),
-            "prove-with-fakes" => Ok(ProverGuestRunConfig::ProveWithFakes),
-            _ => Err(serde::de::Error::custom("invalid prover guest run config")),
-        }
-    }
-}
-
 /// Prover configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct BatchProverConfig {
