@@ -11,7 +11,7 @@ pub enum ProverGuestRunConfig {
     /// Run the rollup verifier and create a SNARK of execution.
     Prove,
     /// Run the rollup verifier and create a SNARK or a fake proof of execution.
-    ProveWithFakeProofs,
+    ProveWithFakes,
 }
 
 impl<'de> Deserialize<'de> for ProverGuestRunConfig {
@@ -24,7 +24,7 @@ impl<'de> Deserialize<'de> for ProverGuestRunConfig {
             "skip" => Ok(ProverGuestRunConfig::Skip),
             "execute" => Ok(ProverGuestRunConfig::Execute),
             "prove" => Ok(ProverGuestRunConfig::Prove),
-            "prove-with-fakes" => Ok(ProverGuestRunConfig::ProveWithFakeProofs),
+            "prove-with-fakes" => Ok(ProverGuestRunConfig::ProveWithFakes),
             _ => Err(serde::de::Error::custom("invalid prover guest run config")),
         }
     }
