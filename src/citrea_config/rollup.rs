@@ -149,7 +149,7 @@ impl Default for RollupConfig {
             storage: StorageConfig {
                 path: TempDir::new()
                     .expect("Failed to create temporary directory")
-                    .into_path(),
+                    .keep(),
                 db_max_open_files: None,
             },
             runner: None,
@@ -161,9 +161,10 @@ impl Default for RollupConfig {
                 da_private_key: None,
                 tx_backup_dir: TempDir::new()
                     .expect("Failed to create temporary directory")
-                    .into_path()
+                    .keep()
                     .display()
                     .to_string(),
+
                 monitoring: Some(MonitoringConfig::default()),
             },
             public_keys: RollupPublicKeys {
