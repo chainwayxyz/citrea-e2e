@@ -49,6 +49,8 @@ pub struct RpcConfig {
     /// Maximum number of subscription connections
     #[serde(default = "default_max_subscriptions_per_connection")]
     pub max_subscriptions_per_connection: u32,
+    /// API key for protected JSON-RPC methods
+    pub api_key: Option<String>,
 }
 
 #[inline]
@@ -145,6 +147,7 @@ impl Default for RollupConfig {
                 batch_requests_limit: 50,
                 enable_subscriptions: true,
                 max_subscriptions_per_connection: 100,
+                api_key: Some("12345".to_string()),
             },
             storage: StorageConfig {
                 path: TempDir::new()
