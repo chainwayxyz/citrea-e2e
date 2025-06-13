@@ -1,6 +1,10 @@
-use crate::{config::SequencerConfig, node::Node};
+use crate::{
+    config::SequencerConfig,
+    node::{Node, NodeCluster},
+};
 
 pub type Sequencer = Node<SequencerConfig>;
+pub type SequencerCluster = NodeCluster<SequencerConfig>;
 
 impl Sequencer {
     pub fn max_l2_blocks_per_commitment(&self) -> u64 {

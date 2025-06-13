@@ -48,6 +48,13 @@ impl<T: TestCase> TestCaseRunner<T> {
         if let Some(sequencer) = &f.sequencer {
             sequencer.wait_for_ready(None).await?;
         }
+
+        if let Some(sequencer) = &f.sequencer_cluster {
+            for sequencer in sequencer.iter() {
+                sequencer.wait_for_ready(None).await?;
+            }
+        }
+
         if let Some(batch_prover) = &f.batch_prover {
             batch_prover.wait_for_ready(None).await?;
         }

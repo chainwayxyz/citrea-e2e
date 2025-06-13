@@ -42,12 +42,13 @@ pub fn get_default_genesis_path() -> PathBuf {
 }
 
 pub fn get_genesis_path(base_dir: &Path) -> String {
-    base_dir
-        .parent()
-        .expect("Couldn't get parent dir")
-        .join("genesis")
-        .display()
-        .to_string()
+    let parent = base_dir.parent().expect("Couldn't get parent dir");
+    let genesis_path = parent.join("genesis");
+    if genesis_path.exists() {
+        genesis_path.display().to_string()
+    } else {
+        get_genesis_path(parent)
+    }
 }
 
 pub fn generate_test_id() -> String {
