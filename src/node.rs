@@ -229,7 +229,7 @@ where
         let mut response = Err(anyhow!("initial response value"));
 
         while response.is_err() && (start.elapsed() < timeout) {
-            response = self.client.ledger_get_head_l2_block_height().await;
+            response = self.client.ledger_get_last_scanned_l1_height().await;
             sleep(Duration::from_millis(500)).await;
         }
         match response {
