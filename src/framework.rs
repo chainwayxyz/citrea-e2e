@@ -302,13 +302,14 @@ fn generate_test_config<T: TestCase>(
     let env = T::test_env();
     let bitcoin = T::bitcoin_config();
     let batch_prover = T::batch_prover_config();
-    let light_client_prover = T::light_client_prover_config();
+    let mut light_client_prover = T::light_client_prover_config();
     let sequencer = T::sequencer_config();
     let sequencer_rollup = RollupConfig::default();
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
     let scan_l1_start_height = T::scan_l1_start_height();
+    light_client_prover.initial_da_height = scan_l1_start_height.unwrap_or(1);
     let throttle_config = T::throttle_config();
 
     let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
