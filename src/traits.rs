@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use anyhow::Context;
 use async_trait::async_trait;
-use bollard::{container::StopContainerOptions, Docker};
+use bollard::{query_parameters::StopContainerOptions, Docker};
 use nix::{
     sys::signal::{self, Signal},
     unistd::Pid,
@@ -56,9 +56,15 @@ pub trait NodeT: Send {
             SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => {
                 info!("Stopping container {id}");
                 let docker =
-                    Docker::connect_with_local_defaults().context("Failed to connect to Docker")?;
+                    Docker::connect_with_defaults().context("Failed to connect to Docker")?;
                 docker
-                    .stop_container(id, Some(StopContainerOptions { t: 10 }))
+                    .stop_container(
+                        id,
+                        Some(StopContainerOptions {
+                            t: Some(10),
+                            ..Default::default()
+                        }),
+                    )
                     .await
                     .context("Failed to stop Docker container")?;
                 Ok(())
