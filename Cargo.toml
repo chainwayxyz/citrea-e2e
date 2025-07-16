@@ -10,7 +10,7 @@ anyhow = { version = "1.0.68", default-features = false }
 async-trait = { version = "0.1.71" }
 bitcoin = { version = "0.32.2", default-features = false, features = ["serde", "rand"] }
 bitcoincore-rpc = { version = "0.18.0", default-features = false }
-bollard = { version = "0.17.1", default-features = false }
+bollard = { version = "0.19.1", default-features = false }
 futures = { version = "0.3", default-features = false }
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 jsonrpsee = { version = "0.24.2", default-features = false, features = ["http-client"] }
