@@ -534,7 +534,7 @@ fn generate_test_config<T: TestCase>(
                 full_node_rollup.rpc.clone(),
                 light_client_prover_rollup.rpc.clone(),
                 clementine_dir.clone(),
-                port
+                port,
             ));
 
             verifier_endpoints.push(format!("https://127.0.0.1:{}", port));
@@ -551,7 +551,7 @@ fn generate_test_config<T: TestCase>(
                 full_node_rollup.rpc.clone(),
                 light_client_prover_rollup.rpc.clone(),
                 clementine_dir.clone(),
-                port
+                port,
             ));
 
             operator_endpoints.push(format!("https://127.0.0.1:{}", port));
@@ -566,7 +566,7 @@ fn generate_test_config<T: TestCase>(
             full_node_rollup.rpc.clone(),
             light_client_prover_rollup.rpc.clone(),
             clementine_dir.clone(),
-            port
+            port,
         );
 
         ClementineClusterConfig {
