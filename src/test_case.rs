@@ -4,7 +4,7 @@
 use std::{
     io::Write,
     panic::{self},
-    path::Path,
+    path::{Path },
 };
 
 use anyhow::{bail, Context};
@@ -18,14 +18,16 @@ use super::{
     Result,
 };
 use crate::{
-    config::{BatchProverConfig, LightClientProverConfig, SequencerConfig, ThrottleConfig},
+    config::{
+        BatchProverConfig, LightClientProverConfig, PostgresConfig, SequencerConfig, ThrottleConfig
+    },
     traits::NodeT,
 };
 
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
 pub const CITREA_CLI_ENV: &str = "CITREA_CLI_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
-const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
+pub const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -214,6 +216,12 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom light client prover configuration.
     fn light_client_prover_config() -> LightClientProverConfig {
         LightClientProverConfig::default()
+    }
+
+    /// Returns the postgres configuration for the test.
+    /// Override this method to provide a custom postgres configuration.
+    fn postgres_config() -> PostgresConfig {
+        PostgresConfig::default()
     }
 
     /// Returns the test setup

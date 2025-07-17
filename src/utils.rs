@@ -3,10 +3,15 @@ use std::{
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use tokio::{net::TcpStream, time::Instant};
+use tracing::debug;
+
+use crate::test_case::CLEMENTINE_ENV;
 
 use super::Result;
 
@@ -29,6 +34,14 @@ pub fn get_citrea_path() -> Result<PathBuf> {
     std::env::var("CITREA_E2E_TEST_BINARY")
         .map(PathBuf::from)
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
+}
+
+pub fn get_clementine_path() -> Result<PathBuf> {
+    std::env::var(CLEMENTINE_ENV)
+        .map(PathBuf::from)
+        .map_err(|_| {
+            anyhow!("CLEMENTINE_E2E_TEST_BINARY is not set. Cannot resolve clementine path")
+        })
 }
 
 /// Get genesis path from resources
@@ -103,4 +116,19 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>) -> Result<()> {
+    let timeout = timeout.unwrap_or(Duration::from_secs(30));
+    let start = Instant::now();
+
+    while start.elapsed() < timeout {
+        if let Ok(_) = TcpStream::connect(format!("{host}:{port}")).await {
+            debug!("Postgres is accepting connections");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+    }
+
+    bail!("Failed to connect to {host}:{port} within the specified timeout")
 }

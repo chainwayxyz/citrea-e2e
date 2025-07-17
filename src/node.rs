@@ -40,6 +40,10 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    ClementineAggregator,
+    ClementineVerifier,
+    ClementineOperator,
+    Postgres,
 }
 
 impl NodeKind {
@@ -50,6 +54,10 @@ impl NodeKind {
             NodeKind::LightClientProver => 3,
             NodeKind::Sequencer => 4,
             NodeKind::FullNode => 5,
+            NodeKind::ClementineAggregator => 6,
+            NodeKind::ClementineVerifier => 7,
+            NodeKind::ClementineOperator => 8,
+            NodeKind::Postgres => 9,
         }
     }
 }
@@ -62,6 +70,10 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
+            NodeKind::ClementineVerifier => write!(f, "clementine-verifier"),
+            NodeKind::ClementineOperator => write!(f, "clementine-operator"),
+            NodeKind::Postgres => write!(f, "postgres"),
         }
     }
 }
@@ -70,6 +82,7 @@ pub type FullNode = Node<EmptyConfig>;
 pub type LightClientProver = Node<LightClientProverConfig>;
 pub type BatchProver = Node<BatchProverConfig>;
 
+/// A Citrea node
 pub struct Node<C>
 where
     C: Clone + Debug + Serialize + Send + Sync,

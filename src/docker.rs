@@ -366,4 +366,9 @@ impl DockerEnv {
     pub fn citrea(&self) -> bool {
         self.test_case_config.citrea
     }
+
+    // Should run clementine in docker
+    pub fn clementine(&self) -> bool {
+        self.test_case_config.clementine
+    }
 }
