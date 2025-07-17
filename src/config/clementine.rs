@@ -130,6 +130,7 @@ pub struct AggregatorConfig {
 }
 
 impl ClementineConfig<AggregatorConfig> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         verifier_endpoints: Vec<String>,
         operator_endpoints: Vec<String>,

@@ -123,7 +123,7 @@ pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>
     let start = Instant::now();
 
     while start.elapsed() < timeout {
-        if let Ok(_) = TcpStream::connect(format!("{host}:{port}")).await {
+        if (TcpStream::connect(format!("{host}:{port}")).await).is_ok() {
             debug!("Postgres is accepting connections");
             return Ok(());
         }

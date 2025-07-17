@@ -13,9 +13,8 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     fs::File,
-    path::Path,
     process::Stdio,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 use tokio::process::Command;
@@ -376,10 +375,7 @@ pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Erro
 
         let script_path = get_workspace_root().join("resources/clementine/generate-certs.sh");
 
-        let output = Command::new("sh")
-            .arg(script_path)
-            .output()
-            .await?;
+        let output = Command::new("sh").arg(script_path).output().await?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);

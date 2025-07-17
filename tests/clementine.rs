@@ -28,7 +28,7 @@ impl TestCase for ClementineIntegrationTest {
         }
     }
 
-    async fn run_test(&mut self, f: &mut TestFramework) -> Result<()> {
+    async fn run_test(&mut self, _f: &mut TestFramework) -> Result<()> {
         tokio::time::sleep(Duration::from_secs(1)).await;
         Ok(())
     }
