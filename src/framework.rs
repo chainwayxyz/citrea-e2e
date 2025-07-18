@@ -12,7 +12,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
-    clementine::ClementineNodes,
+    clementine::ClementineCluster,
     config::{
         AggregatorConfig, BitcoinConfig, BitcoinServiceConfig, ClementineClusterConfig,
         ClementineConfig, EmptyConfig, FullBatchProverConfig, FullFullNodeConfig,
@@ -54,7 +54,7 @@ pub struct TestFramework {
     pub batch_prover: Option<BatchProver>,
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
-    pub clementine_nodes: Option<ClementineNodes>,
+    pub clementine_nodes: Option<ClementineCluster>,
     pub initial_da_height: u64,
     pub citrea_cli: Option<CitreaCli>,
 }
@@ -115,7 +115,7 @@ impl TestFramework {
     pub async fn init_clementine_nodes(&mut self) -> Result<()> {
         self.clementine_nodes = create_optional(
             self.ctx.config.test_case.with_clementine,
-            ClementineNodes::new(&self.ctx.config.clementine, Arc::clone(&self.ctx.docker)),
+            ClementineCluster::new(&self.ctx.config.clementine, Arc::clone(&self.ctx.docker)),
         )
         .await?;
 

@@ -9,6 +9,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use futures::future::{join, join_all, try_join, try_join_all};
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -40,7 +41,7 @@ impl ClementineAggregator {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(30)))
+            .wait_for_ready(Some(Duration::from_secs(180)))
             .await?;
         info!("Started Clementine aggregator");
 
@@ -122,7 +123,7 @@ impl ClementineVerifier {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(30)))
+            .wait_for_ready(Some(Duration::from_secs(180)))
             .await?;
         info!("Started Clementine verifier {}", index);
 
@@ -228,7 +229,7 @@ impl ClementineOperator {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(30)))
+            .wait_for_ready(Some(Duration::from_secs(180)))
             .await?;
         info!("Started Clementine operator {}", index);
 
@@ -302,13 +303,13 @@ impl NodeT for ClementineOperator {
     }
 }
 
-pub struct ClementineNodes {
+pub struct ClementineCluster {
     pub aggregator: ClementineAggregator,
     pub verifiers: Vec<ClementineVerifier>,
     pub operators: Vec<ClementineOperator>,
 }
 
-impl ClementineNodes {
+impl ClementineCluster {
     pub async fn new(
         config: &ClementineClusterConfig,
         docker: Arc<Option<DockerEnv>>,
@@ -320,17 +321,27 @@ impl ClementineNodes {
 
         let mut verifiers = Vec::new();
         for (index, verifier_config) in config.verifiers.iter().enumerate() {
-            verifiers.push(
-                ClementineVerifier::new(verifier_config, Arc::clone(&docker), index as u8).await?,
-            );
+            verifiers.push(ClementineVerifier::new(
+                verifier_config,
+                Arc::clone(&docker),
+                index as u8,
+            ));
         }
 
         let mut operators = Vec::new();
         for (index, operator_config) in config.operators.iter().enumerate() {
-            operators.push(
-                ClementineOperator::new(operator_config, Arc::clone(&docker), index as u8).await?,
-            );
+            operators.push(ClementineOperator::new(
+                operator_config,
+                Arc::clone(&docker),
+                index as u8,
+            ));
         }
+
+        let (verifiers, operators) = try_join(
+            try_join_all(verifiers.into_iter()),
+            try_join_all(operators.into_iter()),
+        )
+        .await?;
 
         // Start aggregator last (similar to run.sh delay)
         info!("Starting aggregator after verifiers and operators...");
