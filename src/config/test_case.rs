@@ -116,6 +116,12 @@ impl Default for TestCaseConfig {
     }
 }
 
+impl TestCaseConfig {
+    pub fn docker_enabled(&self) -> bool {
+        self.docker.enabled() || self.with_clementine
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct TestCaseDockerConfig {
     pub bitcoin: bool,

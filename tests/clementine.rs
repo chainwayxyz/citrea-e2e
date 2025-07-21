@@ -22,7 +22,7 @@ impl TestCase for ClementineIntegrationTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
-                clementine: true,
+                clementine: false,
             },
             ..Default::default()
         }

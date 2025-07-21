@@ -72,7 +72,7 @@ impl TestFramework {
         setup_logging();
 
         let test_case = T::test_config();
-        let docker = if test_case.docker.enabled() {
+        let docker = if test_case.docker_enabled() {
             Some(DockerEnv::new(test_case.docker.clone()).await?)
         } else {
             None
