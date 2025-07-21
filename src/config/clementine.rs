@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
 use crate::config::{BitcoinConfig, PostgresConfig, RpcConfig};
+use crate::log_provider::LogPathProvider;
 use crate::node::NodeKind;
 
 pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey> =
@@ -165,6 +166,7 @@ impl ClementineConfig<AggregatorConfig> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct OperatorConfig {
+    pub idx: u8,
     pub secret_key: SecretKey,
     pub winternitz_secret_key: SecretKey,
     pub operator_withdrawal_fee_sats: Amount,
@@ -177,6 +179,7 @@ pub struct OperatorConfig {
 impl Default for OperatorConfig {
     fn default() -> Self {
         Self {
+            idx: 0,
             secret_key: SecretKey::from_str(
                 "1111111111111111111111111111111111111111111111111111111111111111",
             )
@@ -195,6 +198,7 @@ impl Default for OperatorConfig {
 impl OperatorConfig {
     pub fn default_for_idx(idx: u8) -> Self {
         Self {
+            idx,
             secret_key: SecretKey::from_slice(&seeded_key("operator", idx))
                 .expect("known valid input"),
             winternitz_secret_key: SecretKey::from_slice(&seeded_key("operator-winternitz", idx))
@@ -234,12 +238,14 @@ impl ClementineConfig<OperatorConfig> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VerifierConfig {
+    pub idx: u8,
     pub secret_key: SecretKey,
 }
 
 impl VerifierConfig {
     pub fn default_for_idx(idx: u8) -> Self {
         Self {
+            idx,
             secret_key: SecretKey::from_slice(&seeded_key("verifier", idx))
                 .expect("known valid input"),
         }
@@ -249,6 +255,7 @@ impl VerifierConfig {
 impl Default for VerifierConfig {
     fn default() -> Self {
         Self {
+            idx: 0,
             secret_key: SecretKey::from_str(
                 "1111111111111111111111111111111111111111111111111111111111111111",
             )
@@ -510,6 +517,53 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
         }
     }
 }
+
+impl LogPathProvider for ClementineConfig<AggregatorConfig> {
+    fn log_path(&self) -> PathBuf {
+        self.log_dir.join("aggregator.log")
+    }
+
+    fn kind(&self) -> NodeKind {
+        NodeKind::ClementineAggregator
+    }
+
+    fn stderr_path(&self) -> PathBuf {
+        self.log_dir.join("aggregator.stderr")
+    }
+}
+
+impl LogPathProvider for ClementineConfig<OperatorConfig> {
+    fn log_path(&self) -> PathBuf {
+        self.log_dir
+            .join(format!("operator-{}.log", self.entity_config.idx))
+    }
+
+    fn kind(&self) -> NodeKind {
+        NodeKind::ClementineOperator
+    }
+
+    fn stderr_path(&self) -> PathBuf {
+        self.log_dir
+            .join(format!("operator-{}.stderr", self.entity_config.idx))
+    }
+}
+
+impl LogPathProvider for ClementineConfig<VerifierConfig> {
+    fn log_path(&self) -> PathBuf {
+        self.log_dir
+            .join(format!("verifier-{}.log", self.entity_config.idx))
+    }
+
+    fn kind(&self) -> NodeKind {
+        NodeKind::ClementineVerifier
+    }
+
+    fn stderr_path(&self) -> PathBuf {
+        self.log_dir
+            .join(format!("verifier-{}.stderr", self.entity_config.idx))
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,

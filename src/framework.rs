@@ -196,7 +196,30 @@ impl TestFramework {
                 test_case
                     .with_light_client_prover
                     .then(|| LogPathProvider::as_erased(&self.ctx.config.light_client_prover)),
+                test_case
+                    .with_clementine
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.clementine.aggregator)),
             ])
+            .chain(if test_case.with_clementine {
+                self.ctx
+                    .config
+                    .clementine
+                    .operators
+                    .iter()
+                    .map(LogPathProvider::as_erased)
+                    .chain(
+                        self.ctx
+                            .config
+                            .clementine
+                            .verifiers
+                            .iter()
+                            .map(LogPathProvider::as_erased),
+                    )
+                    .map(Option::Some)
+                    .collect()
+            } else {
+                vec![]
+            })
             .flatten()
             .collect()
     }

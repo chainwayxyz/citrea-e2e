@@ -1,11 +1,7 @@
 use crate::{
     config::{
         AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
-    },
-    docker::DockerEnv,
-    traits::{NodeT, SpawnOutput},
-    utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
-    Result,
+    }, docker::DockerEnv, log_provider::LogPathProvider, traits::{NodeT, SpawnOutput}, utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound}, Result
 };
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -74,7 +70,7 @@ impl NodeT for ClementineAggregator {
             env_vars.insert("TELEMETRY_PORT".to_string(), "8082".to_string());
         }
 
-        spawn_clementine_node(config, "aggregator", None, env_vars).await
+        spawn_clementine_node(config, "aggregator", env_vars).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -119,7 +115,7 @@ impl ClementineVerifier {
             hex::encode(config.entity_config.secret_key.secret_bytes()),
         );
 
-        let spawn_output = spawn_clementine_node(config, "verifier", Some(index), env_vars).await?;
+        let spawn_output = spawn_clementine_node(config, "verifier", env_vars).await?;
 
         let instance = Self {
             config: config.clone(),
@@ -149,7 +145,7 @@ impl NodeT for ClementineVerifier {
             hex::encode(config.entity_config.secret_key.secret_bytes()),
         );
 
-        spawn_clementine_node(config, "verifier", None, env_vars).await
+        spawn_clementine_node(config, "verifier", env_vars).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -225,7 +221,7 @@ impl ClementineOperator {
             );
         }
 
-        let spawn_output = spawn_clementine_node(config, "operator", Some(index), env_vars).await?;
+        let spawn_output = spawn_clementine_node(config, "operator", env_vars).await?;
 
         let instance = Self {
             config: config.clone(),
@@ -283,7 +279,7 @@ impl NodeT for ClementineOperator {
             );
         }
 
-        spawn_clementine_node(config, "operator", None, env_vars).await
+        spawn_clementine_node(config, "operator", env_vars).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -408,9 +404,11 @@ pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Erro
 async fn spawn_clementine_node<E: Debug + Clone>(
     config: &ClementineConfig<E>,
     role: &str,
-    index: Option<u8>,
     mut env_vars: HashMap<String, String>,
-) -> Result<SpawnOutput> {
+) -> Result<SpawnOutput>
+where
+    ClementineConfig<E>: LogPathProvider,
+{
     let binary_path = get_clementine_path()?;
 
     if std::env::var("RISC0_DEV_MODE") != Ok("1".to_string()) && cfg!(target_arch = "aarch64") {
@@ -424,18 +422,8 @@ async fn spawn_clementine_node<E: Debug + Clone>(
         .await
         .context("Failed to create log directory")?;
 
-    // Generate log file names
-    let log_filename = match index {
-        Some(idx) => format!("{}-{}.log", role, idx),
-        None => format!("{}.log", role),
-    };
-    let stderr_filename = match index {
-        Some(idx) => format!("{}-{}.stderr", role, idx),
-        None => format!("{}.stderr", role),
-    };
-
-    let log_path = config.log_dir.join(&log_filename);
-    let stderr_path = config.log_dir.join(&stderr_filename);
+    let log_path = config.log_path();
+    let stderr_path = config.stderr_path();
 
     let stdout_file = File::create(&log_path).context("Failed to create stdout file")?;
 
