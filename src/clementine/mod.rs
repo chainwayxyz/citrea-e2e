@@ -1,7 +1,12 @@
 use crate::{
     config::{
         AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
-    }, docker::DockerEnv, log_provider::LogPathProvider, traits::{NodeT, SpawnOutput}, utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound}, Result
+    },
+    docker::DockerEnv,
+    log_provider::LogPathProvider,
+    traits::{NodeT, SpawnOutput},
+    utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
+    Result,
 };
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
