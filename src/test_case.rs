@@ -4,7 +4,7 @@
 use std::{
     io::Write,
     panic::{self},
-    path::Path, u8,
+    path::Path,
 };
 
 use anyhow::{bail, Context};
@@ -20,7 +20,7 @@ use super::{
 use crate::{
     config::{
         AggregatorConfig, BatchProverConfig, ClementineConfig, LightClientProverConfig,
-        OperatorConfig, PostgresConfig, SequencerConfig, ThrottleConfig, VerifierConfig,
+        OperatorConfig, SequencerConfig, ThrottleConfig, VerifierConfig,
     },
     traits::NodeT,
 };

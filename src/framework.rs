@@ -349,7 +349,6 @@ fn generate_test_config<T: TestCase>(
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
     let scan_l1_start_height = T::scan_l1_start_height();
-    let postgres = T::postgres_config();
     light_client_prover.initial_da_height = scan_l1_start_height.unwrap_or(120);
     let throttle_config = T::throttle_config();
 
@@ -511,7 +510,7 @@ fn generate_test_config<T: TestCase>(
     let postgres = PostgresConfig {
         port: get_available_port()?,
         log_dir: postgres_dir,
-        ..postgres.clone()
+        ..Default::default()
     };
 
     let clementine = {
