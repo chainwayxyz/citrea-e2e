@@ -31,7 +31,7 @@ impl Postgres {
             .wait_for_ready(Some(Duration::from_secs(60)))
             .await?;
 
-        info!("Postgres is ready");
+        debug!("Postgres is ready");
 
         Ok(instance)
     }

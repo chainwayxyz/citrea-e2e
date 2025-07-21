@@ -16,8 +16,8 @@ impl TestCase for ClementineIntegrationTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_clementine: true,
-            n_verifiers: 1,
-            n_operators: 1,
+            n_verifiers: 2,
+            n_operators: 2,
             with_full_node: true,
             docker: TestCaseDockerConfig {
                 bitcoin: true,

@@ -4,7 +4,7 @@
 use std::{
     io::Write,
     panic::{self},
-    path::Path,
+    path::Path, u8,
 };
 
 use anyhow::{bail, Context};
@@ -19,7 +19,8 @@ use super::{
 };
 use crate::{
     config::{
-        BatchProverConfig, LightClientProverConfig, PostgresConfig, SequencerConfig, ThrottleConfig,
+        AggregatorConfig, BatchProverConfig, ClementineConfig, LightClientProverConfig,
+        OperatorConfig, PostgresConfig, SequencerConfig, ThrottleConfig, VerifierConfig,
     },
     traits::NodeT,
 };
@@ -222,6 +223,27 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom postgres configuration.
     fn postgres_config() -> PostgresConfig {
         PostgresConfig::default()
+    }
+
+    fn clementine_verifier_config(idx: u8) -> ClementineConfig<VerifierConfig> {
+        ClementineConfig::<VerifierConfig> {
+            entity_config: VerifierConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    fn clementine_operator_config(idx: u8) -> ClementineConfig<OperatorConfig> {
+        ClementineConfig::<OperatorConfig> {
+            entity_config: OperatorConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    fn clementine_aggregator_config() -> ClementineConfig<AggregatorConfig> {
+        ClementineConfig::<AggregatorConfig> {
+            entity_config: AggregatorConfig::default(),
+            ..Default::default()
+        }
     }
 
     /// Returns the test setup

@@ -11,7 +11,8 @@ use bitcoin::{
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
-use crate::config::{BitcoinServiceConfig, PostgresConfig, RpcConfig};
+use crate::config::{BitcoinConfig, PostgresConfig, RpcConfig};
+use crate::node::NodeKind;
 
 pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey> =
     LazyLock::new(|| {
@@ -135,11 +136,12 @@ impl ClementineConfig<AggregatorConfig> {
         verifier_endpoints: Vec<String>,
         operator_endpoints: Vec<String>,
         postgres_config: PostgresConfig,
-        bitcoin_config: BitcoinServiceConfig,
+        bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
         clementine_dir: PathBuf,
         port: u16,
+        overrides: ClementineConfig<AggregatorConfig>,
     ) -> Self {
         Self {
             port,
@@ -155,6 +157,7 @@ impl ClementineConfig<AggregatorConfig> {
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
                 clementine_dir,
+                overrides,
             )
         }
     }
@@ -189,28 +192,33 @@ impl Default for OperatorConfig {
     }
 }
 
+impl OperatorConfig {
+    pub fn default_for_idx(idx: u8) -> Self {
+        Self {
+            secret_key: SecretKey::from_slice(&seeded_key("operator", idx))
+                .expect("known valid input"),
+            winternitz_secret_key: SecretKey::from_slice(&seeded_key("operator-winternitz", idx))
+                .expect("known valid input"),
+            ..Default::default()
+        }
+    }
+}
+
 impl ClementineConfig<OperatorConfig> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         idx: u8,
         postgres_config: PostgresConfig,
-        bitcoin_config: BitcoinServiceConfig,
+        bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover: RpcConfig,
         clementine_dir: PathBuf,
         port: u16,
+        overrides: ClementineConfig<OperatorConfig>,
     ) -> Self {
         Self {
             port,
-            entity_config: OperatorConfig {
-                secret_key: SecretKey::from_slice(&seeded_key("operator", idx))
-                    .expect("known valid input"),
-                winternitz_secret_key: SecretKey::from_slice(&seeded_key(
-                    "operator-winternitz",
-                    idx,
-                ))
-                .expect("known valid input"),
-                ..Default::default()
-            },
+            entity_config: overrides.entity_config.clone(),
             db_name: format!("clementine-{}", idx),
             ..ClementineConfig::<OperatorConfig>::from_configs(
                 postgres_config,
@@ -218,6 +226,7 @@ impl ClementineConfig<OperatorConfig> {
                 citrea_rpc,
                 citrea_light_client_prover,
                 clementine_dir,
+                overrides,
             )
         }
     }
@@ -228,11 +237,20 @@ pub struct VerifierConfig {
     pub secret_key: SecretKey,
 }
 
+impl VerifierConfig {
+    pub fn default_for_idx(idx: u8) -> Self {
+        Self {
+            secret_key: SecretKey::from_slice(&seeded_key("verifier", idx))
+                .expect("known valid input"),
+        }
+    }
+}
+
 impl Default for VerifierConfig {
     fn default() -> Self {
         Self {
             secret_key: SecretKey::from_str(
-                "3333333333333333333333333333333333333333333333333333333333333333",
+                "1111111111111111111111111111111111111111111111111111111111111111",
             )
             .expect("known valid input"),
         }
@@ -240,21 +258,20 @@ impl Default for VerifierConfig {
 }
 
 impl ClementineConfig<VerifierConfig> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         idx: u8,
         postgres_config: PostgresConfig,
-        bitcoin_config: BitcoinServiceConfig,
+        bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
         clementine_dir: PathBuf,
         port: u16,
+        overrides: ClementineConfig<VerifierConfig>,
     ) -> Self {
         Self {
             port,
-            entity_config: VerifierConfig {
-                secret_key: SecretKey::from_slice(&seeded_key("verifier", idx))
-                    .expect("known valid input"),
-            },
+            entity_config: overrides.entity_config.clone(),
             db_name: format!("clementine-{}", idx),
             ..ClementineConfig::<VerifierConfig>::from_configs(
                 postgres_config,
@@ -262,6 +279,7 @@ impl ClementineConfig<VerifierConfig> {
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
                 clementine_dir,
+                overrides,
             )
         }
     }
@@ -273,7 +291,7 @@ pub struct ClementineConfig<E: Debug + Clone> {
     // -- Required by all entities --
     /// Protocol paramset
     ///
-    /// Sourced from the provided path or uses the default REGTEST paramset in `resources/clementine/regtest_paramset.toml`
+    /// Sourced from the provided path or uses the default REGTEST paramset in `resources/clementine/regtest_paramset_{standard|nonstandard}.toml`
     #[serde(skip)]
     pub protocol_paramset: Option<PathBuf>,
     /// gRPC bind host of the operator or the verifier
@@ -413,54 +431,41 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
     ///
     /// Matches the AggregatorConfig type to determine if the entity is an
     /// aggregator, and selects the appropriate certificate paths.
+    ///
+    /// overrides: [`Option<ClementineConfig<E>>`] can be used to override some values. Default::default() is used if not provided. For the exact values, check the commented defaults below.
     pub fn from_configs(
         postgres_config: PostgresConfig,
-        bitcoin_config: BitcoinServiceConfig,
+        bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
         base_dir: PathBuf,
+        overrides: ClementineConfig<E>,
     ) -> Self {
         let is_aggregator =
             std::any::TypeId::of::<E>() == std::any::TypeId::of::<AggregatorConfig>();
         let certificate_base_dir = base_dir.join("certs");
 
         Self {
-            protocol_paramset: Some(base_dir.join("regtest_paramset.toml")),
-            host: "127.0.0.1".to_string(),
-            port: 17000,
-
             // TODO: need to change the host to 127.0.0.1 until docker support is added
             bitcoin_rpc_url: format!(
-                "http://127.0.0.1:{}",
-                bitcoin_config
-                    .node_url
-                    .split_once(":")
-                    .expect("bitcoin node url should have a port")
-                    .1
+                "http://127.0.0.1:{}/wallet/{}",
+                bitcoin_config.rpc_port,
+                NodeKind::Bitcoin
             ),
-            bitcoin_rpc_user: bitcoin_config.node_username,
-            bitcoin_rpc_password: bitcoin_config.node_password,
+            bitcoin_rpc_user: bitcoin_config.rpc_user,
+            bitcoin_rpc_password: bitcoin_config.rpc_password,
 
             db_host: "127.0.0.1".to_string(),
             db_port: postgres_config.port as usize,
             db_user: postgres_config.user,
             db_password: postgres_config.password,
-            db_name: "clementine".to_string(),
+            db_name: "clementine".to_string(), // overriden by caller
 
             citrea_rpc_url: format!("http://127.0.0.1:{}", citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
                 "http://127.0.0.1:{}",
                 citrea_light_client_prover_rpc.bind_port
             ),
-            citrea_chain_id: 5655,
-            bridge_contract_address: "3100000000000000000000000000000000000002".to_string(),
-
-            header_chain_proof_path: None,
-
-            security_council: SecurityCouncil {
-                pks: vec![*UNSPENDABLE_XONLY_PUBKEY],
-                threshold: 1,
-            },
 
             server_cert_path: certificate_base_dir.join("server").join("server.pem"),
             server_key_path: certificate_base_dir.join("server").join("server.key"),
@@ -482,12 +487,26 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
             aggregator_cert_path: certificate_base_dir
                 .join("aggregator")
                 .join("aggregator.pem"),
-            client_verification: true,
-
-            telemetry: None,
-            entity_config: E::default(),
-
+            client_verification: !is_aggregator,
             log_dir: base_dir.join("logs"),
+
+            // Manually merge protocol paramset with the overrides.
+            protocol_paramset: overrides.protocol_paramset.clone().or_else(|| {
+                // default to the base regtest paramset
+                Some(base_dir.join("regtest_paramset.toml"))
+            }),
+
+            // These values can be overridden by the caller using overrides.
+            // header_chain_proof_path: None,
+            // security_council: SecurityCouncil {
+            //     pks: vec![*UNSPENDABLE_XONLY_PUBKEY],
+            //     threshold: 1,
+            // },
+            // telemetry: None,
+            // citrea_chain_id: 5655,
+            // bridge_contract_address: "3100000000000000000000000000000000000002".to_string(),
+            // entity_config: E::default(),
+            ..overrides
         }
     }
 }

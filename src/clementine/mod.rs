@@ -9,7 +9,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use futures::future::{join, join_all, try_join, try_join_all};
+use futures::future::try_join_all;
 use std::{
     collections::HashMap,
     fmt::Debug,
@@ -19,7 +19,9 @@ use std::{
     time::Duration,
 };
 use tokio::process::Command;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
+
+pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
 pub struct ClementineAggregator {
     pub config: ClementineConfig<AggregatorConfig>,
@@ -41,9 +43,9 @@ impl ClementineAggregator {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(180)))
+            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
             .await?;
-        info!("Started Clementine aggregator");
+        debug!("Started Clementine aggregator");
 
         Ok(instance)
     }
@@ -62,6 +64,10 @@ impl NodeT for ClementineAggregator {
         let operator_endpoints = config.entity_config.operator_endpoints.join(",");
         env_vars.insert("VERIFIER_ENDPOINTS".to_string(), verifier_endpoints);
         env_vars.insert("OPERATOR_ENDPOINTS".to_string(), operator_endpoints);
+        env_vars.insert(
+            "SECRET_KEY".to_string(),
+            "3333333333333333333333333333333333333333333333333333333333333333".to_string(),
+        );
 
         // Aggregator uses port 8082 for telemetry
         if config.telemetry.is_some() {
@@ -123,9 +129,9 @@ impl ClementineVerifier {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(180)))
+            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
             .await?;
-        info!("Started Clementine verifier {}", index);
+        debug!("Started Clementine verifier {}", index);
 
         Ok(instance)
     }
@@ -229,9 +235,9 @@ impl ClementineOperator {
         };
 
         instance
-            .wait_for_ready(Some(Duration::from_secs(180)))
+            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
             .await?;
-        info!("Started Clementine operator {}", index);
+        debug!("Started Clementine operator {}", index);
 
         Ok(instance)
     }
@@ -337,14 +343,11 @@ impl ClementineCluster {
             ));
         }
 
-        let (verifiers, operators) = try_join(
-            try_join_all(verifiers.into_iter()),
-            try_join_all(operators.into_iter()),
-        )
-        .await?;
+        let verifiers = try_join_all(verifiers.into_iter()).await?;
+        let operators = try_join_all(operators.into_iter()).await?;
 
         // Start aggregator last (similar to run.sh delay)
-        info!("Starting aggregator after verifiers and operators...");
+        debug!("Starting aggregator after verifiers and operators...");
         let aggregator = ClementineAggregator::new(&config.aggregator, Arc::clone(&docker)).await?;
 
         Ok(Self {
@@ -409,6 +412,10 @@ async fn spawn_clementine_node<E: Debug + Clone>(
     mut env_vars: HashMap<String, String>,
 ) -> Result<SpawnOutput> {
     let binary_path = get_clementine_path()?;
+
+    if std::env::var("RISC0_DEV_MODE") != Ok("1".to_string()) && cfg!(target_arch = "aarch64") {
+        warn!("Spawning Clementine {role} without dev mode in arm64, likely to crash");
+    }
 
     debug!("Spawning Clementine {} with config {:?}", role, config);
 
@@ -562,7 +569,7 @@ async fn setup_clementine_databases(
     verifiers: &[ClementineConfig<VerifierConfig>],
     operators: &[ClementineConfig<OperatorConfig>],
 ) -> Result<()> {
-    info!("Setting up Clementine databases...");
+    debug!("Setting up Clementine databases...");
 
     // Collect all unique database names
     let mut db_names = std::collections::HashSet::new();
@@ -589,13 +596,13 @@ async fn setup_clementine_databases(
 
         // Drop and recreate databases
         for db_name in &db_names {
-            info!("Dropping database: {}", db_name);
+            debug!("Dropping database: {}", db_name);
             let _ = tokio::process::Command::new("dropdb")
                 .arg(db_name)
                 .output()
                 .await; // Ignore errors as database might not exist
 
-            info!("Creating database: {}", db_name);
+            debug!("Creating database: {}", db_name);
             let output = tokio::process::Command::new("createdb")
                 .args(["-O", db_user, db_name])
                 .output()
@@ -609,6 +616,6 @@ async fn setup_clementine_databases(
         }
     }
 
-    info!("Successfully set up Clementine databases");
+    debug!("Successfully set up Clementine databases");
     Ok(())
 }

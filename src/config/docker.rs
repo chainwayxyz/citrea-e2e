@@ -122,7 +122,7 @@ impl From<&PostgresConfig> for DockerConfig {
             cmd,
             log_path: config.log_path(),
             volume: VolumeConfig {
-                name: "postgres-data".to_string(),
+                name: "postgres".to_string(),
                 target: "/var/lib/postgresql/data".to_string(),
             },
             host_dir: None,

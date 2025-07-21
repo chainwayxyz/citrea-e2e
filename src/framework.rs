@@ -530,11 +530,12 @@ fn generate_test_config<T: TestCase>(
             verifiers.push(ClementineConfig::<VerifierConfig>::new(
                 i,
                 postgres.clone(),
-                da_config.clone(),
+                bitcoin_confs[0].clone(),
                 full_node_rollup.rpc.clone(),
                 light_client_prover_rollup.rpc.clone(),
                 clementine_dir.clone(),
                 port,
+                T::clementine_verifier_config(i),
             ));
 
             verifier_endpoints.push(format!("https://127.0.0.1:{}", port));
@@ -547,11 +548,12 @@ fn generate_test_config<T: TestCase>(
             operators.push(ClementineConfig::<OperatorConfig>::new(
                 i,
                 postgres.clone(),
-                da_config.clone(),
+                bitcoin_confs[0].clone(),
                 full_node_rollup.rpc.clone(),
                 light_client_prover_rollup.rpc.clone(),
                 clementine_dir.clone(),
                 port,
+                T::clementine_operator_config(i),
             ));
 
             operator_endpoints.push(format!("https://127.0.0.1:{}", port));
@@ -562,11 +564,12 @@ fn generate_test_config<T: TestCase>(
             verifier_endpoints,
             operator_endpoints,
             postgres.clone(),
-            da_config.clone(),
+            bitcoin_confs[0].clone(),
             full_node_rollup.rpc.clone(),
             light_client_prover_rollup.rpc.clone(),
             clementine_dir.clone(),
             port,
+            T::clementine_aggregator_config(),
         );
 
         ClementineClusterConfig {
