@@ -62,16 +62,16 @@ jobs:
     - name: Download Clementine bitvm cache dev bin
       if: steps.cache-bitvm.outputs.cache-hit != 'true'
       shell: bash
-      run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /bitvm_cache_dev.bin
+      run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /tmp/bitvm_cache_dev.bin
 
     - name: Download Clementine
       run: |
-        wget https://github.com/chainwayxyz/clementine/releases/download/v0.3.26/clementine-core-v0.3.26-with-automation-linux-amd64 -O /clementine-core
-        chmod +x /clementine-core
+        wget https://github.com/chainwayxyz/clementine/releases/download/v0.3.26/clementine-core-v0.3.26-with-automation-linux-amd64 -O /tmp/clementine-core
+        chmod +x /tmp/clementine-core
 
     - name: Run Cargo test
       env:
-        CLEMENTINE_E2E_TEST_BINARY: /clementine-core
-        BITVM_CACHE_PATH: /bitvm_cache_dev.bin
+        CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
+        BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
       run: cargo test
