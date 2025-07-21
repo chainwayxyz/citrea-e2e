@@ -321,7 +321,6 @@ impl ClementineCluster {
         config: &ClementineClusterConfig,
         docker: Arc<Option<DockerEnv>>,
     ) -> Result<Self> {
-        generate_certs_if_needed().await?;
 
         // Setup databases for clementine nodes
         setup_clementine_databases(&config.verifiers, &config.operators).await?;

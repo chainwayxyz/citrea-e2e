@@ -12,7 +12,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
-    clementine::ClementineCluster,
+    clementine::{generate_certs_if_needed, ClementineCluster},
     config::{
         AggregatorConfig, BitcoinConfig, BitcoinServiceConfig, ClementineClusterConfig,
         ClementineConfig, EmptyConfig, FullBatchProverConfig, FullFullNodeConfig,
@@ -70,6 +70,7 @@ async fn create_optional<T>(pred: bool, f: impl Future<Output = Result<T>>) -> R
 impl TestFramework {
     pub async fn new<T: TestCase>() -> Result<Self> {
         setup_logging();
+        generate_certs_if_needed().await?;
 
         let test_case = T::test_config();
         let docker = if test_case.docker_enabled() {
