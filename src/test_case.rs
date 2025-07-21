@@ -219,12 +219,9 @@ pub trait TestCase: Send + Sync + 'static {
         LightClientProverConfig::default()
     }
 
-    /// Returns the postgres configuration for the test.
-    /// Override this method to provide a custom postgres configuration.
-    fn postgres_config() -> PostgresConfig {
-        PostgresConfig::default()
-    }
-
+    /// Returns the verifier configuration for the test.
+    /// Override this method to provide a custom verifier configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
     fn clementine_verifier_config(idx: u8) -> ClementineConfig<VerifierConfig> {
         ClementineConfig::<VerifierConfig> {
             entity_config: VerifierConfig::default_for_idx(idx),
@@ -232,6 +229,9 @@ pub trait TestCase: Send + Sync + 'static {
         }
     }
 
+    /// Returns the operator configuration for the test.
+    /// Override this method to provide a custom operator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
     fn clementine_operator_config(idx: u8) -> ClementineConfig<OperatorConfig> {
         ClementineConfig::<OperatorConfig> {
             entity_config: OperatorConfig::default_for_idx(idx),
@@ -239,6 +239,9 @@ pub trait TestCase: Send + Sync + 'static {
         }
     }
 
+    /// Returns the aggregator configuration for the test.
+    /// Override this method to provide a custom aggregator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
     fn clementine_aggregator_config() -> ClementineConfig<AggregatorConfig> {
         ClementineConfig::<AggregatorConfig> {
             entity_config: AggregatorConfig::default(),

@@ -17,7 +17,7 @@ pub use clementine::{
     AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
 };
 pub use docker::{DockerConfig, VolumeConfig};
-pub use postgres::PostgresConfig;
+ use postgres::PostgresConfig;
 use serde::Serialize;
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
