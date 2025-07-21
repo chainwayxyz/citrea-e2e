@@ -241,8 +241,14 @@ where
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
         let mut response = Err(anyhow!("initial response value"));
 
+        // Check L2 height for sequencer and L1 height for the rest
+        let check = async move || match self.config.kind() {
+            NodeKind::Sequencer => self.client.ledger_get_head_l2_block_height().await,
+            _ => self.client.ledger_get_last_scanned_l1_height().await,
+        };
+
         while response.is_err() && (start.elapsed() < timeout) {
-            response = self.client.ledger_get_last_scanned_l1_height().await;
+            response = check().await;
             sleep(Duration::from_millis(500)).await;
         }
         match response {
