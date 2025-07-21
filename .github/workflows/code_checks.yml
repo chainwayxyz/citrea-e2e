@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TERM_VERBOSE: true
   CARGOFLAGS: --workspace --all-targets --all-features
-  RUST_LOG: trace
+  RUST_LOG: citrea-e2e=trace,debug
   RISC0_DEV_MODE: 1
 
 jobs:
@@ -60,7 +60,6 @@ jobs:
         toolchain: stable
 
     - name: Download Clementine bitvm cache dev bin
-      if: steps.cache-bitvm.outputs.cache-hit != 'true'
       shell: bash
       run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /tmp/bitvm_cache_dev.bin
 
