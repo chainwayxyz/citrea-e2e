@@ -23,6 +23,7 @@ impl TestCase for BasicSyncTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
+                clementine: true,
             },
             ..Default::default()
         }
@@ -82,6 +83,7 @@ impl TestCase for RestartBitcoinTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
+                clementine: true,
             },
             ..Default::default()
         }

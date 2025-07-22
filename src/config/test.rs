@@ -1,3 +1,5 @@
+use crate::config::{clementine::ClementineClusterConfig, PostgresConfig};
+
 use super::{
     bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullBatchProverConfig, FullFullNodeConfig,
     FullLightClientProverConfig, FullSequencerConfig,
@@ -11,4 +13,6 @@ pub struct TestConfig {
     pub batch_prover: FullBatchProverConfig,
     pub light_client_prover: FullLightClientProverConfig,
     pub full_node: FullFullNodeConfig,
+    pub clementine: ClementineClusterConfig,
+    pub postgres: PostgresConfig,
 }
