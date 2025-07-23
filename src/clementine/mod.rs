@@ -1,3 +1,22 @@
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    fs::File,
+    process::Stdio,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
+
+use anyhow::{anyhow, Context};
+use async_trait::async_trait;
+use client::{
+    ClementineAggregatorTestClient, ClementineOperatorTestClient, ClementineVerifierTestClient,
+    TlsConfig,
+};
+use futures::future::try_join_all;
+use tokio::process::Command;
+use tracing::{debug, error, info, warn};
+
 use crate::{
     config::{
         AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
@@ -10,24 +29,6 @@ use crate::{
 };
 
 pub mod client;
-
-use anyhow::{anyhow, Context};
-use async_trait::async_trait;
-use client::{
-    ClementineAggregatorTestClient, ClementineOperatorTestClient, ClementineVerifierTestClient,
-    TlsConfig,
-};
-use futures::future::try_join_all;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    fs::File,
-    process::Stdio,
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
-use tokio::process::Command;
-use tracing::{debug, error, info, warn};
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
