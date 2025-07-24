@@ -1,3 +1,22 @@
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    fs::File,
+    process::Stdio,
+    sync::{Arc, LazyLock},
+    time::Duration,
+};
+
+use anyhow::{anyhow, Context};
+use async_trait::async_trait;
+use client::{
+    ClementineAggregatorTestClient, ClementineOperatorTestClient, ClementineVerifierTestClient,
+    TlsConfig,
+};
+use futures::future::try_join_all;
+use tokio::process::Command;
+use tracing::{debug, error, info, warn};
+
 use crate::{
     config::{
         AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
@@ -8,26 +27,15 @@ use crate::{
     utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
     Result,
 };
-use anyhow::{anyhow, Context};
-use async_trait::async_trait;
-use futures::future::try_join_all;
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    fs::File,
-    process::Stdio,
-    sync::{Arc, LazyLock},
-    time::Duration,
-};
-use tokio::process::Command;
-use tracing::{debug, error, info, warn};
+
+pub mod client;
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
 pub struct ClementineAggregator {
     pub config: ClementineConfig<AggregatorConfig>,
     spawn_output: SpawnOutput,
-    pub client: (), // Simple unit client for now
+    pub client: ClementineAggregatorTestClient,
 }
 
 impl ClementineAggregator {
@@ -37,17 +45,36 @@ impl ClementineAggregator {
     ) -> Result<Self> {
         let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
+        // Wait for the gRPC server to be ready
+        wait_for_tcp_bound(
+            "127.0.0.1",
+            config.port,
+            Some(CLEMENTINE_NODE_STARTUP_TIMEOUT),
+        )
+        .await
+        .context("Clementine aggregator failed to become ready")?;
+
+        // Create TLS configuration
+        let tls_config = TlsConfig::new(
+            &config.client_cert_path,
+            &config.client_key_path,
+            &config.ca_cert_path,
+            "localhost".to_string(),
+        );
+
+        // Create gRPC client
+        let endpoint = format!("https://{}:{}", config.host, config.port);
+        let client = ClementineAggregatorTestClient::new(endpoint, tls_config)
+            .await
+            .context("Failed to create Clementine aggregator client")?;
+
         let instance = Self {
             config: config.clone(),
             spawn_output,
-            client: (),
+            client,
         };
 
-        instance
-            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
-            .await?;
         debug!("Started Clementine aggregator");
-
         Ok(instance)
     }
 }
@@ -55,7 +82,7 @@ impl ClementineAggregator {
 #[async_trait]
 impl NodeT for ClementineAggregator {
     type Config = ClementineConfig<AggregatorConfig>;
-    type Client = ();
+    type Client = ClementineAggregatorTestClient;
 
     async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         let mut env_vars = get_common_env_vars(config);
@@ -104,7 +131,7 @@ impl NodeT for ClementineAggregator {
 pub struct ClementineVerifier {
     pub config: ClementineConfig<VerifierConfig>,
     spawn_output: SpawnOutput,
-    pub client: (), // Simple unit client for now
+    pub client: ClementineVerifierTestClient,
     index: u8,
 }
 
@@ -122,18 +149,40 @@ impl ClementineVerifier {
 
         let spawn_output = spawn_clementine_node(config, "verifier", env_vars).await?;
 
+        // Wait for the gRPC server to be ready
+        wait_for_tcp_bound(
+            "127.0.0.1",
+            config.port,
+            Some(CLEMENTINE_NODE_STARTUP_TIMEOUT),
+        )
+        .await
+        .context(format!(
+            "Clementine verifier {} failed to become ready",
+            index
+        ))?;
+
+        // Create TLS configuration
+        let tls_config = TlsConfig::new(
+            &config.client_cert_path,
+            &config.client_key_path,
+            &config.ca_cert_path,
+            "localhost".to_string(),
+        );
+
+        // Create gRPC client
+        let endpoint = format!("https://{}:{}", config.host, config.port);
+        let client = ClementineVerifierTestClient::new(endpoint, tls_config)
+            .await
+            .with_context(|| format!("Failed to create Clementine verifier {} client", index))?;
+
         let instance = Self {
             config: config.clone(),
             spawn_output,
-            client: (),
+            client,
             index,
         };
 
-        instance
-            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
-            .await?;
         debug!("Started Clementine verifier {}", index);
-
         Ok(instance)
     }
 }
@@ -141,7 +190,7 @@ impl ClementineVerifier {
 #[async_trait]
 impl NodeT for ClementineVerifier {
     type Config = ClementineConfig<VerifierConfig>;
-    type Client = ();
+    type Client = ClementineVerifierTestClient;
 
     async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         let mut env_vars = get_common_env_vars(config);
@@ -182,7 +231,7 @@ impl NodeT for ClementineVerifier {
 pub struct ClementineOperator {
     pub config: ClementineConfig<OperatorConfig>,
     spawn_output: SpawnOutput,
-    pub client: (), // Simple unit client for now
+    pub client: ClementineOperatorTestClient,
     index: u8,
 }
 
@@ -228,18 +277,37 @@ impl ClementineOperator {
 
         let spawn_output = spawn_clementine_node(config, "operator", env_vars).await?;
 
+        // Wait for the gRPC server to be ready
+        wait_for_tcp_bound(
+            "127.0.0.1",
+            config.port,
+            Some(CLEMENTINE_NODE_STARTUP_TIMEOUT),
+        )
+        .await
+        .with_context(|| format!("Clementine operator {} failed to become ready", index))?;
+
+        // Create TLS configuration
+        let tls_config = TlsConfig::new(
+            &config.client_cert_path,
+            &config.client_key_path,
+            &config.ca_cert_path,
+            "localhost".to_string(),
+        );
+
+        // Create gRPC client
+        let endpoint = format!("https://{}:{}", config.host, config.port);
+        let client = ClementineOperatorTestClient::new(endpoint, tls_config)
+            .await
+            .with_context(|| format!("Failed to create Clementine operator {} client", index))?;
+
         let instance = Self {
             config: config.clone(),
             spawn_output,
-            client: (),
+            client,
             index,
         };
 
-        instance
-            .wait_for_ready(Some(CLEMENTINE_NODE_STARTUP_TIMEOUT))
-            .await?;
         debug!("Started Clementine operator {}", index);
-
         Ok(instance)
     }
 }
@@ -247,7 +315,7 @@ impl ClementineOperator {
 #[async_trait]
 impl NodeT for ClementineOperator {
     type Config = ClementineConfig<OperatorConfig>;
-    type Client = ();
+    type Client = ClementineOperatorTestClient;
 
     async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
         let mut env_vars = get_common_env_vars(config);

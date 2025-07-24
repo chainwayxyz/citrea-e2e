@@ -11,9 +11,8 @@ use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tokio::{net::TcpStream, time::Instant};
 use tracing::debug;
 
-use crate::test_case::CLEMENTINE_ENV;
-
 use super::Result;
+use crate::test_case::CLEMENTINE_ENV;
 
 pub fn get_available_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;

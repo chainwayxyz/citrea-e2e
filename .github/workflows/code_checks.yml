@@ -25,6 +25,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install protoc
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Run Cargo clippy
       run: cargo clippy --no-deps --all-targets -- -Dwarnings
 
@@ -34,6 +36,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -52,6 +56,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install protoc
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
 
     - name: Set up Rust
       uses: actions-rs/toolchain@v1

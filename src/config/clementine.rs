@@ -1,19 +1,20 @@
-use std::io::Write;
-use std::{path::PathBuf, str::FromStr, sync::LazyLock};
-
-use std::fmt::Debug;
+use std::{fmt::Debug, io::Write, path::PathBuf, str::FromStr, sync::LazyLock};
 
 use anyhow::anyhow;
-use bitcoin::hashes::{sha256, Hash, HashEngine};
 use bitcoin::{
-    address::NetworkUnchecked, secp256k1::SecretKey, Address, Amount, OutPoint, XOnlyPublicKey,
+    address::NetworkUnchecked,
+    hashes::{sha256, Hash, HashEngine},
+    secp256k1::SecretKey,
+    Address, Amount, OutPoint, XOnlyPublicKey,
 };
 use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
-use crate::config::{BitcoinConfig, PostgresConfig, RpcConfig};
-use crate::log_provider::LogPathProvider;
-use crate::node::NodeKind;
+use crate::{
+    config::{BitcoinConfig, PostgresConfig, RpcConfig},
+    log_provider::LogPathProvider,
+    node::NodeKind,
+};
 
 pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey> =
     LazyLock::new(|| {

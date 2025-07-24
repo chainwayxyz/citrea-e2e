@@ -1,9 +1,8 @@
-use crate::config::{clementine::ClementineClusterConfig, PostgresConfig};
-
 use super::{
     bitcoin::BitcoinConfig, test_case::TestCaseConfig, FullBatchProverConfig, FullFullNodeConfig,
     FullLightClientProverConfig, FullSequencerConfig,
 };
+use crate::config::{clementine::ClementineClusterConfig, PostgresConfig};
 
 #[derive(Clone)]
 pub struct TestConfig {
