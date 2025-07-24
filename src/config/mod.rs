@@ -21,9 +21,11 @@ pub use clementine::{
 pub use docker::{DockerConfig, VolumeConfig};
 pub(crate) use postgres::PostgresConfig;
 use serde::Serialize;
-#[cfg(not(feature = "clementine"))]
-pub use test::default_clementine_cluster_config;
 pub use test::TestConfig;
+#[cfg(not(feature = "clementine"))]
+pub use test::{
+    default_clementine_cluster_config, ClementineClusterConfig as StubClementineClusterConfig,
+};
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use throttle::ThrottleConfig;
 pub use utils::config_to_file;

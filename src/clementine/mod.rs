@@ -29,6 +29,7 @@ use crate::{
 };
 
 pub mod client;
+pub mod framework;
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 
