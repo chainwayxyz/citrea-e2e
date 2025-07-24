@@ -29,7 +29,7 @@ impl Default for BitcoinConfig {
             rpc_password: "password".to_string(),
             data_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
-                .into_path(),
+                .keep(),
             extra_args: Vec::new(),
             network: Network::Regtest,
             docker_image: None,

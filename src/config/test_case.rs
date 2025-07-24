@@ -102,7 +102,7 @@ impl Default for TestCaseConfig {
                     |_| {
                         TempDir::new()
                             .expect("Failed to create temporary directory")
-                            .into_path()
+                            .keep()
                     },
                     PathBuf::from,
                 )

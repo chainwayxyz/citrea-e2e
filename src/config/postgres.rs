@@ -24,7 +24,7 @@ impl Default for PostgresConfig {
             password: "clementine".to_string(),
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
-                .into_path(),
+                .keep(),
             extra_args: vec!["-c".to_string(), "max_connections=1000".to_string()],
             image_tag: None,
         }

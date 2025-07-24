@@ -429,7 +429,7 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
 
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
-                .into_path(),
+                .keep(),
         }
     }
 }
