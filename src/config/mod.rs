@@ -2,6 +2,7 @@ mod bitcoin;
 #[cfg(feature = "clementine")]
 mod clementine;
 mod docker;
+#[cfg(feature = "clementine")]
 mod postgres;
 mod test;
 mod test_case;
@@ -19,13 +20,11 @@ pub use clementine::{
     AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
 };
 pub use docker::{DockerConfig, VolumeConfig};
+#[cfg(feature = "clementine")]
 pub(crate) use postgres::PostgresConfig;
 use serde::Serialize;
 pub use test::TestConfig;
-#[cfg(not(feature = "clementine"))]
-pub use test::{
-    default_clementine_cluster_config, ClementineClusterConfig as StubClementineClusterConfig,
-};
+
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use throttle::ThrottleConfig;
 pub use utils::config_to_file;

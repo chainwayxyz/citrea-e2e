@@ -4,9 +4,11 @@ use serde::Serialize;
 use tracing::debug;
 
 use super::{throttle::ThrottleConfig, BitcoinConfig, FullL2NodeConfig};
+#[cfg(feature = "clementine")]
+use crate::config::PostgresConfig;
+#[cfg(feature = "clementine")]
+use crate::log_provider::LogPathProvider;
 use crate::{
-    config::PostgresConfig,
-    log_provider::LogPathProvider,
     node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
 };
@@ -97,6 +99,7 @@ where
     }
 }
 
+#[cfg(feature = "clementine")]
 impl From<&PostgresConfig> for DockerConfig {
     fn from(config: &PostgresConfig) -> Self {
         let image_tag = config.image_tag.as_deref().unwrap_or("15");
