@@ -1,3 +1,5 @@
+#![cfg(feature = "clementine")]
+
 use async_trait::async_trait;
 use citrea_e2e::{
     config::{TestCaseConfig, TestCaseDockerConfig},

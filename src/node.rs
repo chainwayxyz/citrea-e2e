@@ -40,8 +40,11 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    #[cfg(feature = "clementine")]
     ClementineAggregator,
+    #[cfg(feature = "clementine")]
     ClementineVerifier,
+    #[cfg(feature = "clementine")]
     ClementineOperator,
     Postgres,
 }
@@ -54,8 +57,11 @@ impl NodeKind {
             NodeKind::LightClientProver => 3,
             NodeKind::Sequencer => 4,
             NodeKind::FullNode => 5,
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineAggregator => 6,
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineVerifier => 7,
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineOperator => 8,
             NodeKind::Postgres => 9,
         }
@@ -70,8 +76,11 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineVerifier => write!(f, "clementine-verifier"),
+            #[cfg(feature = "clementine")]
             NodeKind::ClementineOperator => write!(f, "clementine-operator"),
             NodeKind::Postgres => write!(f, "postgres"),
         }

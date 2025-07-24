@@ -1,17 +1,21 @@
+#[cfg(feature = "clementine")]
+use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
-    time::Duration,
 };
 
-use anyhow::{anyhow, bail};
+use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use tokio::{net::TcpStream, time::Instant};
+#[cfg(feature = "clementine")]
+use tokio::net::TcpStream;
+#[cfg(feature = "clementine")]
 use tracing::debug;
 
 use super::Result;
+#[cfg(feature = "clementine")]
 use crate::test_case::CLEMENTINE_ENV;
 
 pub fn get_available_port() -> Result<u16> {
@@ -35,6 +39,7 @@ pub fn get_citrea_path() -> Result<PathBuf> {
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
 }
 
+#[cfg(feature = "clementine")]
 pub fn get_clementine_path() -> Result<PathBuf> {
     std::env::var(CLEMENTINE_ENV)
         .map(PathBuf::from)
@@ -117,6 +122,7 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "clementine")]
 pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>) -> Result<()> {
     let timeout = timeout.unwrap_or(Duration::from_secs(30));
     let start = Instant::now();
@@ -129,5 +135,5 @@ pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>
         tokio::time::sleep(Duration::from_millis(1000)).await;
     }
 
-    bail!("Failed to connect to {host}:{port} within the specified timeout")
+    anyhow::bail!("Failed to connect to {host}:{port} within the specified timeout")
 }

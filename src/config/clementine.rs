@@ -565,7 +565,7 @@ impl LogPathProvider for ClementineConfig<VerifierConfig> {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,
     pub operators: Vec<ClementineConfig<OperatorConfig>>,

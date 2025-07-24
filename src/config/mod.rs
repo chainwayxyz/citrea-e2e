@@ -1,6 +1,8 @@
 mod bitcoin;
+#[cfg(feature = "clementine")]
 mod clementine;
 mod docker;
+#[cfg(feature = "clementine")]
 mod postgres;
 mod test;
 mod test_case;
@@ -13,10 +15,12 @@ use std::{
 };
 
 pub use bitcoin::BitcoinConfig;
+#[cfg(feature = "clementine")]
 pub use clementine::{
     AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
 };
 pub use docker::{DockerConfig, VolumeConfig};
+#[cfg(feature = "clementine")]
 pub(crate) use postgres::PostgresConfig;
 use serde::Serialize;
 pub use test::TestConfig;
