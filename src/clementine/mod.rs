@@ -440,6 +440,20 @@ impl ClementineCluster {
     }
 }
 
+/// Copy Clementine resources to target directory
+pub fn copy_resources(
+    clementine_dir: &Option<String>,
+    target_dir: &std::path::Path,
+) -> std::io::Result<()> {
+    use crate::utils::{copy_directory, get_workspace_root};
+
+    let clementine_dir = clementine_dir.as_ref().map_or_else(
+        || get_workspace_root().join("resources/clementine"),
+        std::path::PathBuf::from,
+    );
+    copy_directory(clementine_dir, target_dir)
+}
+
 /// Ensures that TLS certificates exist for tests.
 /// This will run the certificate generation script if certificates don't exist.
 pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Error> {

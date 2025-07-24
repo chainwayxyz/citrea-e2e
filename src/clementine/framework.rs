@@ -23,13 +23,7 @@ impl FrameworkIntegration {
         clementine_dir: &Option<String>,
         target_dir: &Path,
     ) -> std::io::Result<()> {
-        use crate::utils::{copy_directory, get_workspace_root};
-
-        let clementine_dir = clementine_dir.as_ref().map_or_else(
-            || get_workspace_root().join("resources/clementine"),
-            PathBuf::from,
-        );
-        copy_directory(clementine_dir, target_dir)
+        super::copy_resources(clementine_dir, target_dir)
     }
 
     /// Generate Clementine cluster configuration
