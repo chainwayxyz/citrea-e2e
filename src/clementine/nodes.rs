@@ -17,6 +17,7 @@ use futures::future::try_join_all;
 use tokio::process::Command;
 use tracing::{debug, error, info, warn};
 
+use super::client;
 use crate::{
     config::{
         AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
@@ -27,8 +28,6 @@ use crate::{
     utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
     Result,
 };
-
-use super::client;
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
 

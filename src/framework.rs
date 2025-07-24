@@ -8,10 +8,10 @@ use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-// Conditional imports for clementine features
-use crate::clementine::ClementineIntegration;
 #[cfg(feature = "clementine")]
 use crate::clementine::ClementineCluster;
+// Conditional imports for clementine features
+use crate::clementine::ClementineIntegration;
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
@@ -117,7 +117,8 @@ impl TestFramework {
             &self.ctx.config.clementine,
             Arc::clone(&self.ctx.docker),
             self.ctx.config.test_case.with_clementine,
-        ).await?;
+        )
+        .await?;
 
         Ok(())
     }
@@ -238,7 +239,7 @@ impl TestFramework {
                                     .iter()
                                     .map(LogPathProvider::as_erased),
                             )
-                            .map(Option::Some)
+                            .map(Option::Some),
                     );
                 }
                 clementine_providers
@@ -561,7 +562,7 @@ fn generate_test_config<T: TestCase>(
         ..Default::default()
     };
 
-    #[cfg(feature = "clementine")]  
+    #[cfg(feature = "clementine")]
     let clementine = ClementineIntegration::generate_cluster_config::<T>(
         &test_case,
         &clementine_dir,
@@ -712,5 +713,3 @@ fn has_errors_or_panics(path: &Path) -> Result<bool> {
 
     Ok(false)
 }
-
-

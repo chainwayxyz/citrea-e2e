@@ -24,7 +24,6 @@ pub use docker::{DockerConfig, VolumeConfig};
 pub(crate) use postgres::PostgresConfig;
 use serde::Serialize;
 pub use test::TestConfig;
-
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use throttle::ThrottleConfig;
 pub use utils::config_to_file;

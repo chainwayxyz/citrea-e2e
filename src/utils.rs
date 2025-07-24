@@ -1,12 +1,11 @@
+#[cfg(feature = "clementine")]
+use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
 };
-
-#[cfg(feature = "clementine")]
-use std::time::{Duration, Instant};
 
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};

@@ -2,7 +2,7 @@
 //!
 //! This module provides clean integration between the test framework and Clementine,
 //! handling configuration generation, resource management, and initialization.
-//! 
+//!
 //! The implementation uses conditional compilation to provide no-op stubs
 //! when the clementine feature is disabled.
 
@@ -14,15 +14,15 @@ use crate::{config::TestCaseConfig, test_case::TestCase};
 
 // Import node implementations when clementine feature is enabled
 #[cfg(feature = "clementine")]
-mod nodes;
-#[cfg(feature = "clementine")]
 pub mod client;
+#[cfg(feature = "clementine")]
+mod nodes;
 
 // Re-export public types and functions when clementine feature is enabled
 #[cfg(feature = "clementine")]
 pub use nodes::{
-    ClementineAggregator, ClementineCluster, ClementineOperator, ClementineVerifier,
-    copy_resources, generate_certs_if_needed,
+    copy_resources, generate_certs_if_needed, ClementineAggregator, ClementineCluster,
+    ClementineOperator, ClementineVerifier,
 };
 
 /// Clementine integration utilities for the test framework
@@ -69,6 +69,7 @@ impl ClementineIntegration {
         light_client_rpc: crate::config::RpcConfig,
     ) -> Result<crate::config::ClementineClusterConfig> {
         use anyhow::Context;
+
         use crate::{
             config::{
                 AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig,
@@ -155,9 +156,7 @@ impl ClementineIntegration {
 
     /// Stop clementine nodes - only available when clementine feature is enabled
     #[cfg(feature = "clementine")]
-    pub async fn stop_nodes(
-        clementine_nodes: &mut Option<ClementineCluster>,
-    ) -> Result<()> {
+    pub async fn stop_nodes(clementine_nodes: &mut Option<ClementineCluster>) -> Result<()> {
         if let Some(nodes) = clementine_nodes {
             nodes.stop_all().await?;
             tracing::info!("Successfully stopped clementine nodes");

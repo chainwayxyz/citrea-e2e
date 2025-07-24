@@ -7,7 +7,6 @@ use crate::config::clementine::ClementineClusterConfig;
 #[cfg(feature = "clementine")]
 use crate::config::PostgresConfig;
 
-
 #[derive(Clone)]
 pub struct TestConfig {
     pub test_case: TestCaseConfig,

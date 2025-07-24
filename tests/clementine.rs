@@ -1,6 +1,6 @@
-#[cfg(feature = "clementine")]
+#![cfg(feature = "clementine")]
+
 use async_trait::async_trait;
-#[cfg(feature = "clementine")]
 use citrea_e2e::{
     config::{TestCaseConfig, TestCaseDockerConfig},
     framework::TestFramework,
@@ -25,10 +25,8 @@ use citrea_e2e::{
 /// ### Verifier Service:
 /// - `get_params()` - Returns verifier parameters including public key
 /// - `get_current_status()` - Provides status of the verifier node
-#[cfg(feature = "clementine")]
 struct ClementineIntegrationTest;
 
-#[cfg(feature = "clementine")]
 #[async_trait]
 impl TestCase for ClementineIntegrationTest {
     fn test_config() -> TestCaseConfig {
@@ -117,7 +115,6 @@ impl TestCase for ClementineIntegrationTest {
     }
 }
 
-#[cfg(feature = "clementine")]
 #[tokio::test]
 async fn test_clementine_integration() -> Result<()> {
     TestCaseRunner::new(ClementineIntegrationTest).run().await
