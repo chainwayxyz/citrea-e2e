@@ -15,9 +15,7 @@ pub struct FrameworkIntegration;
 impl FrameworkIntegration {
     /// Initialize Clementine certificates if needed
     pub async fn init_certificates() -> Result<()> {
-        super::generate_certs_if_needed()
-            .await
-            .map_err(Into::into)
+        super::generate_certs_if_needed().await.map_err(Into::into)
     }
 
     /// Copy Clementine resources to target directory

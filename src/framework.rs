@@ -10,7 +10,7 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 
 // Conditional imports for clementine features
 #[cfg(feature = "clementine")]
-use crate::clementine::{ClementineCluster, framework::FrameworkIntegration};
+use crate::clementine::{framework::FrameworkIntegration, ClementineCluster};
 #[cfg(not(feature = "clementine"))]
 type ClementineClusterType = ();
 
@@ -63,8 +63,6 @@ pub struct TestFramework {
     pub initial_da_height: u64,
     pub citrea_cli: Option<CitreaCli>,
 }
-
-// Removed create_optional - using direct conditional patterns instead
 
 impl TestFramework {
     pub async fn new<T: TestCase>() -> Result<Self> {
