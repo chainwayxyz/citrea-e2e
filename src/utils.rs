@@ -12,6 +12,7 @@ use tokio::{net::TcpStream, time::Instant};
 use tracing::debug;
 
 use super::Result;
+#[cfg(feature = "clementine")]
 use crate::test_case::CLEMENTINE_ENV;
 
 pub fn get_available_port() -> Result<u16> {
@@ -35,6 +36,7 @@ pub fn get_citrea_path() -> Result<PathBuf> {
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
 }
 
+#[cfg(feature = "clementine")]
 pub fn get_clementine_path() -> Result<PathBuf> {
     std::env::var(CLEMENTINE_ENV)
         .map(PathBuf::from)

@@ -1,6 +1,7 @@
 pub mod bitcoin;
 pub mod citrea_cli;
 mod citrea_config;
+#[cfg(feature = "clementine")]
 pub mod clementine;
 pub mod client;
 pub mod config;

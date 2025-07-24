@@ -429,7 +429,7 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
 
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
-                .keep(),
+                .into_path(),
         }
     }
 }
@@ -565,7 +565,7 @@ impl LogPathProvider for ClementineConfig<VerifierConfig> {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,
     pub operators: Vec<ClementineConfig<OperatorConfig>>,

@@ -1,4 +1,5 @@
 mod bitcoin;
+#[cfg(feature = "clementine")]
 mod clementine;
 mod docker;
 mod postgres;
@@ -13,12 +14,15 @@ use std::{
 };
 
 pub use bitcoin::BitcoinConfig;
+#[cfg(feature = "clementine")]
 pub use clementine::{
     AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
 };
 pub use docker::{DockerConfig, VolumeConfig};
 pub(crate) use postgres::PostgresConfig;
 use serde::Serialize;
+#[cfg(not(feature = "clementine"))]
+pub use test::default_clementine_cluster_config;
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use throttle::ThrottleConfig;
