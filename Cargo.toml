@@ -15,24 +15,24 @@ futures = { version = "0.3", default-features = false }
 hex = { version = "0.4.3", default-features = false, features = ["serde"] }
 jsonrpsee = { version = "0.24.2", default-features = false, features = ["http-client"] }
 nix = { version = "0.29", default-features = false, features = ["signal"] }
-prost = { version = "0.13", default-features = false, features = ["prost-derive"] }
+prost = { version = "0.13", default-features = false, features = ["prost-derive"], optional = true }
 rand = { version = "0.8", default-features = false, features = ["std_rng", "std"] }
 serde = { version = "1.0.192", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0", default-features = false }
 tempfile = { version = "3.8", default-features = false }
 tokio = { version = "1.44.2", default-features = false }
 toml = { version = "0.8.0", default-features = false, features = ["display", "parse"] }
-tonic = { version = "0.12", default-features = false, features = ["tls", "transport", "channel", "codegen", "prost"] }
+tonic = { version = "0.12", default-features = false, features = ["tls", "transport", "channel", "codegen", "prost"], optional = true }
 tracing = { version = "0.1.40", default-features = false }
 tracing-subscriber = { version = "0.3.17", default-features = false, features = ["env-filter", "json", "fmt"] }
 
 [build-dependencies]
-prost-build = { version = "0.13" }
-tonic-build = { version = "0.12" }
+prost-build = { version = "0.13", optional = true }
+tonic-build = { version = "0.12", optional = true }
 
 [features]
 default = []
-clementine = []
+clementine = ["prost", "tonic", "prost-build", "tonic-build"]
 
 [patch.crates-io]
 bitcoincore-rpc = { version = "0.18.0", git = "https://github.com/chainwayxyz/rust-bitcoincore-rpc.git", rev = "5ce1bed" }
