@@ -1,9 +1,9 @@
-use std::{fmt::Debug, io::Write, path::PathBuf, str::FromStr, sync::LazyLock};
+use std::{fmt::Debug, path::PathBuf, str::FromStr, sync::LazyLock};
 
 use anyhow::anyhow;
 use bitcoin::{
     address::NetworkUnchecked,
-    hashes::{sha256, Hash, HashEngine},
+    hashes::{sha256, Hash},
     secp256k1::SecretKey,
     Address, Amount, OutPoint, XOnlyPublicKey,
 };
@@ -24,11 +24,7 @@ pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey
 
 /// Deterministic random key generation for testing purposes.
 fn seeded_key(prefix: &str, idx: u8) -> [u8; 32] {
-    let mut hash = sha256::Hash::engine();
-    hash.write_all(prefix.as_bytes()).expect("write failed");
-    hash.write_all(&[idx]).expect("write failed");
-    hash.flush().expect("flush failed");
-    hash.midstate().to_byte_array()
+    sha256::Hash::hash(format!("{prefix}-{idx}").as_bytes()).to_byte_array()
 }
 
 /// Data structure to represent the security council that can unlock the deposit using an m-of-n multisig to create a replacement deposit.
@@ -570,4 +566,24 @@ pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,
     pub operators: Vec<ClementineConfig<OperatorConfig>>,
     pub verifiers: Vec<ClementineConfig<VerifierConfig>>,
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    pub fn operator_verifier_keys_different() {
+        assert!(
+            OperatorConfig::default_for_idx(0).secret_key
+                != OperatorConfig::default_for_idx(1).secret_key
+        );
+        assert!(
+            OperatorConfig::default_for_idx(0).winternitz_secret_key
+                != OperatorConfig::default_for_idx(1).winternitz_secret_key
+        );
+        assert!(
+            VerifierConfig::default_for_idx(0).secret_key
+                != VerifierConfig::default_for_idx(1).secret_key
+        );
+    }
 }
