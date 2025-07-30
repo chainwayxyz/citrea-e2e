@@ -611,14 +611,14 @@ fn generate_sequencer_configs<T: TestCase>(
     dbs_dir: &Path,
     bind_host: &str,
 ) -> Result<Vec<FullSequencerConfig>> {
-    let sequencer = T::sequencer_config();
+    let sequencer = T::sequencer_cluster_config();
     let env = T::test_env();
     let throttle_config = T::throttle_config();
     let kind = NodeKind::Sequencer;
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
 
     let mut sequencer_configs = vec![];
-    for i in 0..test_case.get_n_nodes(kind) {
+    for (i, config) in (0..test_case.get_n_nodes(kind)).zip(sequencer.into_iter()) {
         let sequencer_dir = dir.join(i.to_string());
         std::fs::create_dir_all(&sequencer_dir)
             .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
@@ -649,7 +649,7 @@ fn generate_sequencer_configs<T: TestCase>(
 
         sequencer_configs.push(FullSequencerConfig::new(
             NodeKind::Sequencer,
-            sequencer.clone(),
+            config,
             sequencer_rollup,
             citrea_docker_image.clone(),
             sequencer_dir,

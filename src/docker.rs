@@ -1,4 +1,4 @@
-#![allow(deprecated)] // Allowing deprecation for now as v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
+#![allow(deprecated)] // Allowing deprecation for now as bollard v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
