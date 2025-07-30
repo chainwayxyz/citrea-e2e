@@ -381,11 +381,12 @@ where
         self.inner.get(index)
     }
 
-    pub fn take(&mut self, index: usize) -> Option<Node<C>> {
+    pub fn take(mut self, index: usize) -> (Self, Option<Node<C>>) {
         if index < self.inner.len() {
-            Some(self.inner.remove(index))
+            let node = Some(self.inner.remove(index));
+            (self, node)
         } else {
-            None
+            (self, None)
         }
     }
 
