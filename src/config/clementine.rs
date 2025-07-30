@@ -8,7 +8,7 @@ use bitcoin::{
     Address, Amount, OutPoint, XOnlyPublicKey,
 };
 use serde::{Deserialize, Serialize};
-use tempfile::TempDir;
+use tempfile::Builder;
 
 use crate::{
     config::{BitcoinConfig, PostgresConfig, RpcConfig},
@@ -423,9 +423,12 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
 
             entity_config: E::default(),
 
-            log_dir: TempDir::new()
+            log_dir: Builder::new()
+                .keep(true)
+                .tempdir()
                 .expect("Failed to create temporary directory")
-                .keep(),
+                .path()
+                .to_path_buf(),
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, env, path::PathBuf, time::Duration};
 
-use tempfile::TempDir;
+use tempfile::Builder;
 
 use super::CitreaMode;
 use crate::{node::NodeKind, utils::generate_test_id};
@@ -100,9 +100,12 @@ impl Default for TestCaseConfig {
             dir: std::env::var("TEST_OUT_DIR")
                 .map_or_else(
                     |_| {
-                        TempDir::new()
+                        Builder::new()
+                            .keep(true)
+                            .tempdir()
                             .expect("Failed to create temporary directory")
-                            .keep()
+                            .path()
+                            .to_path_buf()
                     },
                     PathBuf::from,
                 )

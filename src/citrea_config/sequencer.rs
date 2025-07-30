@@ -21,6 +21,8 @@ pub struct SequencerConfig {
     pub block_production_interval_ms: u64,
     /// Bridge system contract initialize function parameters
     pub bridge_initialize_params: String,
+    /// Configuration for the listen mode sequencer
+    pub listen_mode_config: Option<ListenModeConfig>,
 }
 
 impl Default for SequencerConfig {
@@ -35,6 +37,7 @@ impl Default for SequencerConfig {
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            listen_mode_config: None,
         }
     }
 }
@@ -69,6 +72,24 @@ impl Default for SequencerMempoolConfig {
             base_fee_tx_limit: 100_000,
             base_fee_tx_size: 200,
             max_account_slots: 16,
+        }
+    }
+}
+
+/// Configuration for the listen mode sequencer
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct ListenModeConfig {
+    /// The sequencer client URL to connect to
+    pub sequencer_client_url: String,
+    /// The number of blocks to sync from the sequencer
+    pub sync_blocks_count: u64,
+}
+
+impl Default for ListenModeConfig {
+    fn default() -> Self {
+        ListenModeConfig {
+            sequencer_client_url: "http://localhost:8545".to_string(),
+            sync_blocks_count: 10,
         }
     }
 }
@@ -130,6 +151,7 @@ mod tests {
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            listen_mode_config: None,
         };
         assert_eq!(config, expected);
     }

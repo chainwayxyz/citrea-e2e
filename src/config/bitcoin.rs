@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use bitcoin::Network;
-use tempfile::TempDir;
+use tempfile::Builder;
 
 use crate::{log_provider::LogPathProvider, node::NodeKind};
 
@@ -27,9 +27,12 @@ impl Default for BitcoinConfig {
             rpc_port: 0,
             rpc_user: "user".to_string(),
             rpc_password: "password".to_string(),
-            data_dir: TempDir::new()
+            data_dir: Builder::new()
+                .keep(true)
+                .tempdir()
                 .expect("Failed to create temporary directory")
-                .keep(),
+                .path()
+                .to_path_buf(),
             extra_args: Vec::new(),
             network: Network::Regtest,
             docker_image: None,
