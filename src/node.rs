@@ -23,7 +23,7 @@ pub use crate::sequencer::Sequencer;
 use crate::{
     client::Client,
     config::{
-        config_to_file, BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig,
+        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig,
         FullL2NodeConfig, LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
@@ -327,6 +327,7 @@ where
         ));
         copy_directory(old_dir, &new_dir)?;
 
+        config.set_dir(new_dir);
         config.write_to_file()?;
 
         *self.spawn_output() = Self::spawn(config, extra_args)?;
