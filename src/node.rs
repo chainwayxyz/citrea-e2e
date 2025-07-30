@@ -328,6 +328,8 @@ where
         copy_directory(old_dir, &new_dir)?;
         config.set_dir(new_dir);
 
+        config.write_to_file()?;
+
         *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
