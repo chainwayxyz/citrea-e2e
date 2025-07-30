@@ -1,12 +1,15 @@
 pub mod bitcoin;
 pub mod citrea_cli;
 mod citrea_config;
+pub mod clementine;
 pub mod client;
 pub mod config;
 mod docker;
 pub mod framework;
 mod log_provider;
 pub mod node;
+#[cfg(feature = "clementine")]
+pub mod postgres;
 mod sequencer;
 pub mod test_case;
 pub mod traits;

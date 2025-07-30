@@ -1,5 +1,8 @@
+#[cfg(feature = "clementine")]
+use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
+    future::Future,
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
@@ -7,8 +10,14 @@ use std::{
 
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
+#[cfg(feature = "clementine")]
+use tokio::net::TcpStream;
+#[cfg(feature = "clementine")]
+use tracing::debug;
 
 use super::Result;
+#[cfg(feature = "clementine")]
+use crate::test_case::CLEMENTINE_ENV;
 
 pub fn get_available_port() -> Result<u16> {
     let listener = TcpListener::bind("127.0.0.1:0")?;
@@ -29,6 +38,15 @@ pub fn get_citrea_path() -> Result<PathBuf> {
     std::env::var("CITREA_E2E_TEST_BINARY")
         .map(PathBuf::from)
         .map_err(|_| anyhow!("CITREA_E2E_TEST_BINARY is not set. Cannot resolve citrea path"))
+}
+
+#[cfg(feature = "clementine")]
+pub fn get_clementine_path() -> Result<PathBuf> {
+    std::env::var(CLEMENTINE_ENV)
+        .map(PathBuf::from)
+        .map_err(|_| {
+            anyhow!("CLEMENTINE_E2E_TEST_BINARY is not set. Cannot resolve clementine path")
+        })
 }
 
 /// Get genesis path from resources
@@ -104,4 +122,31 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(feature = "clementine")]
+pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>) -> Result<()> {
+    let timeout = timeout.unwrap_or(Duration::from_secs(30));
+    let start = Instant::now();
+
+    while start.elapsed() < timeout {
+        if (TcpStream::connect(format!("{host}:{port}")).await).is_ok() {
+            debug!("Postgres is accepting connections");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(1000)).await;
+    }
+
+    anyhow::bail!("Failed to connect to {host}:{port} within the specified timeout")
+}
+
+pub async fn create_optional<T>(
+    pred: bool,
+    f: impl Future<Output = Result<T>>,
+) -> Result<Option<T>> {
+    if pred {
+        Ok(Some(f.await?))
+    } else {
+        Ok(None)
+    }
 }

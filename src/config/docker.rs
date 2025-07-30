@@ -4,6 +4,10 @@ use serde::Serialize;
 use tracing::debug;
 
 use super::{throttle::ThrottleConfig, BitcoinConfig, FullL2NodeConfig};
+#[cfg(feature = "clementine")]
+use crate::config::PostgresConfig;
+#[cfg(feature = "clementine")]
+use crate::log_provider::LogPathProvider;
 use crate::{
     node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
@@ -91,6 +95,42 @@ where
             ]),
             kind,
             throttle: config.throttle.clone(),
+        }
+    }
+}
+
+#[cfg(feature = "clementine")]
+impl From<&PostgresConfig> for DockerConfig {
+    fn from(config: &PostgresConfig) -> Self {
+        let image_tag = config.image_tag.as_deref().unwrap_or("15");
+        let image = format!("postgres:{}", image_tag);
+
+        let mut cmd = vec![
+            "bash".to_string(),
+            "-c".to_string(),
+            format!(
+                "POSTGRES_PASSWORD={} POSTGRES_USER={} exec docker-entrypoint.sh postgres -p {} {}",
+                config.password,
+                config.user,
+                config.port,
+                config.extra_args.join(" ")
+            )
+            .to_string(),
+        ];
+        cmd.extend(config.extra_args.clone());
+
+        Self {
+            ports: vec![config.port],
+            image,
+            cmd,
+            log_path: config.log_path(),
+            volume: VolumeConfig {
+                name: "postgres".to_string(),
+                target: "/var/lib/postgresql/data".to_string(),
+            },
+            host_dir: None,
+            kind: NodeKind::Postgres,
+            throttle: None,
         }
     }
 }

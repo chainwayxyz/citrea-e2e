@@ -270,13 +270,26 @@ impl Restart for BitcoinNode {
                 let Some(env) = self.docker_env.as_ref() else {
                     bail!("Missing docker environment")
                 };
-                env.docker.stop_container(&output.id, None).await?;
+                env.docker
+                    .stop_container(
+                        &output.id,
+                        None::<bollard::query_parameters::StopContainerOptions>,
+                    )
+                    .await?;
 
                 env.docker
-                    .wait_container::<String>(&output.id, None)
+                    .wait_container(
+                        &output.id,
+                        None::<bollard::query_parameters::WaitContainerOptions>,
+                    )
                     .try_collect::<Vec<_>>()
                     .await?;
-                env.docker.remove_container(&output.id, None).await?;
+                env.docker
+                    .remove_container(
+                        &output.id,
+                        None::<bollard::query_parameters::RemoveContainerOptions>,
+                    )
+                    .await?;
                 info!("Docker container {} succesfully removed", output.id);
                 Ok(())
             }

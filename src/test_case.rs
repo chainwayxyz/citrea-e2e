@@ -17,6 +17,8 @@ use super::{
     framework::TestFramework,
     Result,
 };
+#[cfg(feature = "clementine")]
+use crate::config::{AggregatorConfig, ClementineConfig, OperatorConfig, VerifierConfig};
 use crate::{
     config::{BatchProverConfig, LightClientProverConfig, SequencerConfig, ThrottleConfig},
     traits::NodeT,
@@ -25,7 +27,8 @@ use crate::{
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
 pub const CITREA_CLI_ENV: &str = "CITREA_CLI_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
-const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
+#[cfg(feature = "clementine")]
+pub const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -164,6 +167,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     /// * `path` - Location of the Clementine binary to be used when spawning binary.
     ///
+    #[cfg(feature = "clementine")]
     pub fn set_clementine_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(CLEMENTINE_ENV, path)
     }
@@ -221,6 +225,39 @@ pub trait TestCase: Send + Sync + 'static {
     /// Override this method to provide a custom light client prover configuration.
     fn light_client_prover_config() -> LightClientProverConfig {
         LightClientProverConfig::default()
+    }
+
+    /// Returns the verifier configuration for the test.
+    /// Override this method to provide a custom verifier configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_verifier_config(idx: u8) -> ClementineConfig<VerifierConfig> {
+        ClementineConfig::<VerifierConfig> {
+            entity_config: VerifierConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    /// Returns the operator configuration for the test.
+    /// Override this method to provide a custom operator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_operator_config(idx: u8) -> ClementineConfig<OperatorConfig> {
+        ClementineConfig::<OperatorConfig> {
+            entity_config: OperatorConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    /// Returns the aggregator configuration for the test.
+    /// Override this method to provide a custom aggregator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_aggregator_config() -> ClementineConfig<AggregatorConfig> {
+        ClementineConfig::<AggregatorConfig> {
+            entity_config: AggregatorConfig::default(),
+            ..Default::default()
+        }
     }
 
     /// Returns the test setup
