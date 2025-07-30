@@ -41,6 +41,13 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    #[cfg(feature = "clementine")]
+    ClementineAggregator,
+    #[cfg(feature = "clementine")]
+    ClementineVerifier,
+    #[cfg(feature = "clementine")]
+    ClementineOperator,
+    Postgres,
 }
 
 impl NodeKind {
@@ -51,6 +58,13 @@ impl NodeKind {
             NodeKind::LightClientProver => 3,
             NodeKind::Sequencer => 4,
             NodeKind::FullNode => 5,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineAggregator => 6,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineVerifier => 7,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineOperator => 8,
+            NodeKind::Postgres => 9,
         }
     }
 }
@@ -63,6 +77,13 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineVerifier => write!(f, "clementine-verifier"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineOperator => write!(f, "clementine-operator"),
+            NodeKind::Postgres => write!(f, "postgres"),
         }
     }
 }
@@ -71,6 +92,7 @@ pub type FullNode = Node<EmptyConfig>;
 pub type LightClientProver = Node<LightClientProverConfig>;
 pub type BatchProver = Node<BatchProverConfig>;
 
+/// A Citrea node
 pub struct Node<C>
 where
     C: Clone + Debug + Serialize + Send + Sync,
@@ -229,8 +251,14 @@ where
         let timeout = timeout.unwrap_or(Duration::from_secs(30));
         let mut response = Err(anyhow!("initial response value"));
 
+        // Check L2 height for sequencer and L1 height for the rest
+        let check = async move || match self.config.kind() {
+            NodeKind::Sequencer => self.client.ledger_get_head_l2_block_height().await,
+            _ => self.client.ledger_get_last_scanned_l1_height().await,
+        };
+
         while response.is_err() && (start.elapsed() < timeout) {
-            response = self.client.ledger_get_head_l2_block_height().await;
+            response = check().await;
             sleep(Duration::from_millis(500)).await;
         }
         match response {

@@ -56,6 +56,9 @@ impl BitcoinConfig {
             "-addresstype=bech32m".to_string(),
             "-debug=net".to_string(),
             "-debug=rpc".to_string(),
+            // Required for clementine
+            "-fallbackfee=0.00001".to_string(),
+            "-dustrelayfee=0".to_string(),
         ]
     }
 

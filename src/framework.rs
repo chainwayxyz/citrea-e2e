@@ -1,5 +1,4 @@
 use std::{
-    future::Future,
     path::{Path, PathBuf},
     sync::{Arc, Once},
 };
@@ -9,6 +8,10 @@ use bitcoincore_rpc::RpcApi;
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+#[cfg(feature = "clementine")]
+use crate::clementine::ClementineCluster;
+// Conditional imports for clementine features
+use crate::clementine::ClementineIntegration;
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
@@ -24,10 +27,13 @@ use crate::{
     test_case::{TestCase, CITREA_CLI_ENV},
     traits::NodeT,
     utils::{
-        copy_directory, get_available_port, get_default_genesis_path, get_workspace_root, tail_file,
+        copy_directory, create_optional, get_available_port, get_default_genesis_path,
+        get_workspace_root, tail_file,
     },
     Result,
 };
+#[cfg(feature = "clementine")]
+use crate::{config::PostgresConfig, postgres::Postgres};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -46,29 +52,26 @@ impl TestContext {
 pub struct TestFramework {
     ctx: TestContext,
     pub bitcoin_nodes: BitcoinNodeCluster,
+    #[cfg(feature = "clementine")]
+    pub postgres: Option<Postgres>,
     pub sequencer: Option<Sequencer>,
     pub sequencer_cluster: Option<SequencerCluster>,
     pub batch_prover: Option<BatchProver>,
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
+    #[cfg(feature = "clementine")]
+    pub clementine_nodes: Option<ClementineCluster>,
     pub initial_da_height: u64,
     pub citrea_cli: Option<CitreaCli>,
-}
-
-async fn create_optional<T>(pred: bool, f: impl Future<Output = Result<T>>) -> Result<Option<T>> {
-    if pred {
-        Ok(Some(f.await?))
-    } else {
-        Ok(None)
-    }
 }
 
 impl TestFramework {
     pub async fn new<T: TestCase>() -> Result<Self> {
         setup_logging();
+        ClementineIntegration::init_certificates().await?;
 
         let test_case = T::test_config();
-        let docker = if test_case.docker.enabled() {
+        let docker = if test_case.docker_enabled() {
             Some(DockerEnv::new(test_case.docker.clone()).await?)
         } else {
             None
@@ -88,20 +91,43 @@ impl TestFramework {
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
 
+        #[cfg(feature = "clementine")]
+        let postgres = if ctx.config.test_case.with_clementine {
+            Some(Postgres::new(&ctx.config.postgres, Arc::clone(&ctx.docker)).await?)
+        } else {
+            None
+        };
+
         Ok(Self {
             bitcoin_nodes,
+            #[cfg(feature = "clementine")]
+            postgres,
             sequencer: None,
             sequencer_cluster: None,
             batch_prover: None,
             light_client_prover: None,
             full_node: None,
+            #[cfg(feature = "clementine")]
+            clementine_nodes: None,
             ctx,
             initial_da_height: 0,
             citrea_cli,
         })
     }
 
-    pub async fn init_nodes(&mut self) -> Result<()> {
+    #[cfg(feature = "clementine")]
+    pub async fn init_clementine_nodes(&mut self) -> Result<()> {
+        self.clementine_nodes = ClementineIntegration::init_nodes(
+            &self.ctx.config.clementine,
+            Arc::clone(&self.ctx.docker),
+            self.ctx.config.test_case.with_clementine,
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn init_citrea_nodes(&mut self) -> Result<()> {
         // Use first node config for now, as citrea nodes are expected to interact only with this main node for now.
         // Additional bitcoin node are solely used for simulating a bitcoin network and tx propagation/re-orgs
         let bitcoin_config = &self.ctx.config.bitcoin[0];
@@ -125,33 +151,44 @@ impl TestFramework {
             .await?;
         }
 
-        (self.batch_prover, self.light_client_prover, self.full_node) = tokio::try_join!(
-            create_optional(
-                self.ctx.config.test_case.with_batch_prover,
-                BatchProver::new(
-                    &self.ctx.config.batch_prover,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker)
-                )
+        // Initialize nodes individually with clear conditional logic
+        self.batch_prover = create_optional(
+            self.ctx.config.test_case.with_batch_prover,
+            BatchProver::new(
+                &self.ctx.config.batch_prover,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
             ),
-            create_optional(
-                self.ctx.config.test_case.with_light_client_prover,
-                LightClientProver::new(
-                    &self.ctx.config.light_client_prover,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker)
-                )
-            ),
-            create_optional(
-                self.ctx.config.test_case.with_full_node,
-                FullNode::new(
-                    &self.ctx.config.full_node,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker)
-                )
-            ),
-        )?;
+        )
+        .await?;
 
+        self.light_client_prover = create_optional(
+            self.ctx.config.test_case.with_light_client_prover,
+            LightClientProver::new(
+                &self.ctx.config.light_client_prover,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
+        )
+        .await?;
+
+        self.full_node = create_optional(
+            self.ctx.config.test_case.with_full_node,
+            FullNode::new(
+                &self.ctx.config.full_node,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn init_nodes(&mut self) -> Result<()> {
+        self.init_citrea_nodes().await?;
+        #[cfg(feature = "clementine")]
+        self.init_clementine_nodes().await?;
         Ok(())
     }
 
@@ -178,7 +215,36 @@ impl TestFramework {
                 test_case
                     .with_light_client_prover
                     .then(|| LogPathProvider::as_erased(&self.ctx.config.light_client_prover)),
+                #[cfg(feature = "clementine")]
+                test_case
+                    .with_clementine
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.clementine.aggregator)),
             ])
+            .chain({
+                #[cfg_attr(not(feature = "clementine"), allow(unused_mut))]
+                let mut clementine_providers = Vec::new();
+                #[cfg(feature = "clementine")]
+                if test_case.with_clementine {
+                    clementine_providers.extend(
+                        self.ctx
+                            .config
+                            .clementine
+                            .operators
+                            .iter()
+                            .map(LogPathProvider::as_erased)
+                            .chain(
+                                self.ctx
+                                    .config
+                                    .clementine
+                                    .verifiers
+                                    .iter()
+                                    .map(LogPathProvider::as_erased),
+                            )
+                            .map(Option::Some),
+                    );
+                }
+                clementine_providers
+            })
             .flatten()
             .collect()
     }
@@ -229,6 +295,11 @@ impl TestFramework {
     pub async fn stop(&mut self) -> Result<()> {
         info!("Stopping framework...");
 
+        #[cfg(feature = "clementine")]
+        {
+            let _ = ClementineIntegration::stop_nodes(&mut self.clementine_nodes).await;
+        }
+
         if let Some(sequencer) = &mut self.sequencer {
             let _ = sequencer.stop().await;
             info!("Successfully stopped sequencer");
@@ -257,6 +328,12 @@ impl TestFramework {
         if let Some(docker) = self.ctx.docker.as_ref() {
             let _ = docker.cleanup().await;
             info!("Successfully cleaned docker");
+        }
+
+        #[cfg(feature = "clementine")]
+        if let Some(postgres) = &mut self.postgres {
+            let _ = postgres.stop().await;
+            info!("Successfully stopped postgres");
         }
 
         // Stop bitcoin last
@@ -319,18 +396,20 @@ fn generate_test_config<T: TestCase>(
     let env = T::test_env();
     let bitcoin = T::bitcoin_config();
     let batch_prover = T::batch_prover_config();
-    let light_client_prover = T::light_client_prover_config();
+    let mut light_client_prover = T::light_client_prover_config();
     let sequencer_rollup = RollupConfig::default();
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
     let full_node_rollup = RollupConfig::default();
     let scan_l1_start_height = T::scan_l1_start_height();
+    light_client_prover.initial_da_height = scan_l1_start_height.unwrap_or(120);
     let throttle_config = T::throttle_config();
 
-    let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir] =
+    let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir, _postgres_dir, clementine_dir] =
         create_dirs(&test_case.dir)?;
 
     copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
+    ClementineIntegration::copy_resources(&test_case.clementine_dir, &clementine_dir)?;
 
     let mut bitcoin_confs = vec![];
     for i in 0..test_case.get_n_nodes(NodeKind::Bitcoin) {
@@ -363,7 +442,7 @@ fn generate_test_config<T: TestCase>(
         _ => sequencer_rollup.rpc.bind_host.clone(),
     };
 
-    let bind_host = match docker.as_ref() {
+    let citrea_bind_host = match docker.as_ref() {
         Some(d) if d.citrea() => "0.0.0.0".to_string(),
         _ => sequencer_rollup.rpc.bind_host.clone(),
     };
@@ -374,7 +453,7 @@ fn generate_test_config<T: TestCase>(
         &sequencer_dir,
         &tx_backup_dir,
         &dbs_dir,
-        &bind_host,
+        &citrea_bind_host,
     )?;
 
     let runner_config = Some(RunnerConfig {
@@ -406,7 +485,7 @@ fn generate_test_config<T: TestCase>(
             },
             rpc: RpcConfig {
                 bind_port,
-                bind_host: bind_host.clone(),
+                bind_host: citrea_bind_host.clone(),
                 ..batch_prover_rollup.rpc
             },
             runner: runner_config.clone(),
@@ -430,7 +509,7 @@ fn generate_test_config<T: TestCase>(
             },
             rpc: RpcConfig {
                 bind_port,
-                bind_host: bind_host.clone(),
+                bind_host: citrea_bind_host.clone(),
                 ..light_client_prover_rollup.rpc
             },
             runner: runner_config.clone(),
@@ -457,13 +536,30 @@ fn generate_test_config<T: TestCase>(
             },
             rpc: RpcConfig {
                 bind_port,
-                bind_host: bind_host.clone(),
+                bind_host: citrea_bind_host.clone(),
                 ..full_node_rollup.rpc
             },
             runner: runner_config.clone(),
             ..full_node_rollup
         }
     };
+
+    #[cfg(feature = "clementine")]
+    let postgres = PostgresConfig {
+        port: get_available_port()?,
+        log_dir: _postgres_dir,
+        ..Default::default()
+    };
+
+    #[cfg(feature = "clementine")]
+    let clementine = ClementineIntegration::generate_cluster_config::<T>(
+        &test_case,
+        &clementine_dir,
+        postgres.clone(),
+        bitcoin_confs[0].clone(),
+        full_node_rollup.rpc.clone(),
+        light_client_prover_rollup.rpc.clone(),
+    )?;
 
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
@@ -500,6 +596,10 @@ fn generate_test_config<T: TestCase>(
             throttle_config.clone(),
         )?,
         test_case,
+        #[cfg(feature = "clementine")]
+        clementine,
+        #[cfg(feature = "clementine")]
+        postgres,
     })
 }
 
@@ -511,14 +611,14 @@ fn generate_sequencer_configs<T: TestCase>(
     dbs_dir: &Path,
     bind_host: &str,
 ) -> Result<Vec<FullSequencerConfig>> {
-    let sequencer = T::sequencer_config();
+    let sequencer = T::sequencer_cluster_config();
     let env = T::test_env();
     let throttle_config = T::throttle_config();
     let kind = NodeKind::Sequencer;
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
 
     let mut sequencer_configs = vec![];
-    for i in 0..test_case.get_n_nodes(kind) {
+    for (i, config) in (0..test_case.get_n_nodes(kind)).zip(sequencer.into_iter()) {
         let sequencer_dir = dir.join(i.to_string());
         std::fs::create_dir_all(&sequencer_dir)
             .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
@@ -549,7 +649,7 @@ fn generate_sequencer_configs<T: TestCase>(
 
         sequencer_configs.push(FullSequencerConfig::new(
             NodeKind::Sequencer,
-            sequencer.clone(),
+            config,
             sequencer_rollup,
             citrea_docker_image.clone(),
             sequencer_dir,
@@ -562,7 +662,7 @@ fn generate_sequencer_configs<T: TestCase>(
     Ok(sequencer_configs)
 }
 
-fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {
+fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
@@ -572,6 +672,8 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 8]> {
         NodeKind::FullNode.to_string(),
         "genesis".to_string(),
         "inscription_txs".to_string(),
+        NodeKind::Postgres.to_string(),
+        "clementine".to_string(),
     ]
     .map(|dir| base_dir.join(dir));
 

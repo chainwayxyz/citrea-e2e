@@ -1,3 +1,4 @@
+#![allow(deprecated)] // Allowing deprecation for now as bollard v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
@@ -5,10 +6,10 @@ use std::{
 
 use anyhow::{anyhow, Context, Result};
 use bollard::{
-    container::{Config, LogOutput, LogsOptions, NetworkingConfig},
-    image::CreateImageOptions,
+    container::{Config, LogOutput, NetworkingConfig},
     models::{EndpointSettings, Mount, PortBinding},
     network::CreateNetworkOptions,
+    query_parameters::{CreateContainerOptions, CreateImageOptions, LogsOptions},
     secret::MountTypeEnum,
     service::HostConfig,
     volume::CreateVolumeOptions,
@@ -44,8 +45,7 @@ pub struct DockerEnv {
 
 impl DockerEnv {
     pub async fn new(test_case_config: TestCaseDockerConfig) -> Result<Self> {
-        let docker =
-            Docker::connect_with_local_defaults().context("Failed to connect to Docker")?;
+        let docker = Docker::connect_with_defaults().context("Failed to connect to Docker")?;
         let test_id = generate_test_id();
         let network_info = Self::create_network(&docker, &test_id).await?;
 
@@ -87,11 +87,7 @@ impl DockerEnv {
             ..Default::default()
         };
 
-        let id = docker
-            .create_network(options)
-            .await?
-            .id
-            .context("Error getting network id")?;
+        let id = docker.create_network(options).await?.id;
 
         Ok(NetworkInfo {
             id,
@@ -197,18 +193,27 @@ impl DockerEnv {
 
         let container = self
             .docker
-            .create_container::<String, String>(None, container_config)
+            .create_container(None::<CreateContainerOptions>, container_config)
             .await
             .map_err(|e| anyhow!("Failed to create Docker container {e}"))?;
 
         self.container_ids.lock().await.insert(container.id.clone());
 
         self.docker
-            .start_container::<String>(&container.id, None)
+            .start_container(
+                &container.id,
+                None::<bollard::query_parameters::StartContainerOptions>,
+            )
             .await
             .context("Failed to start Docker container")?;
 
-        let inspect_result = self.docker.inspect_container(&container.id, None).await?;
+        let inspect_result = self
+            .docker
+            .inspect_container(
+                &container.id,
+                None::<bollard::query_parameters::InspectContainerOptions>,
+            )
+            .await?;
         let ip_address = inspect_result
             .network_settings
             .and_then(|ns| ns.networks)
@@ -241,7 +246,7 @@ impl DockerEnv {
     async fn ensure_image_exists(&self, image: &str) -> Result<()> {
         let images = self
             .docker
-            .list_images::<String>(None)
+            .list_images(None::<bollard::query_parameters::ListImagesOptions>)
             .await
             .context("Failed to list Docker images")?;
         if images
@@ -253,7 +258,7 @@ impl DockerEnv {
 
         info!("Pulling image: {image}...");
         let options = Some(CreateImageOptions {
-            from_image: image,
+            from_image: Some(image.to_string()),
             ..Default::default()
         });
 
@@ -279,15 +284,28 @@ impl DockerEnv {
             let _ = self.dump_logs_cli(id);
         }
 
-        let containers = self.docker.list_containers::<String>(None).await?;
+        let containers = self
+            .docker
+            .list_containers(None::<bollard::query_parameters::ListContainersOptions>)
+            .await?;
         for container in containers {
             if let (Some(id), Some(networks)) = (
                 container.id,
                 container.network_settings.and_then(|ns| ns.networks),
             ) {
                 if networks.contains_key(&self.network_info.name) {
-                    self.docker.stop_container(&id, None).await?;
-                    self.docker.remove_container(&id, None).await?;
+                    self.docker
+                        .stop_container(
+                            &id,
+                            None::<bollard::query_parameters::StopContainerOptions>,
+                        )
+                        .await?;
+                    self.docker
+                        .remove_container(
+                            &id,
+                            None::<bollard::query_parameters::RemoveContainerOptions>,
+                        )
+                        .await?;
                 }
             }
         }
@@ -295,7 +313,9 @@ impl DockerEnv {
         self.docker.remove_network(&self.network_info.name).await?;
 
         for volume_name in self.volumes.lock().await.iter() {
-            self.docker.remove_volume(volume_name, None).await?;
+            self.docker
+                .remove_volume(volume_name, None::<bollard::volume::RemoveVolumeOptions>)
+                .await?;
         }
         Ok(())
     }
@@ -317,12 +337,13 @@ impl DockerEnv {
             let mut log_file = File::create(log_path)
                 .await
                 .context("Failed to create log file")?;
-            let mut log_stream = docker.logs::<String>(
+            let mut log_stream = docker.logs(
                 &container_id,
                 Some(LogsOptions {
                     follow: true,
                     stdout: true,
                     stderr: true,
+                    tail: "all".to_string(),
                     ..Default::default()
                 }),
             );
@@ -365,5 +386,11 @@ impl DockerEnv {
     // Should run citrea in docker
     pub fn citrea(&self) -> bool {
         self.test_case_config.citrea
+    }
+
+    // Should run clementine in docker
+    #[cfg(feature = "clementine")]
+    pub fn clementine(&self) -> bool {
+        self.test_case_config.clementine
     }
 }
