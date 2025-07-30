@@ -381,6 +381,14 @@ where
         self.inner.get(index)
     }
 
+    pub fn take(&mut self, index: usize) -> Option<Node<C>> {
+        if index < self.inner.len() {
+            Some(self.inner.remove(index))
+        } else {
+            None
+        }
+    }
+
     #[allow(unused)]
     pub fn get_mut(&mut self, index: usize) -> Option<&mut Node<C>> {
         self.inner.get_mut(index)
