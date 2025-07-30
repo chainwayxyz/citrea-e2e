@@ -20,6 +20,7 @@ impl TestCase for MutiSequencerTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
+                ..Default::default()
             },
             ..Default::default()
         }
