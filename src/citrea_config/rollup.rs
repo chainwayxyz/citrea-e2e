@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use tempfile::Builder;
+use tempfile::TempDir;
 
 use super::bitcoin::MonitoringConfig;
 use crate::config::{BitcoinConfig, BitcoinServiceConfig};
@@ -150,12 +150,9 @@ impl Default for RollupConfig {
                 api_key: Some("12345".to_string()),
             },
             storage: StorageConfig {
-                path: Builder::new()
-                    .keep(true)
-                    .tempdir()
+                path: TempDir::new()
                     .expect("Failed to create temporary directory")
-                    .path()
-                    .to_path_buf(),
+                    .keep(),
                 db_max_open_files: None,
             },
             runner: None,
@@ -165,12 +162,9 @@ impl Default for RollupConfig {
                 node_password: String::from("password"),
                 network: bitcoin::Network::Regtest,
                 da_private_key: None,
-                tx_backup_dir: Builder::new()
-                    .keep(true)
-                    .tempdir()
+                tx_backup_dir: TempDir::new()
                     .expect("Failed to create temporary directory")
-                    .path()
-                    .to_path_buf()
+                    .keep()
                     .display()
                     .to_string(),
 

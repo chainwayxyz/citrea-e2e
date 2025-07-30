@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use tempfile::Builder;
+use tempfile::TempDir;
 
 use crate::{log_provider::LogPathProvider, node::NodeKind};
 
@@ -22,12 +22,9 @@ impl Default for PostgresConfig {
             port: 5432,
             user: "clementine".to_string(),
             password: "clementine".to_string(),
-            log_dir: Builder::new()
-                .keep(true)
-                .tempdir()
+            log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
-                .path()
-                .to_path_buf(),
+                .keep(),
             extra_args: vec!["-c".to_string(), "max_connections=1000".to_string()],
             image_tag: None,
         }
