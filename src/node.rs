@@ -23,8 +23,8 @@ pub use crate::sequencer::Sequencer;
 use crate::{
     client::Client,
     config::{
-        BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig, SequencerConfig,
+        config_to_file, BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig,
+        FullL2NodeConfig, LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
     framework::TestContext,
@@ -326,8 +326,10 @@ where
             INDEX.load(Ordering::SeqCst)
         ));
         copy_directory(old_dir, &new_dir)?;
+        let config_path = new_dir.join(format!("{}_config.toml", config.kind()));
         config.set_dir(new_dir);
-
+        // Replace config contents
+        config_to_file(&config.node, &config_path)?;
         *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
