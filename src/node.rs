@@ -326,10 +326,17 @@ where
             INDEX.load(Ordering::SeqCst)
         ));
         copy_directory(old_dir, &new_dir)?;
-        let config_path = new_dir.join(format!("{}_config.toml", config.kind()));
+
+        // Replace the config files with the new ones
+        let rollup_config_path = new_dir.join(format!("{}_rollup_config.toml", config.kind()));
+        config_to_file(&config.rollup, &rollup_config_path)?;
+        if let Some(node_config) = config.node_config() {
+            let node_config_path = new_dir.join(format!("{}_config.toml", config.kind()));
+            config_to_file(&node_config, &node_config_path)?;
+        }
+
         config.set_dir(new_dir);
         // Replace config contents
-        config_to_file(&config.node, &config_path)?;
         *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
