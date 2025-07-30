@@ -326,8 +326,8 @@ where
             INDEX.load(Ordering::SeqCst)
         ));
         copy_directory(old_dir, &new_dir)?;
-        config.set_dir(new_dir);
 
+        config.set_dir(new_dir);
         config.write_to_file()?;
 
         *self.spawn_output() = Self::spawn(config, extra_args)?;
@@ -381,6 +381,15 @@ where
 
     pub fn get(&self, index: usize) -> Option<&Node<C>> {
         self.inner.get(index)
+    }
+
+    pub fn take(mut self, index: usize) -> (Self, Option<Node<C>>) {
+        if index < self.inner.len() {
+            let node = Some(self.inner.remove(index));
+            (self, node)
+        } else {
+            (self, None)
+        }
     }
 
     #[allow(unused)]
