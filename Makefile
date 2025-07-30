@@ -42,3 +42,9 @@ docs:  ## Generates documentation locally
 
 set-git-hook:
 	git config core.hooksPath .githooks
+
+test-nocapture: ## Runs test suite with output from tests printed
+	RISC0_DEV_MODE=1 PARALLEL_PROOF_LIMIT=1 cargo nextest run --no-capture --retries 0 --workspace --all-features --no-fail-fast $(filter-out $@,$(MAKECMDGOALS))
+
+test: ## Runs test suite using nextest
+	RISC0_DEV_MODE=1 PARALLEL_PROOF_LIMIT=1 cargo nextest run -j15 --locked --workspace --all-features --no-fail-fast $(filter-out $@,$(MAKECMDGOALS))
