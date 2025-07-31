@@ -215,13 +215,6 @@ pub trait TestCase: Send + Sync + 'static {
         SequencerConfig::default()
     }
 
-    /// Returns the sequencer cluster configuration for the test.
-    /// Override this method to provide a custom sequencer cluster configuration.
-    /// TODO remove when consolidated to single sequencer/sequencer_cluster handling
-    fn sequencer_cluster_config() -> Vec<SequencerConfig> {
-        vec![Self::sequencer_config()]
-    }
-
     /// Returns the batch prover configuration for the test.
     /// Override this method to provide a custom batch prover configuration.
     fn batch_prover_config() -> BatchProverConfig {

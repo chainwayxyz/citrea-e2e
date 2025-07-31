@@ -11,14 +11,13 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 #[cfg(feature = "clementine")]
 use crate::clementine::ClementineCluster;
 // Conditional imports for clementine features
-use crate::clementine::ClementineIntegration;
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
     config::{
         BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
-        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, RollupConfig,
-        RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
+        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, ListenModeConfig,
+        RollupConfig, RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
     },
     docker::DockerEnv,
     log_provider::{LogPathProvider, LogPathProviderErased},
@@ -32,6 +31,7 @@ use crate::{
     },
     Result,
 };
+use crate::{clementine::ClementineIntegration, config::SequencerConfig};
 #[cfg(feature = "clementine")]
 use crate::{config::PostgresConfig, postgres::Postgres};
 
@@ -611,14 +611,16 @@ fn generate_sequencer_configs<T: TestCase>(
     dbs_dir: &Path,
     bind_host: &str,
 ) -> Result<Vec<FullSequencerConfig>> {
-    let sequencer = T::sequencer_cluster_config();
+    let main_sequencer = T::sequencer_config();
     let env = T::test_env();
     let throttle_config = T::throttle_config();
     let kind = NodeKind::Sequencer;
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
 
+    let mut main_sequencer_client_url = String::new();
+
     let mut sequencer_configs = vec![];
-    for (i, config) in (0..test_case.get_n_nodes(kind)).zip(sequencer.into_iter()) {
+    for i in 0..test_case.get_n_nodes(kind) {
         let sequencer_dir = dir.join(i.to_string());
         std::fs::create_dir_all(&sequencer_dir)
             .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
@@ -645,6 +647,22 @@ fn generate_sequencer_configs<T: TestCase>(
                 ..base_rollup.rpc
             },
             ..base_rollup
+        };
+
+        let config = if i == 0 {
+            main_sequencer_client_url = format!(
+                "http://{}:{}",
+                sequencer_rollup.rpc.bind_host, sequencer_rollup.rpc.bind_port,
+            );
+            main_sequencer.clone()
+        } else {
+            SequencerConfig {
+                listen_mode_config: Some(ListenModeConfig {
+                    sequencer_client_url: main_sequencer_client_url.clone(),
+                    ..Default::default()
+                }),
+                ..main_sequencer.clone()
+            }
         };
 
         sequencer_configs.push(FullSequencerConfig::new(
