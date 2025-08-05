@@ -34,8 +34,8 @@ lint:  ## cargo check and clippy. Skip clippy on guest code since it's not suppo
 lint-fix:  ## dprint fmt, cargo fmt, fix and clippy. Skip clippy on guest code since it's not supported by risc0
 	dprint fmt
 	cargo +nightly fmt --all
-	cargo fix --allow-dirty
-	cargo clippy --fix --allow-dirty
+	cargo fix --allow-dirty --all-features
+	cargo clippy --fix --allow-dirty --all-features
 
 docs:  ## Generates documentation locally
 	cargo doc --open
