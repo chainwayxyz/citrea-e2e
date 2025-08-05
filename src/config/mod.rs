@@ -33,7 +33,7 @@ pub use crate::citrea_config::{
     bitcoin::BitcoinServiceConfig,
     light_client_prover::LightClientProverConfig,
     rollup::{RollupConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
-    sequencer::{SequencerConfig, SequencerMempoolConfig},
+    sequencer::{ListenModeConfig, SequencerConfig, SequencerMempoolConfig},
 };
 use crate::{log_provider::LogPathProvider, node::NodeKind, Result};
 
@@ -123,16 +123,23 @@ where
             throttle,
         };
 
-        // Write configs to files
-        if let Some(config) = conf.node_config() {
-            let config_path = dir.join(format!("{}_config.toml", conf.kind));
+        conf.write_to_file()?;
+
+        Ok(conf)
+    }
+
+    // Write configs to files
+    pub fn write_to_file(&self) -> Result<()> {
+        let dir = &self.base.dir;
+        if let Some(config) = self.node_config() {
+            let config_path = dir.join(format!("{}_config.toml", self.kind));
             config_to_file(config, &config_path)?;
         }
 
-        let rollup_path = dir.join(format!("{}_rollup_config.toml", conf.kind));
-        config_to_file(&conf.rollup, &rollup_path)?;
+        let rollup_path = dir.join(format!("{}_rollup_config.toml", self.kind));
+        config_to_file(&self.rollup, &rollup_path)?;
 
-        Ok(conf)
+        Ok(())
     }
 }
 

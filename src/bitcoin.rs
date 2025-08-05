@@ -321,7 +321,8 @@ pub struct BitcoinNodeCluster {
 
 impl BitcoinNodeCluster {
     pub async fn new(ctx: &TestContext) -> Result<Self> {
-        let n_nodes = ctx.config.test_case.n_nodes;
+        let n_nodes = ctx.config.test_case.get_n_nodes(NodeKind::Bitcoin);
+
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),
         };

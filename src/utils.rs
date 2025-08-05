@@ -2,6 +2,7 @@
 use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
+    future::Future,
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
@@ -59,12 +60,13 @@ pub fn get_default_genesis_path() -> PathBuf {
 }
 
 pub fn get_genesis_path(base_dir: &Path) -> String {
-    base_dir
-        .parent()
-        .expect("Couldn't get parent dir")
-        .join("genesis")
-        .display()
-        .to_string()
+    let parent = base_dir.parent().expect("Couldn't get parent dir");
+    let genesis_path = parent.join("genesis");
+    if genesis_path.exists() {
+        genesis_path.display().to_string()
+    } else {
+        get_genesis_path(parent)
+    }
 }
 
 pub fn generate_test_id() -> String {
@@ -136,4 +138,15 @@ pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>
     }
 
     anyhow::bail!("Failed to connect to {host}:{port} within the specified timeout")
+}
+
+pub async fn create_optional<T>(
+    pred: bool,
+    f: impl Future<Output = Result<T>>,
+) -> Result<Option<T>> {
+    if pred {
+        Ok(Some(f.await?))
+    } else {
+        Ok(None)
+    }
 }

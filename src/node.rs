@@ -24,9 +24,10 @@ use crate::{
     client::Client,
     config::{
         BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig,
+        LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
+    framework::TestContext,
     log_provider::LogPathProvider,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
@@ -325,13 +326,99 @@ where
             INDEX.load(Ordering::SeqCst)
         ));
         copy_directory(old_dir, &new_dir)?;
+
         config.set_dir(new_dir);
+        config.write_to_file()?;
 
         *self.spawn_output() = Self::spawn(config, extra_args)?;
         self.wait_for_ready(None).await
     }
 }
 
+pub struct NodeCluster<C>
+where
+    C: Clone + Debug + Serialize + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
+{
+    inner: Vec<Node<C>>,
+}
+
+impl<C> NodeCluster<C>
+where
+    C: Clone + Debug + Serialize + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
+{
+    pub async fn stop_all(&mut self) -> Result<()> {
+        for node in &mut self.inner {
+            node.stop().await?;
+        }
+        Ok(())
+    }
+
+    pub async fn wait_for_sync(&self, timeout: Option<Duration>) -> Result<()> {
+        let start = Instant::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(60));
+        while start.elapsed() < timeout {
+            let l2_height = self
+                .get(0)
+                .expect("Cluster should have at least 1 node")
+                .client()
+                .ledger_get_head_l2_block_height()
+                .await?;
+            let l1_height = self
+                .get(0)
+                .expect("Cluster should have at least 1 node")
+                .client()
+                .ledger_get_last_scanned_l1_height()
+                .await?;
+            for node in &self.inner {
+                node.wait_for_l1_height(l1_height, Some(timeout)).await?;
+                node.wait_for_l2_height(l2_height, Some(timeout)).await?;
+            }
+        }
+        bail!("Nodes failed to sync within the specified timeout")
+    }
+
+    pub fn get(&self, index: usize) -> Option<&Node<C>> {
+        self.inner.get(index)
+    }
+
+    pub fn take(mut self, index: usize) -> (Self, Option<Node<C>>) {
+        if index < self.inner.len() {
+            let node = Some(self.inner.remove(index));
+            (self, node)
+        } else {
+            (self, None)
+        }
+    }
+
+    #[allow(unused)]
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Node<C>> {
+        self.inner.get_mut(index)
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Node<C>> {
+        self.inner.iter()
+    }
+}
+
+impl NodeCluster<SequencerConfig> {
+    pub async fn new(ctx: &TestContext) -> Result<Self> {
+        let n_nodes = ctx.config.test_case.get_n_nodes(NodeKind::Sequencer);
+
+        let mut cluster = Self {
+            inner: Vec::with_capacity(n_nodes),
+        };
+        let da_config = &ctx.config.bitcoin[0];
+        for config in &ctx.config.sequencer {
+            let node =
+                Node::<SequencerConfig>::new(config, da_config, Arc::clone(&ctx.docker)).await?;
+            cluster.inner.push(node);
+        }
+
+        Ok(cluster)
+    }
+}
 pub fn get_citrea_args<C>(config: &FullL2NodeConfig<C>) -> Vec<String>
 where
     C: Clone + Debug + Serialize + Send + Sync,

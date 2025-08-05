@@ -34,11 +34,17 @@ lint:  ## cargo check and clippy. Skip clippy on guest code since it's not suppo
 lint-fix:  ## dprint fmt, cargo fmt, fix and clippy. Skip clippy on guest code since it's not supported by risc0
 	dprint fmt
 	cargo +nightly fmt --all
-	cargo fix --allow-dirty
-	cargo clippy --fix --allow-dirty
+	cargo fix --allow-dirty --all-features
+	cargo clippy --fix --allow-dirty --all-features
 
 docs:  ## Generates documentation locally
 	cargo doc --open
 
 set-git-hook:
 	git config core.hooksPath .githooks
+
+test-nocapture: ## Runs test suite with output from tests printed
+	RISC0_DEV_MODE=1 PARALLEL_PROOF_LIMIT=1 cargo nextest run --no-capture --retries 0 --workspace --all-features --no-fail-fast $(filter-out $@,$(MAKECMDGOALS))
+
+test: ## Runs test suite using nextest
+	RISC0_DEV_MODE=1 PARALLEL_PROOF_LIMIT=1 cargo nextest run -j15 --locked --workspace --all-features --no-fail-fast $(filter-out $@,$(MAKECMDGOALS))

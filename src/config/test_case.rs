@@ -1,9 +1,9 @@
-use std::{env, path::PathBuf, time::Duration};
+use std::{collections::HashMap, env, path::PathBuf, time::Duration};
 
 use tempfile::TempDir;
 
 use super::CitreaMode;
-use crate::utils::generate_test_id;
+use crate::{node::NodeKind, utils::generate_test_id};
 
 #[derive(Clone, Default)]
 pub struct TestCaseEnv {
@@ -53,7 +53,7 @@ impl TestCaseEnv {
 
 #[derive(Clone, Debug)]
 pub struct TestCaseConfig {
-    pub n_nodes: usize,
+    pub n_nodes: HashMap<NodeKind, usize>,
     pub with_sequencer: bool,
     pub with_full_node: bool,
     pub with_batch_prover: bool,
@@ -87,7 +87,7 @@ impl Default for TestCaseConfig {
     fn default() -> Self {
         let test_id = generate_test_id();
         TestCaseConfig {
-            n_nodes: 1,
+            n_nodes: HashMap::new(),
             with_sequencer: true,
             with_batch_prover: false,
             with_light_client_prover: false,
@@ -117,6 +117,10 @@ impl Default for TestCaseConfig {
 }
 
 impl TestCaseConfig {
+    pub fn get_n_nodes(&self, kind: NodeKind) -> usize {
+        self.n_nodes.get(&kind).cloned().unwrap_or(1)
+    }
+
     pub fn docker_enabled(&self) -> bool {
         self.docker.enabled() || self.with_clementine
     }
@@ -127,6 +131,7 @@ pub struct TestCaseDockerConfig {
     pub bitcoin: bool,
     pub citrea: bool,
     // TODO: need to add support for this
+    #[cfg(feature = "clementine")]
     pub clementine: bool,
 }
 
@@ -135,14 +140,21 @@ impl Default for TestCaseDockerConfig {
         TestCaseDockerConfig {
             bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER").unwrap_or(true),
             citrea: parse_bool_env("TEST_CITREA_DOCKER").unwrap_or(false),
+            #[cfg(feature = "clementine")]
             clementine: parse_bool_env("TEST_CLEMENTINE_DOCKER").unwrap_or(false),
         }
     }
 }
 
 impl TestCaseDockerConfig {
+    #[cfg(feature = "clementine")]
     pub fn enabled(&self) -> bool {
         self.bitcoin || self.citrea || self.clementine
+    }
+
+    #[cfg(not(feature = "clementine"))]
+    pub fn enabled(&self) -> bool {
+        self.bitcoin || self.citrea
     }
 }
 

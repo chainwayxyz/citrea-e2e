@@ -11,25 +11,27 @@ use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, Env
 #[cfg(feature = "clementine")]
 use crate::clementine::ClementineCluster;
 // Conditional imports for clementine features
-use crate::clementine::ClementineIntegration;
 use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
     config::{
         BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
-        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, RollupConfig,
-        RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
+        FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, ListenModeConfig,
+        RollupConfig, RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
     },
     docker::DockerEnv,
     log_provider::{LogPathProvider, LogPathProviderErased},
     node::{BatchProver, FullNode, LightClientProver, NodeKind, Sequencer},
+    sequencer::SequencerCluster,
     test_case::{TestCase, CITREA_CLI_ENV},
     traits::NodeT,
     utils::{
-        copy_directory, get_available_port, get_default_genesis_path, get_workspace_root, tail_file,
+        copy_directory, create_optional, get_available_port, get_default_genesis_path,
+        get_workspace_root, tail_file,
     },
     Result,
 };
+use crate::{clementine::ClementineIntegration, config::SequencerConfig};
 #[cfg(feature = "clementine")]
 use crate::{config::PostgresConfig, postgres::Postgres};
 
@@ -53,6 +55,7 @@ pub struct TestFramework {
     #[cfg(feature = "clementine")]
     pub postgres: Option<Postgres>,
     pub sequencer: Option<Sequencer>,
+    pub sequencer_cluster: Option<SequencerCluster>,
     pub batch_prover: Option<BatchProver>,
     pub light_client_prover: Option<LightClientProver>,
     pub full_node: Option<FullNode>,
@@ -80,7 +83,7 @@ impl TestFramework {
         let config = generate_test_config::<T>(test_case, &docker)?;
 
         anyhow::ensure!(
-            config.test_case.n_nodes > 0,
+            config.test_case.get_n_nodes(NodeKind::Bitcoin) > 0,
             "At least one bitcoin node has to be running"
         );
 
@@ -100,6 +103,7 @@ impl TestFramework {
             #[cfg(feature = "clementine")]
             postgres,
             sequencer: None,
+            sequencer_cluster: None,
             batch_prover: None,
             light_client_prover: None,
             full_node: None,
@@ -129,58 +133,54 @@ impl TestFramework {
         let bitcoin_config = &self.ctx.config.bitcoin[0];
 
         // Has to initialize sequencer first since provers and full node depend on it
-        self.sequencer = if self.ctx.config.test_case.with_sequencer {
-            Some(
+        if self.ctx.config.test_case.get_n_nodes(NodeKind::Sequencer) > 1 {
+            self.sequencer_cluster = create_optional(
+                self.ctx.config.test_case.with_sequencer,
+                SequencerCluster::new(&self.ctx),
+            )
+            .await?;
+        } else {
+            self.sequencer = create_optional(
+                self.ctx.config.test_case.with_sequencer,
                 Sequencer::new(
-                    &self.ctx.config.sequencer,
+                    &self.ctx.config.sequencer[0],
                     bitcoin_config,
                     Arc::clone(&self.ctx.docker),
-                )
-                .await?,
+                ),
             )
-        } else {
-            None
-        };
+            .await?;
+        }
 
         // Initialize nodes individually with clear conditional logic
-        self.batch_prover = if self.ctx.config.test_case.with_batch_prover {
-            Some(
-                BatchProver::new(
-                    &self.ctx.config.batch_prover,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker),
-                )
-                .await?,
-            )
-        } else {
-            None
-        };
+        self.batch_prover = create_optional(
+            self.ctx.config.test_case.with_batch_prover,
+            BatchProver::new(
+                &self.ctx.config.batch_prover,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
+        )
+        .await?;
 
-        self.light_client_prover = if self.ctx.config.test_case.with_light_client_prover {
-            Some(
-                LightClientProver::new(
-                    &self.ctx.config.light_client_prover,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker),
-                )
-                .await?,
-            )
-        } else {
-            None
-        };
+        self.light_client_prover = create_optional(
+            self.ctx.config.test_case.with_light_client_prover,
+            LightClientProver::new(
+                &self.ctx.config.light_client_prover,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
+        )
+        .await?;
 
-        self.full_node = if self.ctx.config.test_case.with_full_node {
-            Some(
-                FullNode::new(
-                    &self.ctx.config.full_node,
-                    bitcoin_config,
-                    Arc::clone(&self.ctx.docker),
-                )
-                .await?,
-            )
-        } else {
-            None
-        };
+        self.full_node = create_optional(
+            self.ctx.config.test_case.with_full_node,
+            FullNode::new(
+                &self.ctx.config.full_node,
+                bitcoin_config,
+                Arc::clone(&self.ctx.docker),
+            ),
+        )
+        .await?;
 
         Ok(())
     }
@@ -202,9 +202,10 @@ impl TestFramework {
             .map(LogPathProvider::as_erased)
             .map(Option::Some)
             .chain(vec![
+                // TODO handle all nodes
                 test_case
                     .with_sequencer
-                    .then(|| LogPathProvider::as_erased(&self.ctx.config.sequencer)),
+                    .then(|| LogPathProvider::as_erased(&self.ctx.config.sequencer[0])),
                 test_case
                     .with_full_node
                     .then(|| LogPathProvider::as_erased(&self.ctx.config.full_node)),
@@ -304,6 +305,11 @@ impl TestFramework {
             info!("Successfully stopped sequencer");
         }
 
+        if let Some(cluster) = &mut self.sequencer_cluster {
+            let _ = cluster.stop_all().await;
+            info!("Successfully stopped sequencer cluster");
+        }
+
         if let Some(batch_prover) = &mut self.batch_prover {
             let _ = batch_prover.stop().await;
             info!("Successfully stopped batch_prover");
@@ -391,7 +397,6 @@ fn generate_test_config<T: TestCase>(
     let bitcoin = T::bitcoin_config();
     let batch_prover = T::batch_prover_config();
     let mut light_client_prover = T::light_client_prover_config();
-    let sequencer = T::sequencer_config();
     let sequencer_rollup = RollupConfig::default();
     let batch_prover_rollup = RollupConfig::default();
     let light_client_prover_rollup = RollupConfig::default();
@@ -407,7 +412,7 @@ fn generate_test_config<T: TestCase>(
     ClementineIntegration::copy_resources(&test_case.clementine_dir, &clementine_dir)?;
 
     let mut bitcoin_confs = vec![];
-    for i in 0..test_case.n_nodes {
+    for i in 0..test_case.get_n_nodes(NodeKind::Bitcoin) {
         let data_dir = bitcoin_dir.join(i.to_string());
         std::fs::create_dir_all(&data_dir)
             .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
@@ -442,35 +447,19 @@ fn generate_test_config<T: TestCase>(
         _ => sequencer_rollup.rpc.bind_host.clone(),
     };
 
-    let sequencer_rollup = {
-        let bind_port = get_available_port()?;
-        let node_kind = NodeKind::Sequencer.to_string();
-        RollupConfig {
-            da: BitcoinServiceConfig {
-                da_private_key: Some(
-                    "E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262".to_string(),
-                ),
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
-                tx_backup_dir: tx_backup_dir.display().to_string(),
-                ..da_config.clone()
-            },
-            storage: StorageConfig {
-                path: dbs_dir.join(format!("{node_kind}-db")),
-                db_max_open_files: None,
-            },
-            rpc: RpcConfig {
-                bind_port,
-                bind_host: citrea_bind_host.clone(),
-                ..sequencer_rollup.rpc
-            },
-            ..sequencer_rollup
-        }
-    };
+    let sequencer_configs = generate_sequencer_configs::<T>(
+        &test_case,
+        da_config.clone(),
+        &sequencer_dir,
+        &tx_backup_dir,
+        &dbs_dir,
+        &citrea_bind_host,
+    )?;
 
     let runner_config = Some(RunnerConfig {
         sequencer_client_url: format!(
             "http://{}:{}",
-            runner_bind_host, sequencer_rollup.rpc.bind_port,
+            runner_bind_host, sequencer_configs[0].rollup.rpc.bind_port,
         ),
         include_tx_body: true,
         sync_blocks_count: 10,
@@ -575,16 +564,7 @@ fn generate_test_config<T: TestCase>(
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
-        sequencer: FullSequencerConfig::new(
-            NodeKind::Sequencer,
-            sequencer,
-            sequencer_rollup,
-            citrea_docker_image.clone(),
-            sequencer_dir,
-            env.sequencer(),
-            test_case.mode,
-            throttle_config.clone(),
-        )?,
+        sequencer: sequencer_configs,
         batch_prover: FullBatchProverConfig::new(
             NodeKind::BatchProver,
             batch_prover,
@@ -621,6 +601,83 @@ fn generate_test_config<T: TestCase>(
         #[cfg(feature = "clementine")]
         postgres,
     })
+}
+
+fn generate_sequencer_configs<T: TestCase>(
+    test_case: &TestCaseConfig,
+    da_config: BitcoinServiceConfig,
+    dir: &Path,
+    tx_backup_dir: &Path,
+    dbs_dir: &Path,
+    bind_host: &str,
+) -> Result<Vec<FullSequencerConfig>> {
+    let main_sequencer = T::sequencer_config();
+    let env = T::test_env();
+    let throttle_config = T::throttle_config();
+    let kind = NodeKind::Sequencer;
+    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
+
+    let mut main_sequencer_client_url = String::new();
+
+    let mut sequencer_configs = vec![];
+    for i in 0..test_case.get_n_nodes(kind) {
+        let sequencer_dir = dir.join(i.to_string());
+        std::fs::create_dir_all(&sequencer_dir)
+            .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
+
+        let bind_port = get_available_port()?;
+        let node_kind = kind.to_string();
+        let base_rollup = RollupConfig::default();
+        let sequencer_rollup = RollupConfig {
+            da: BitcoinServiceConfig {
+                da_private_key: Some(
+                    "E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262".to_string(),
+                ),
+                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                tx_backup_dir: tx_backup_dir.display().to_string(),
+                ..da_config.clone()
+            },
+            storage: StorageConfig {
+                path: dbs_dir.join(format!("{node_kind}-{i}-db")),
+                db_max_open_files: None,
+            },
+            rpc: RpcConfig {
+                bind_port,
+                bind_host: bind_host.to_string(),
+                ..base_rollup.rpc
+            },
+            ..base_rollup
+        };
+
+        let config = if i == 0 {
+            main_sequencer_client_url = format!(
+                "http://{}:{}",
+                sequencer_rollup.rpc.bind_host, sequencer_rollup.rpc.bind_port,
+            );
+            main_sequencer.clone()
+        } else {
+            SequencerConfig {
+                listen_mode_config: Some(ListenModeConfig {
+                    sequencer_client_url: main_sequencer_client_url.clone(),
+                    ..Default::default()
+                }),
+                ..main_sequencer.clone()
+            }
+        };
+
+        sequencer_configs.push(FullSequencerConfig::new(
+            NodeKind::Sequencer,
+            config,
+            sequencer_rollup,
+            citrea_docker_image.clone(),
+            sequencer_dir,
+            env.sequencer(),
+            test_case.mode,
+            throttle_config.clone(),
+        )?);
+    }
+
+    Ok(sequencer_configs)
 }
 
 fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {

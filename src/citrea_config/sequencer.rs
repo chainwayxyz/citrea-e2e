@@ -21,6 +21,8 @@ pub struct SequencerConfig {
     pub block_production_interval_ms: u64,
     /// Bridge system contract initialize function parameters
     pub bridge_initialize_params: String,
+    /// Configuration for the listen mode sequencer
+    pub listen_mode_config: Option<ListenModeConfig>,
 }
 
 impl Default for SequencerConfig {
@@ -35,6 +37,7 @@ impl Default for SequencerConfig {
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            listen_mode_config: None,
         }
     }
 }
@@ -69,6 +72,24 @@ impl Default for SequencerMempoolConfig {
             base_fee_tx_limit: 100_000,
             base_fee_tx_size: 200,
             max_account_slots: 16,
+        }
+    }
+}
+
+/// Configuration for the listen mode sequencer
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct ListenModeConfig {
+    /// The sequencer client URL to connect to
+    pub sequencer_client_url: String,
+    /// The number of blocks to sync from the sequencer
+    pub sync_blocks_count: u64,
+}
+
+impl Default for ListenModeConfig {
+    fn default() -> Self {
+        ListenModeConfig {
+            sequencer_client_url: "http://localhost:8545".to_string(),
+            sync_blocks_count: 10,
         }
     }
 }
@@ -130,6 +151,60 @@ mod tests {
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            listen_mode_config: None,
+        };
+        assert_eq!(config, expected);
+    }
+
+    #[test]
+    fn test_correct_config_listen_mode_sequencer() {
+        let config = r#"
+            private_key = "1212121212121212121212121212121212121212121212121212121212121212"
+            max_l2_blocks_per_commitment = 123
+            test_mode = false
+            deposit_mempool_fetch_limit = 10
+            da_update_interval_ms = 1000
+            block_production_interval_ms = 1000
+            bridge_initialize_params = "000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000002d4a209fb3a961d8b1f4ec1caa220c6a50b815febc0b689ddf0b9ddfbf99cb74479e41ac0063066369747265611400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a08000000003b9aca006800000000000000000000000000000000000000000000"
+            [mempool_conf]
+            pending_tx_limit = 100000
+            pending_tx_size = 200
+            queue_tx_limit = 100000
+            queue_tx_size = 200
+            base_fee_tx_limit = 100000
+            base_fee_tx_size = 200
+            max_account_slots = 16
+            [listen_mode_config]
+            sequencer_client_url = "http://localhost:8545"
+            sync_blocks_count = 10
+        "#;
+
+        let config_file = create_config_from(config);
+
+        let config: SequencerConfig = from_toml_path(config_file.path()).unwrap();
+
+        let expected = SequencerConfig {
+            private_key: "1212121212121212121212121212121212121212121212121212121212121212"
+                .to_string(),
+            max_l2_blocks_per_commitment: 123,
+            test_mode: false,
+            deposit_mempool_fetch_limit: 10,
+            mempool_conf: SequencerMempoolConfig {
+                pending_tx_limit: 100000,
+                pending_tx_size: 200,
+                queue_tx_limit: 100000,
+                queue_tx_size: 200,
+                base_fee_tx_limit: 100000,
+                base_fee_tx_size: 200,
+                max_account_slots: 16,
+            },
+            da_update_interval_ms: 1000,
+            block_production_interval_ms: 1000,
+            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            listen_mode_config: Some(ListenModeConfig {
+                sequencer_client_url: "http://localhost:8545".to_string(),
+                sync_blocks_count: 10,
+            }),
         };
         assert_eq!(config, expected);
     }

@@ -28,7 +28,7 @@ jobs:
     - name: Install protoc
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Run Cargo clippy
-      run: cargo clippy --no-deps --all-targets -- -Dwarnings
+      run: cargo clippy --no-deps --all-targets --all-features -- -Dwarnings
 
   udeps:
     name: Check unused dependencies

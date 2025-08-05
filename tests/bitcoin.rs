@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use anyhow::bail;
 use async_trait::async_trait;
@@ -6,6 +6,7 @@ use bitcoincore_rpc::{json::IndexStatus, RpcApi};
 use citrea_e2e::{
     config::{BitcoinConfig, TestCaseConfig, TestCaseDockerConfig},
     framework::TestFramework,
+    node::NodeKind,
     test_case::{TestCase, TestCaseRunner},
     traits::Restart,
     Result,
@@ -18,12 +19,12 @@ impl TestCase for BasicSyncTest {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_sequencer: false,
-            n_nodes: 2,
+            n_nodes: HashMap::from([(NodeKind::Bitcoin, 2)]),
             timeout: Duration::from_secs(60),
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
-                clementine: true,
+                ..Default::default()
             },
             ..Default::default()
         }
@@ -83,7 +84,7 @@ impl TestCase for RestartBitcoinTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
-                clementine: true,
+                ..Default::default()
             },
             ..Default::default()
         }
