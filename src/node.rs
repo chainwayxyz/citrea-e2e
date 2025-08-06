@@ -391,6 +391,10 @@ where
     pub fn iter(&self) -> std::slice::Iter<'_, Node<C>> {
         self.inner.iter()
     }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Node<C>> {
+        self.inner.iter_mut()
+    }
 }
 
 impl NodeCluster<SequencerConfig> {
