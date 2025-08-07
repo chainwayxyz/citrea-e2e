@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
-    fmt::Debug,
     fs::File,
+    path::PathBuf,
     process::Stdio,
     sync::{Arc, LazyLock},
     time::Duration,
@@ -14,22 +14,26 @@ use client::{
     TlsConfig,
 };
 use futures::future::try_join_all;
-use tokio::process::Command;
+use tokio::{process::Command, time::sleep};
 use tracing::{debug, error, info, warn};
 
 use super::client;
 use crate::{
     config::{
-        AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
+        AggregatorConfig, ClementineClusterConfig, ClementineConfig, ClementineEntityConfig,
+        DockerConfig, OperatorConfig, VerifierConfig, VolumeConfig,
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
+    node::NodeKind,
     traits::{NodeT, SpawnOutput},
     utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
     Result,
 };
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
+const DEFAULT_CLEMENTINE_DOCKER_IMAGE: &str =
+    "chainwayxyz/clementine@sha256:99111a1d44f7f699d639f104003d301db49739f9926765b2950fae8e448004a9";
 
 pub struct ClementineAggregator {
     pub config: ClementineConfig<AggregatorConfig>,
@@ -83,25 +87,8 @@ impl NodeT for ClementineAggregator {
     type Config = ClementineConfig<AggregatorConfig>;
     type Client = ClementineAggregatorTestClient;
 
-    async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
-        let mut env_vars = get_common_env_vars(config);
-
-        // Aggregator specific configuration
-        let verifier_endpoints = config.entity_config.verifier_endpoints.join(",");
-        let operator_endpoints = config.entity_config.operator_endpoints.join(",");
-        env_vars.insert("VERIFIER_ENDPOINTS".to_string(), verifier_endpoints);
-        env_vars.insert("OPERATOR_ENDPOINTS".to_string(), operator_endpoints);
-        env_vars.insert(
-            "SECRET_KEY".to_string(),
-            "3333333333333333333333333333333333333333333333333333333333333333".to_string(),
-        );
-
-        // Aggregator uses port 8082 for telemetry
-        if config.telemetry.is_some() {
-            env_vars.insert("TELEMETRY_PORT".to_string(), "8082".to_string());
-        }
-
-        spawn_clementine_node(config, "aggregator", env_vars).await
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
+        spawn_clementine_node(config, "aggregator", docker).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -137,16 +124,10 @@ pub struct ClementineVerifier {
 impl ClementineVerifier {
     pub async fn new(
         config: &ClementineConfig<VerifierConfig>,
-        _docker: Arc<Option<DockerEnv>>,
+        docker: Arc<Option<DockerEnv>>,
         index: u8,
     ) -> Result<Self> {
-        let mut env_vars = get_common_env_vars(config);
-        env_vars.insert(
-            "SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.secret_key.secret_bytes()),
-        );
-
-        let spawn_output = spawn_clementine_node(config, "verifier", env_vars).await?;
+        let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
         // Wait for the gRPC server to be ready
         wait_for_tcp_bound(
@@ -170,6 +151,8 @@ impl ClementineVerifier {
 
         // Create gRPC client
         let endpoint = format!("https://{}:{}", config.host, config.port);
+        println!("Endpoint: {}", endpoint);
+        sleep(std::time::Duration::MAX).await;
         let client = ClementineVerifierTestClient::new(endpoint, tls_config)
             .await
             .with_context(|| format!("Failed to create Clementine verifier {} client", index))?;
@@ -191,14 +174,8 @@ impl NodeT for ClementineVerifier {
     type Config = ClementineConfig<VerifierConfig>;
     type Client = ClementineVerifierTestClient;
 
-    async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
-        let mut env_vars = get_common_env_vars(config);
-        env_vars.insert(
-            "SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.secret_key.secret_bytes()),
-        );
-
-        spawn_clementine_node(config, "verifier", env_vars).await
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
+        spawn_clementine_node(config, "verifier", docker).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -237,44 +214,10 @@ pub struct ClementineOperator {
 impl ClementineOperator {
     pub async fn new(
         config: &ClementineConfig<OperatorConfig>,
-        _docker: Arc<Option<DockerEnv>>,
+        docker: Arc<Option<DockerEnv>>,
         index: u8,
     ) -> Result<Self> {
-        let mut env_vars = get_common_env_vars(config);
-
-        // Operator specific configuration
-        env_vars.insert(
-            "SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.secret_key.secret_bytes()),
-        );
-        env_vars.insert(
-            "WINTERNITZ_SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.winternitz_secret_key.secret_bytes()),
-        );
-        env_vars.insert(
-            "OPERATOR_WITHDRAWAL_FEE_SATS".to_string(),
-            config
-                .entity_config
-                .operator_withdrawal_fee_sats
-                .to_sat()
-                .to_string(),
-        );
-
-        if let Some(addr) = &config.entity_config.operator_reimbursement_address {
-            env_vars.insert(
-                "OPERATOR_REIMBURSEMENT_ADDRESS".to_string(),
-                addr.clone().assume_checked().to_string(),
-            );
-        }
-
-        if let Some(outpoint) = &config.entity_config.operator_collateral_funding_outpoint {
-            env_vars.insert(
-                "OPERATOR_COLLATERAL_FUNDING_OUTPOINT".to_string(),
-                format!("{}:{}", outpoint.txid, outpoint.vout),
-            );
-        }
-
-        let spawn_output = spawn_clementine_node(config, "operator", env_vars).await?;
+        let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
         // Wait for the gRPC server to be ready
         wait_for_tcp_bound(
@@ -316,42 +259,8 @@ impl NodeT for ClementineOperator {
     type Config = ClementineConfig<OperatorConfig>;
     type Client = ClementineOperatorTestClient;
 
-    async fn spawn(config: &Self::Config, _docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
-        let mut env_vars = get_common_env_vars(config);
-
-        // Operator specific configuration
-        env_vars.insert(
-            "SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.secret_key.secret_bytes()),
-        );
-        env_vars.insert(
-            "WINTERNITZ_SECRET_KEY".to_string(),
-            hex::encode(config.entity_config.winternitz_secret_key.secret_bytes()),
-        );
-        env_vars.insert(
-            "OPERATOR_WITHDRAWAL_FEE_SATS".to_string(),
-            config
-                .entity_config
-                .operator_withdrawal_fee_sats
-                .to_sat()
-                .to_string(),
-        );
-
-        if let Some(addr) = &config.entity_config.operator_reimbursement_address {
-            env_vars.insert(
-                "OPERATOR_REIMBURSEMENT_ADDRESS".to_string(),
-                addr.clone().assume_checked().to_string(),
-            );
-        }
-
-        if let Some(outpoint) = &config.entity_config.operator_collateral_funding_outpoint {
-            env_vars.insert(
-                "OPERATOR_COLLATERAL_FUNDING_OUTPOINT".to_string(),
-                format!("{}:{}", outpoint.txid, outpoint.vout),
-            );
-        }
-
-        spawn_clementine_node(config, "operator", env_vars).await
+    async fn spawn(config: &Self::Config, docker: &Arc<Option<DockerEnv>>) -> Result<SpawnOutput> {
+        spawn_clementine_node(config, "operator", docker).await
     }
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
@@ -485,15 +394,15 @@ pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Erro
 }
 
 /// Shared function to spawn any Clementine node type
-async fn spawn_clementine_node<E: Debug + Clone>(
+async fn spawn_clementine_node<E: ClementineEntityConfig>(
     config: &ClementineConfig<E>,
     role: &str,
-    mut env_vars: HashMap<String, String>,
+    docker: &Arc<Option<DockerEnv>>,
 ) -> Result<SpawnOutput>
 where
     ClementineConfig<E>: LogPathProvider,
 {
-    let binary_path = get_clementine_path()?;
+    let idx = config.entity_config.idx();
 
     if std::env::var("RISC0_DEV_MODE") != Ok("1".to_string()) && cfg!(target_arch = "aarch64") {
         warn!("Spawning Clementine {role} without dev mode in arm64, likely to crash");
@@ -501,140 +410,113 @@ where
 
     debug!("Spawning Clementine {} with config {:?}", role, config);
 
-    // Create log directory if it doesn't exist
+    // Create directories if they don't exist
     tokio::fs::create_dir_all(&config.log_dir)
         .await
         .context("Failed to create log directory")?;
+    tokio::fs::create_dir_all(&config.base_dir.join("configs"))
+        .await
+        .context("Failed to create base directory")?;
 
     let log_path = config.log_path();
     let stderr_path = config.stderr_path();
-
     let stdout_file = File::create(&log_path).context("Failed to create stdout file")?;
 
     info!("{} stdout logs available at: {}", role, log_path.display());
 
     let stderr_file = File::create(&stderr_path).context("Failed to create stderr file")?;
 
-    // Add Rust runtime environment variables if they exist
-    for var in &["RUSTFLAGS", "CARGO_LLVM_COV", "LLVM_PROFILE_FILE"] {
-        if let Ok(val) = std::env::var(var) {
-            env_vars.insert(var.to_string(), val);
-        }
-    }
-
-    // Build command arguments
-    let mut args = vec![role.to_string()];
-
     // Add protocol paramset if specified
-    if let Some(paramset_path) = &config.protocol_paramset {
-        args = vec![
-            "--protocol-params".to_string(),
-            paramset_path.display().to_string(),
-            role.to_string(),
-        ];
-    }
+    let paramset_path = config
+        .protocol_paramset
+        .as_ref()
+        .expect("Expected paramset to be defined here by ClementineConfig");
 
-    let child = Command::new(&binary_path)
-        .args(args)
-        .envs(env_vars)
-        .stdout(Stdio::from(stdout_file))
-        .stderr(Stdio::from(stderr_file))
-        .spawn()
-        .with_context(|| format!("Failed to spawn Clementine {} process", role))?;
+    let config_path = config
+        .base_dir
+        .join("configs")
+        .join(format!("{role}-{idx}.toml"));
 
-    Ok(SpawnOutput::Child(child))
-}
+    tokio::fs::write(&config_path, toml::to_string(&config).unwrap()).await?;
 
-/// Common environment variables shared by all Clementine node types
-fn get_common_env_vars<E: Debug + Clone>(config: &ClementineConfig<E>) -> HashMap<String, String> {
-    let mut env = HashMap::new();
+    let args = vec![
+        "--protocol-params".to_string(),
+        paramset_path.display().to_string(),
+        "--config".to_string(),
+        config_path.display().to_string(),
+        role.to_string(),
+    ];
 
-    // Basic environment setup
-    env.insert("READ_CONFIG_FROM_ENV".to_string(), "1".to_string());
-    env.insert("HOST".to_string(), config.host.clone());
-    env.insert("PORT".to_string(), config.port.to_string());
-    env.insert("DB_HOST".to_string(), config.db_host.clone());
-    env.insert("DB_PORT".to_string(), config.db_port.to_string());
-    env.insert("DB_USER".to_string(), config.db_user.clone());
-    env.insert("DB_PASSWORD".to_string(), config.db_password.clone());
-    env.insert("DB_NAME".to_string(), config.db_name.clone());
+    let bitvm_cache_path = {
+        let Ok(cache) = std::env::var("BITVM_CACHE_PATH") else {
+            anyhow::bail!("BITVM_CACHE_PATH is not set for Clementine {role}");
+        };
 
-    // Bitcoin configuration
-    env.insert(
-        "BITCOIN_RPC_URL".to_string(),
-        config.bitcoin_rpc_url.clone(),
-    );
-    env.insert(
-        "BITCOIN_RPC_USER".to_string(),
-        config.bitcoin_rpc_user.clone(),
-    );
-    env.insert(
-        "BITCOIN_RPC_PASSWORD".to_string(),
-        config.bitcoin_rpc_password.clone(),
-    );
+        let cache_path = PathBuf::from(cache);
 
-    // Citrea configuration
-    env.insert("CITREA_RPC_URL".to_string(), config.citrea_rpc_url.clone());
-    env.insert(
-        "CITREA_LIGHT_CLIENT_PROVER_URL".to_string(),
-        config.citrea_light_client_prover_url.clone(),
-    );
-    env.insert(
-        "CITREA_CHAIN_ID".to_string(),
-        config.citrea_chain_id.to_string(),
-    );
-    env.insert(
-        "BRIDGE_CONTRACT_ADDRESS".to_string(),
-        config.bridge_contract_address.clone(),
-    );
+        if !matches!(tokio::fs::try_exists(&cache_path).await, Ok(true)) {
+            anyhow::bail!("BITVM_CACHE_PATH does not exist: {}", cache_path.display());
+        }
 
-    // TLS configuration
-    env.insert(
-        "CA_CERT_PATH".to_string(),
-        config.ca_cert_path.display().to_string(),
-    );
-    env.insert(
-        "SERVER_CERT_PATH".to_string(),
-        config.server_cert_path.display().to_string(),
-    );
-    env.insert(
-        "SERVER_KEY_PATH".to_string(),
-        config.server_key_path.display().to_string(),
-    );
-    env.insert(
-        "CLIENT_CERT_PATH".to_string(),
-        config.client_cert_path.display().to_string(),
-    );
-    env.insert(
-        "CLIENT_KEY_PATH".to_string(),
-        config.client_key_path.display().to_string(),
-    );
-    env.insert(
-        "AGGREGATOR_CERT_PATH".to_string(),
-        config.aggregator_cert_path.display().to_string(),
-    );
-    env.insert(
-        "CLIENT_VERIFICATION".to_string(),
-        if config.client_verification {
-            "1".to_string()
-        } else {
-            "0".to_string()
-        },
-    );
+        cache_path
+    };
 
-    // Security council
-    env.insert(
-        "SECURITY_COUNCIL".to_string(),
-        config.security_council.to_string(),
-    );
+    let env = {
+        let mut env = HashMap::new();
+        // Inherit environment variables from the host process
+        for var in &[
+            "RUSTFLAGS",
+            "CARGO_LLVM_COV",
+            "LLVM_PROFILE_FILE",
+            "BITVM_CACHE_PATH",
+            "RISC0_DEV_MODE",
+        ] {
+            if let Ok(val) = std::env::var(var) {
+                env.insert(var.to_string(), val);
+            }
+        }
+        env
+    };
 
-    // Telemetry (default configuration, may be overridden by specific node types)
-    if let Some(telemetry) = &config.telemetry {
-        env.insert("TELEMETRY_HOST".to_string(), telemetry.host.clone());
-        env.insert("TELEMETRY_PORT".to_string(), telemetry.port.to_string());
-    }
+    let spawn_output = match docker.as_ref() {
+        Some(docker) if docker.clementine() => {
+            docker
+                .spawn(DockerConfig {
+                    ports: vec![config.port],
+                    image: config
+                        .image
+                        .as_deref()
+                        .unwrap_or(DEFAULT_CLEMENTINE_DOCKER_IMAGE)
+                        .to_string(),
+                    cmd: args,
+                    host_dir: Some(vec![
+                        paramset_path.display().to_string(),
+                        config_path.display().to_string(),
+                        bitvm_cache_path.display().to_string(),
+                    ]),
+                    log_path: config.log_path(),
+                    volume: VolumeConfig {
+                        name: role.to_string(),
+                        target: "/not-used".to_string(),
+                    },
+                    kind: NodeKind::ClementineAggregator,
+                    throttle: None,
+                    env,
+                })
+                .await?
+        }
+        _ => SpawnOutput::Child(
+            Command::new(&get_clementine_path()?)
+                .args(args)
+                .envs(env)
+                .stdout(Stdio::from(stdout_file))
+                .stderr(Stdio::from(stderr_file))
+                .spawn()
+                .with_context(|| format!("Failed to spawn Clementine {} process", role))?,
+        ),
+    };
 
-    env
+    Ok(spawn_output)
 }
 
 async fn setup_clementine_databases(

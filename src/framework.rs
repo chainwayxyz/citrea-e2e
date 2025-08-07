@@ -545,21 +545,31 @@ fn generate_test_config<T: TestCase>(
     };
 
     #[cfg(feature = "clementine")]
-    let postgres = PostgresConfig {
-        port: get_available_port()?,
-        log_dir: _postgres_dir,
-        ..Default::default()
-    };
+    let (clementine, postgres) = {
+        let postgres = PostgresConfig {
+            port: get_available_port()?,
+            log_dir: _postgres_dir,
+            docker_host: docker
+                .as_ref()
+                .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Postgres))),
+            ..Default::default()
+        };
 
-    #[cfg(feature = "clementine")]
-    let clementine = ClementineIntegration::generate_cluster_config::<T>(
-        &test_case,
-        &clementine_dir,
-        postgres.clone(),
-        bitcoin_confs[0].clone(),
-        full_node_rollup.rpc.clone(),
-        light_client_prover_rollup.rpc.clone(),
-    )?;
+        let mut clementine_btc_conf = bitcoin_confs[0].clone();
+        clementine_btc_conf.docker_host = docker
+            .as_ref()
+            .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Bitcoin)));
+
+        let clementine = ClementineIntegration::generate_cluster_config::<T>(
+            &test_case,
+            &clementine_dir,
+            postgres.clone(),
+            clementine_btc_conf,
+            full_node_rollup.rpc.clone(),
+            light_client_prover_rollup.rpc.clone(),
+        )?;
+        (clementine, postgres)
+    };
 
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {

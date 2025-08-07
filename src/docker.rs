@@ -9,14 +9,16 @@ use bollard::{
     container::{Config, LogOutput, NetworkingConfig},
     models::{EndpointSettings, Mount, PortBinding},
     network::CreateNetworkOptions,
-    query_parameters::{CreateContainerOptions, CreateImageOptions, LogsOptions},
+    query_parameters::{
+        CreateContainerOptions, CreateImageOptions, ListContainersOptionsBuilder, LogsOptions,
+    },
     secret::MountTypeEnum,
     service::HostConfig,
     volume::CreateVolumeOptions,
     Docker,
 };
 use futures::StreamExt;
-use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
+use tokio::{fs::File, io::AsyncWriteExt, signal, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
@@ -171,12 +173,23 @@ impl DockerEnv {
             }
         }
 
+        let mut envs = config.env.clone();
+
+        // Backwards compatibility for old fixed env
+        envs.entry("PARALLEL_PROOF_LIMIT".to_string())
+            .or_insert("1".to_string());
+
+        let envs = envs
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>();
+
         let container_config = Config {
             hostname: Some(format!("{}-{}", config.kind, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
-            env: Some(vec!["PARALLEL_PROOF_LIMIT=1".to_string()]), // Todo proper env handling
+            env: Some(envs),
             host_config: Some(host_config),
             networking_config: Some(NetworkingConfig {
                 endpoints_config: network_config,
@@ -284,9 +297,11 @@ impl DockerEnv {
             let _ = self.dump_logs_cli(id);
         }
 
+        signal::ctrl_c().await?;
+
         let containers = self
             .docker
-            .list_containers(None::<bollard::query_parameters::ListContainersOptions>)
+            .list_containers(Some(ListContainersOptionsBuilder::new().all(true).build()))
             .await?;
         for container in containers {
             if let (Some(id), Some(networks)) = (
@@ -300,6 +315,7 @@ impl DockerEnv {
                             None::<bollard::query_parameters::StopContainerOptions>,
                         )
                         .await?;
+
                     self.docker
                         .remove_container(
                             &id,

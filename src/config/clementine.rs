@@ -291,7 +291,7 @@ impl ClementineConfig<VerifierConfig> {
 /// Configuration options for any Clementine target (tests, binaries etc.).
 /// Named `BridgeConfig` in the original Clementine codebase.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ClementineConfig<E: Debug + Clone> {
+pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     // -- Required by all entities --
     /// Protocol paramset
     ///
@@ -380,13 +380,19 @@ pub struct ClementineConfig<E: Debug + Clone> {
 
     /// Logging directory (used in Citrea-E2E code, NOT passed to Clementine)
     pub log_dir: PathBuf,
+
+    /// Base directory for Clementine
+    pub base_dir: PathBuf,
+
+    /// Docker image to use for the node
+    pub image: Option<String>,
 }
 
-impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
+impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
     fn default() -> Self {
         Self {
             protocol_paramset: None,
-            host: "127.0.0.1".to_string(),
+            host: "0.0.0.0".to_string(),
             port: 17000,
 
             bitcoin_rpc_url: "http://127.0.0.1:18443/wallet/admin".to_string(),
@@ -426,11 +432,17 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
                 .keep(),
+
+            base_dir: TempDir::new()
+                .expect("Failed to create temporary directory")
+                .keep(),
+
+            image: None,
         }
     }
 }
 
-impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
+impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
     /// Uses other configs to generate a ClementineConfig for the given entity type.
     ///
     /// Matches the AggregatorConfig type to determine if the entity is an
@@ -452,14 +464,15 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
         Self {
             // TODO: need to change the host to 127.0.0.1 until docker support is added
             bitcoin_rpc_url: format!(
-                "http://127.0.0.1:{}/wallet/{}",
+                "http://{}:{}/wallet/{}",
+                bitcoin_config.docker_host.unwrap_or("127.0.0.1".to_string()),
                 bitcoin_config.rpc_port,
                 NodeKind::Bitcoin
             ),
             bitcoin_rpc_user: bitcoin_config.rpc_user,
             bitcoin_rpc_password: bitcoin_config.rpc_password,
 
-            db_host: "127.0.0.1".to_string(),
+            db_host: postgres_config.docker_host.unwrap_or("127.0.0.1".to_string()),
             db_port: postgres_config.port as usize,
             db_user: postgres_config.user,
             db_password: postgres_config.password,
@@ -499,6 +512,8 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
                 // default to the base regtest paramset
                 Some(base_dir.join("regtest_paramset.toml"))
             }),
+
+            base_dir: base_dir.clone(),
 
             // These values can be overridden by the caller using overrides.
             // header_chain_proof_path: None,
@@ -566,6 +581,28 @@ pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,
     pub operators: Vec<ClementineConfig<OperatorConfig>>,
     pub verifiers: Vec<ClementineConfig<VerifierConfig>>,
+}
+
+pub trait ClementineEntityConfig: Serialize + Debug + Clone + Default {
+    fn idx(&self) -> u8;
+}
+
+impl ClementineEntityConfig for AggregatorConfig {
+    fn idx(&self) -> u8 {
+        0
+    }
+}
+
+impl ClementineEntityConfig for OperatorConfig {
+    fn idx(&self) -> u8 {
+        self.idx
+    }
+}
+
+impl ClementineEntityConfig for VerifierConfig {
+    fn idx(&self) -> u8 {
+        self.idx
+    }
 }
 
 #[cfg(test)]
