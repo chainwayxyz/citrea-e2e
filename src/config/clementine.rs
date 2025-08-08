@@ -465,14 +465,18 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             // TODO: need to change the host to 127.0.0.1 until docker support is added
             bitcoin_rpc_url: format!(
                 "http://{}:{}/wallet/{}",
-                bitcoin_config.docker_host.unwrap_or("127.0.0.1".to_string()),
+                bitcoin_config
+                    .docker_host
+                    .unwrap_or("127.0.0.1".to_string()),
                 bitcoin_config.rpc_port,
                 NodeKind::Bitcoin
             ),
             bitcoin_rpc_user: bitcoin_config.rpc_user,
             bitcoin_rpc_password: bitcoin_config.rpc_password,
 
-            db_host: postgres_config.docker_host.unwrap_or("127.0.0.1".to_string()),
+            db_host: postgres_config
+                .docker_host
+                .unwrap_or("127.0.0.1".to_string()),
             db_port: postgres_config.port as usize,
             db_user: postgres_config.user,
             db_password: postgres_config.password,
