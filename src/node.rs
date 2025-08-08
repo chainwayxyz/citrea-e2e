@@ -44,9 +44,9 @@ pub enum NodeKind {
     #[cfg(feature = "clementine")]
     ClementineAggregator,
     #[cfg(feature = "clementine")]
-    ClementineVerifier,
+    ClementineVerifier(u8),
     #[cfg(feature = "clementine")]
-    ClementineOperator,
+    ClementineOperator(u8),
     Postgres,
 }
 
@@ -61,9 +61,9 @@ impl NodeKind {
             #[cfg(feature = "clementine")]
             NodeKind::ClementineAggregator => 6,
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineVerifier => 7,
+            NodeKind::ClementineVerifier(_) => 7,
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineOperator => 8,
+            NodeKind::ClementineOperator(_) => 8,
             NodeKind::Postgres => 9,
         }
     }
@@ -80,9 +80,9 @@ impl fmt::Display for NodeKind {
             #[cfg(feature = "clementine")]
             NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineVerifier => write!(f, "clementine-verifier"),
+            NodeKind::ClementineVerifier(idx) => write!(f, "clementine-verifier-{idx}"),
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineOperator => write!(f, "clementine-operator"),
+            NodeKind::ClementineOperator(idx) => write!(f, "clementine-operator-{idx}"),
             NodeKind::Postgres => write!(f, "postgres"),
         }
     }

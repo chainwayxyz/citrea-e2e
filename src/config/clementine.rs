@@ -555,7 +555,7 @@ impl LogPathProvider for ClementineConfig<OperatorConfig> {
     }
 
     fn kind(&self) -> NodeKind {
-        NodeKind::ClementineOperator
+        NodeKind::ClementineOperator(self.entity_config.idx())
     }
 
     fn stderr_path(&self) -> PathBuf {
@@ -571,7 +571,7 @@ impl LogPathProvider for ClementineConfig<VerifierConfig> {
     }
 
     fn kind(&self) -> NodeKind {
-        NodeKind::ClementineVerifier
+        NodeKind::ClementineVerifier(self.entity_config.idx())
     }
 
     fn stderr_path(&self) -> PathBuf {

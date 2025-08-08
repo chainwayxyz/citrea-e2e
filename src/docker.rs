@@ -297,8 +297,6 @@ impl DockerEnv {
             let _ = self.dump_logs_cli(id);
         }
 
-        signal::ctrl_c().await?;
-
         let containers = self
             .docker
             .list_containers(Some(ListContainersOptionsBuilder::new().all(true).build()))

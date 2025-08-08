@@ -14,7 +14,7 @@ use client::{
     TlsConfig,
 };
 use futures::future::try_join_all;
-use tokio::{process::Command, time::sleep};
+use tokio::process::Command;
 use tracing::{debug, error, info, warn};
 
 use super::client;
@@ -25,7 +25,6 @@ use crate::{
     },
     docker::DockerEnv,
     log_provider::LogPathProvider,
-    node::NodeKind,
     traits::{NodeT, SpawnOutput},
     utils::{get_clementine_path, get_workspace_root, wait_for_tcp_bound},
     Result,
@@ -489,15 +488,15 @@ where
                     cmd: args,
                     host_dir: Some(vec![
                         paramset_path.display().to_string(),
-                        config_path.display().to_string(),
                         bitvm_cache_path.display().to_string(),
+                        config.base_dir.display().to_string(),
                     ]),
                     log_path: config.log_path(),
                     volume: VolumeConfig {
                         name: role.to_string(),
                         target: "/not-used".to_string(),
                     },
-                    kind: NodeKind::ClementineAggregator,
+                    kind: config.kind(),
                     throttle: None,
                     env,
                 })
@@ -537,13 +536,13 @@ async fn setup_clementine_databases(
     // Get Postgres connection info from the first verifier config
     if let Some(first_verifier) = verifiers.first() {
         let db_user = &first_verifier.db_user;
-        let db_host = &first_verifier.db_host;
+        let _db_host = &first_verifier.db_host;
         let db_port = first_verifier.db_port;
 
         // Set environment variables for Postgres tools
         std::env::set_var("PGUSER", db_user);
         std::env::set_var("PGPASSWORD", &first_verifier.db_password);
-        std::env::set_var("PGHOST", db_host);
+        std::env::set_var("PGHOST", "127.0.0.1");
         std::env::set_var("PGPORT", db_port.to_string());
 
         // Drop and recreate databases
