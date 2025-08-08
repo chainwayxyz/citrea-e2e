@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
     process::Stdio,
     sync::{Arc, LazyLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::{anyhow, Context};
@@ -64,11 +64,27 @@ impl ClementineAggregator {
             "localhost".to_string(),
         );
 
-        // Create gRPC client
-        let endpoint = format!("https://{}:{}", config.host, config.port);
-        let client = ClementineAggregatorTestClient::new(endpoint, tls_config)
-            .await
-            .context("Failed to create Clementine aggregator client")?;
+        let endpoint = format!("https://127.0.0.1:{}", config.port);
+
+        let timeout = CLEMENTINE_NODE_STARTUP_TIMEOUT;
+        let start = Instant::now();
+        let mut result = Err(anyhow!("initial response value"));
+
+        while result.is_err() && (start.elapsed() < timeout) {
+            debug!(
+                "Aggregator connect attempt after {} seconds",
+                start.elapsed().as_secs()
+            );
+            result =
+                ClementineAggregatorTestClient::new(endpoint.clone(), tls_config.clone()).await;
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        let client = result.context(format!(
+            "Failed to connect to Clementine aggregator in {} seconds",
+            start.elapsed().as_secs()
+        ))?;
 
         let instance = Self {
             config: config.clone(),
@@ -140,19 +156,35 @@ impl ClementineVerifier {
             index
         ))?;
 
-        // Create TLS configuration
+        // Create TLS configuration using Aggregator client cert for access
+        let aggregator_key_path = config.aggregator_cert_path.with_file_name("aggregator.key");
         let tls_config = TlsConfig::new(
-            &config.client_cert_path,
-            &config.client_key_path,
+            &config.aggregator_cert_path,
+            &aggregator_key_path,
             &config.ca_cert_path,
             "localhost".to_string(),
         );
+        let endpoint = format!("https://127.0.0.1:{}", config.port);
 
-        // Create gRPC client
-        let endpoint = format!("https://{}:{}", config.host, config.port);
-        let client = ClementineVerifierTestClient::new(endpoint, tls_config)
-            .await
-            .with_context(|| format!("Failed to create Clementine verifier {} client", index))?;
+        let timeout = CLEMENTINE_NODE_STARTUP_TIMEOUT;
+        let start = Instant::now();
+        let mut result = Err(anyhow!("initial response value"));
+
+        while result.is_err() && (start.elapsed() < timeout) {
+            debug!(
+                "Verifier connect attempt after {} seconds",
+                start.elapsed().as_secs()
+            );
+            result = ClementineVerifierTestClient::new(endpoint.clone(), tls_config.clone()).await;
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        let client = result.context(format!(
+            "Failed to connect to Clementine verifier {} in {} seconds",
+            index,
+            start.elapsed().as_secs()
+        ))?;
 
         let instance = Self {
             config: config.clone(),
@@ -233,11 +265,27 @@ impl ClementineOperator {
             "localhost".to_string(),
         );
 
-        // Create gRPC client
-        let endpoint = format!("https://{}:{}", config.host, config.port);
-        let client = ClementineOperatorTestClient::new(endpoint, tls_config)
-            .await
-            .with_context(|| format!("Failed to create Clementine operator {} client", index))?;
+        let endpoint = format!("https://127.0.0.1:{}", config.port);
+
+        let timeout = CLEMENTINE_NODE_STARTUP_TIMEOUT;
+        let start = Instant::now();
+        let mut result = Err(anyhow!("initial response value"));
+
+        while result.is_err() && (start.elapsed() < timeout) {
+            debug!(
+                "Operator connect attempt after {} seconds",
+                start.elapsed().as_secs()
+            );
+            result = ClementineOperatorTestClient::new(endpoint.clone(), tls_config.clone()).await;
+
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        let client = result.context(format!(
+            "Failed to connect to Clementine verifier {} in {} seconds",
+            index,
+            start.elapsed().as_secs()
+        ))?;
 
         let instance = Self {
             config: config.clone(),
@@ -467,6 +515,8 @@ where
             "LLVM_PROFILE_FILE",
             "BITVM_CACHE_PATH",
             "RISC0_DEV_MODE",
+            "RUST_MIN_STACK",
+            "RUST_LOG",
         ] {
             if let Ok(val) = std::env::var(var) {
                 env.insert(var.to_string(), val);
@@ -487,9 +537,10 @@ where
                         .to_string(),
                     cmd: args,
                     host_dir: Some(vec![
-                        paramset_path.display().to_string(),
-                        bitvm_cache_path.display().to_string(),
+                        // Mount the base_dir for config and paramset to be accessible
                         config.base_dir.display().to_string(),
+                        // Mount the bitvm cache
+                        bitvm_cache_path.display().to_string(),
                     ]),
                     log_path: config.log_path(),
                     volume: VolumeConfig {

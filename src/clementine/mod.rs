@@ -69,7 +69,7 @@ impl ClementineIntegration {
         light_client_rpc: crate::config::RpcConfig,
         docker: &Option<crate::docker::DockerEnv>,
     ) -> Result<crate::config::ClementineClusterConfig> {
-        use crate::node::NodeKind;
+        // use crate::node::NodeKind; // no longer needed after endpoint host change
         use anyhow::Context;
 
         use crate::{
@@ -102,12 +102,10 @@ impl ClementineIntegration {
                 port,
                 T::clementine_verifier_config(i),
             ));
+            // When running in Docker, use host.docker.internal so containers can reach host-published ports
             let host = docker
                 .as_ref()
-                .and_then(|d| {
-                    d.clementine()
-                        .then(|| d.get_hostname(&NodeKind::ClementineVerifier(i)))
-                })
+                .and_then(|d| d.clementine().then(|| "host.docker.internal".to_string()))
                 .unwrap_or("127.0.0.1".to_string());
             verifier_endpoints.push(format!("https://{}:{}", host, port));
         }
@@ -128,10 +126,7 @@ impl ClementineIntegration {
             ));
             let host = docker
                 .as_ref()
-                .and_then(|d| {
-                    d.clementine()
-                        .then(|| d.get_hostname(&NodeKind::ClementineOperator(i)))
-                })
+                .and_then(|d| d.clementine().then(|| "host.docker.internal".to_string()))
                 .unwrap_or("127.0.0.1".to_string());
             operator_endpoints.push(format!("https://{}:{}", host, port));
         }

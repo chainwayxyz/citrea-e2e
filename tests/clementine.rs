@@ -25,10 +25,10 @@ use citrea_e2e::{
 /// ### Verifier Service:
 /// - `get_params()` - Returns verifier parameters including public key
 /// - `get_current_status()` - Provides status of the verifier node
-struct ClementineIntegrationTest;
+struct ClementineIntegrationTest<const WITH_DOCKER: bool>;
 
 #[async_trait]
-impl TestCase for ClementineIntegrationTest {
+impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER> {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_clementine: true,
@@ -38,7 +38,7 @@ impl TestCase for ClementineIntegrationTest {
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
-                clementine: true,
+                clementine: WITH_DOCKER,
             },
             ..Default::default()
         }
@@ -116,6 +116,11 @@ impl TestCase for ClementineIntegrationTest {
 }
 
 #[tokio::test]
-async fn test_clementine_integration() -> Result<()> {
-    TestCaseRunner::new(ClementineIntegrationTest).run().await
+async fn test_clementine_integration_w_docker() -> Result<()> {
+    TestCaseRunner::new(ClementineIntegrationTest::<true>).run().await
+}
+
+#[tokio::test]
+async fn test_clementine_integration_wo_docker() -> Result<()> {
+    TestCaseRunner::new(ClementineIntegrationTest::<false>).run().await
 }

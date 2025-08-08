@@ -18,7 +18,7 @@ use bollard::{
     Docker,
 };
 use futures::StreamExt;
-use tokio::{fs::File, io::AsyncWriteExt, signal, sync::Mutex, task::JoinHandle};
+use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};

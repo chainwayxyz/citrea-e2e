@@ -122,10 +122,22 @@ impl Default for TelemetryConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AggregatorConfig {
     pub verifier_endpoints: Vec<String>,
     pub operator_endpoints: Vec<String>,
+    pub secret_key: SecretKey,
+}
+
+impl Default for AggregatorConfig {
+    fn default() -> Self {
+        Self {
+            verifier_endpoints: Vec::new(),
+            operator_endpoints: Vec::new(),
+            secret_key: SecretKey::from_slice(&seeded_key("aggregator", 0))
+                .expect("known valid input"),
+        }
+    }
 }
 
 impl ClementineConfig<AggregatorConfig> {
@@ -141,12 +153,13 @@ impl ClementineConfig<AggregatorConfig> {
         port: u16,
         overrides: ClementineConfig<AggregatorConfig>,
     ) -> Self {
+        let mut entity_config = overrides.entity_config.clone();
+        entity_config.verifier_endpoints = verifier_endpoints;
+        entity_config.operator_endpoints = operator_endpoints;
+
         Self {
             port,
-            entity_config: AggregatorConfig {
-                verifier_endpoints,
-                operator_endpoints,
-            },
+            entity_config,
             // Aggregator uses the first verifier's database
             db_name: format!("clementine-{}", 0),
             ..ClementineConfig::<AggregatorConfig>::from_configs(
