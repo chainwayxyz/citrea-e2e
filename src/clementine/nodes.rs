@@ -587,7 +587,6 @@ async fn setup_clementine_databases(
     // Get Postgres connection info from the first verifier config
     if let Some(first_verifier) = verifiers.first() {
         let db_user = &first_verifier.db_user;
-        let _db_host = &first_verifier.db_host;
         let db_port = first_verifier.db_port;
 
         // Set environment variables for Postgres tools

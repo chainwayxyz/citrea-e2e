@@ -69,7 +69,6 @@ impl ClementineIntegration {
         light_client_rpc: crate::config::RpcConfig,
         docker: &Option<crate::docker::DockerEnv>,
     ) -> Result<crate::config::ClementineClusterConfig> {
-        // use crate::node::NodeKind; // no longer needed after endpoint host change
         use anyhow::Context;
 
         use crate::{
