@@ -151,8 +151,6 @@ impl ClementineVerifier {
 
         // Create gRPC client
         let endpoint = format!("https://{}:{}", config.host, config.port);
-        println!("Endpoint: {}", endpoint);
-        sleep(std::time::Duration::MAX).await;
         let client = ClementineVerifierTestClient::new(endpoint, tls_config)
             .await
             .with_context(|| format!("Failed to create Clementine verifier {} client", index))?;
