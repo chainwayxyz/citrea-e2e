@@ -117,10 +117,14 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
 
 #[tokio::test]
 async fn test_clementine_integration_w_docker() -> Result<()> {
-    TestCaseRunner::new(ClementineIntegrationTest::<true>).run().await
+    TestCaseRunner::new(ClementineIntegrationTest::<true>)
+        .run()
+        .await
 }
 
 #[tokio::test]
 async fn test_clementine_integration_wo_docker() -> Result<()> {
-    TestCaseRunner::new(ClementineIntegrationTest::<false>).run().await
+    TestCaseRunner::new(ClementineIntegrationTest::<false>)
+        .run()
+        .await
 }

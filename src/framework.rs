@@ -567,7 +567,7 @@ fn generate_test_config<T: TestCase>(
             clementine_btc_conf,
             full_node_rollup.rpc.clone(),
             light_client_prover_rollup.rpc.clone(),
-            docker
+            docker,
         )?;
         (clementine, postgres)
     };
