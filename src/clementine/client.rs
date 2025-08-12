@@ -82,6 +82,10 @@ impl ClementineAggregatorTestClient {
         Ok(Self { client })
     }
 
+    pub fn inner_mut(&mut self) -> &mut ClementineAggregatorClient<Channel> {
+        &mut self.client
+    }
+
     pub async fn new_deposit(&mut self, deposit: Deposit) -> Result<RawSignedTx> {
         let request = Request::new(deposit);
         let response = self
@@ -92,7 +96,10 @@ impl ClementineAggregatorTestClient {
         Ok(response.into_inner())
     }
 
-    pub async fn withdraw(&mut self, params: WithdrawParams) -> Result<AggregatorWithdrawResponse> {
+    pub async fn withdraw(
+        &mut self,
+        params: AggregatorWithdrawalInput,
+    ) -> Result<AggregatorWithdrawResponse> {
         let request = Request::new(params);
         let response = self
             .client
@@ -102,7 +109,10 @@ impl ClementineAggregatorTestClient {
         Ok(response.into_inner())
     }
 
-    pub async fn optimistic_payout(&mut self, params: WithdrawParams) -> Result<RawSignedTx> {
+    pub async fn optimistic_payout(
+        &mut self,
+        params: OptimisticWithdrawParams,
+    ) -> Result<RawSignedTx> {
         let request = Request::new(params);
         let response = self
             .client
@@ -155,6 +165,10 @@ impl ClementineOperatorTestClient {
         Ok(Self { client })
     }
 
+    pub fn inner_mut(&mut self) -> &mut ClementineOperatorClient<Channel> {
+        &mut self.client
+    }
+
     pub async fn get_x_only_public_key(&mut self) -> Result<XOnlyPublicKeyRpc> {
         let request = Request::new(Empty {});
         let response = self
@@ -185,7 +199,7 @@ impl ClementineOperatorTestClient {
         Ok(response.into_inner())
     }
 
-    pub async fn withdraw(&mut self, params: WithdrawParams) -> Result<()> {
+    pub async fn withdraw(&mut self, params: WithdrawParamsWithSig) -> Result<()> {
         let request = Request::new(params);
         self.client
             .withdraw(request)
@@ -214,6 +228,10 @@ impl ClementineVerifierTestClient {
         let channel = tls_config.create_channel(endpoint).await?;
         let client = ClementineVerifierClient::new(channel);
         Ok(Self { client })
+    }
+
+    pub fn inner_mut(&mut self) -> &mut ClementineVerifierClient<Channel> {
+        &mut self.client
     }
 
     pub async fn get_params(&mut self) -> Result<VerifierParams> {
