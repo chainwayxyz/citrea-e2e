@@ -26,6 +26,9 @@ impl TestCase for DockerIntegrationTest {
     }
 
     async fn run_test(&mut self, f: &mut TestFramework) -> Result<()> {
+        // Ensure docker forwarding works inside containers
+        f.assert_docker_socket_forwarding().await?;
+
         let sequencer = f.sequencer.as_ref().unwrap();
         let full_node = f.full_node.as_ref().unwrap();
         let batch_prover = f.batch_prover.as_ref().unwrap();
