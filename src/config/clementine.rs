@@ -347,6 +347,9 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     /// Security council.
     pub security_council: SecurityCouncil,
 
+    /// The X25519 public key that will be used to encrypt the emergency stop message.
+    pub emergency_stop_encryption_public_key: Option<[u8; 32]>,
+
     // TLS certificates
     /// Path to the server certificate file.
     ///
@@ -429,6 +432,13 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
                 pks: vec![*UNSPENDABLE_XONLY_PUBKEY],
                 threshold: 1,
             },
+
+            emergency_stop_encryption_public_key: Some(
+                hex::decode("025d32d10ec7b899df4eeb4d80918b7f0a1f2a28f6af24f71aa2a59c69c0d531")
+                    .expect("valid hex")
+                    .try_into()
+                    .expect("valid key"),
+            ),
 
             server_cert_path: PathBuf::from("certs/server/server.pem"),
             server_key_path: PathBuf::from("certs/server/server.key"),
