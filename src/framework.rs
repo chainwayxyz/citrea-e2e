@@ -15,10 +15,9 @@ use crate::{
     bitcoin::BitcoinNodeCluster,
     citrea_cli::CitreaCli,
     config::{
-        BitcoinConfig, BitcoinServiceConfig, DockerConfig, EmptyConfig, FullBatchProverConfig,
+        BitcoinConfig, BitcoinServiceConfig, EmptyConfig, FullBatchProverConfig,
         FullFullNodeConfig, FullLightClientProverConfig, FullSequencerConfig, ListenModeConfig,
         RollupConfig, RpcConfig, RunnerConfig, StorageConfig, TestCaseConfig, TestConfig,
-        VolumeConfig,
     },
     docker::DockerEnv,
     log_provider::{LogPathProvider, LogPathProviderErased},
@@ -190,90 +189,6 @@ impl TestFramework {
         self.init_citrea_nodes().await?;
         #[cfg(feature = "clementine")]
         self.init_clementine_nodes().await?;
-        Ok(())
-    }
-
-    /// Assert that docker socket forwarding works by running `docker ps` inside a container.
-    pub async fn assert_docker_socket_forwarding(&self) -> Result<()> {
-        let Some(docker) = self.ctx.docker.as_ref() else {
-            anyhow::bail!("Docker is not enabled for this test");
-        };
-
-        let log_path = self.ctx.config.test_case.dir.join("docker-forwarding.log");
-
-        let cfg = DockerConfig {
-            ports: vec![],
-            image: std::env::var("DOCKER_CLI_IMAGE")
-                .unwrap_or_else(|_| "docker:27-cli".to_string()),
-            cmd: vec!["docker".to_string(), "ps".to_string()],
-            log_path,
-            volume: VolumeConfig {
-                name: "docker-forwarding".to_string(),
-                target: "/tmp".to_string(),
-            },
-            host_dir: None,
-            kind: NodeKind::FullNode,
-            throttle: None,
-            env: std::collections::HashMap::new(),
-        };
-
-        let spawn = docker.spawn(cfg).await?;
-        let crate::traits::SpawnOutput::Container(container) = spawn else {
-            anyhow::bail!("Expected container spawn output");
-        };
-
-        // Give the process time to run and exit
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-        // Check exit code
-        let inspect = docker
-            .docker
-            .inspect_container(
-                &container.id,
-                None::<bollard::query_parameters::InspectContainerOptions>,
-            )
-            .await?;
-        if let Some(state) = inspect.state {
-            if let Some(code) = state.exit_code {
-                anyhow::ensure!(
-                    code == 0,
-                    "docker ps inside container failed with exit code {code}"
-                );
-            }
-        }
-
-        // Collect logs
-        let mut logs = docker.docker.logs(
-            &container.id,
-            Some(bollard::query_parameters::LogsOptions {
-                follow: false,
-                stdout: true,
-                stderr: true,
-                tail: "all".to_string(),
-                ..Default::default()
-            }),
-        );
-        let mut buf = Vec::new();
-        use futures::StreamExt;
-        while let Some(Ok(line)) = logs.next().await {
-            match line {
-                bollard::container::LogOutput::StdOut { message }
-                | bollard::container::LogOutput::Console { message } => {
-                    buf.extend_from_slice(&message)
-                }
-                bollard::container::LogOutput::StdErr { message } => {
-                    buf.extend_from_slice(&message)
-                }
-                _ => {}
-            }
-        }
-        let out = String::from_utf8_lossy(&buf).to_string();
-        anyhow::ensure!(
-            out.contains("CONTAINER ID") || out.contains("NAMES"),
-            "Unexpected docker ps output: {}",
-            out
-        );
-
         Ok(())
     }
 

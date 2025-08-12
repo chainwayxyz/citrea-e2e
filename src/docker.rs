@@ -1,7 +1,7 @@
 #![allow(deprecated)] // Allowing deprecation for now as bollard v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
 use std::{
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -22,7 +22,6 @@ use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
-use crate::utils::get_workspace_root;
 use crate::{config::TestCaseDockerConfig, node::NodeKind};
 
 #[derive(Debug)]
@@ -153,38 +152,6 @@ impl DockerEnv {
                     ..Default::default()
                 });
             }
-        }
-
-        // Always forward host Docker socket into containers
-        let docker_sock = "/var/run/docker.sock";
-        if Path::new(docker_sock).exists() {
-            mounts.push(Mount {
-                target: Some(docker_sock.to_string()),
-                source: Some(docker_sock.to_string()),
-                typ: Some(MountTypeEnum::BIND),
-                ..Default::default()
-            });
-        } else {
-            debug!("Host docker socket not found at {docker_sock}, skipping mount");
-        }
-
-        // Optionally mount a docker CLI into the container if provided in resources
-        // This is useful for images that do not include the docker client.
-        let resources_cli = get_workspace_root()
-            .join("resources")
-            .join("docker")
-            .join("docker-linux-amd64");
-        if resources_cli.exists() {
-            mounts.push(Mount {
-                target: Some("/usr/local/bin/docker".to_string()),
-                source: Some(resources_cli.display().to_string()),
-                typ: Some(MountTypeEnum::BIND),
-                ..Default::default()
-            });
-            debug!(
-                "Mounted docker CLI from resources: {}",
-                resources_cli.display()
-            );
         }
 
         let mut host_config = HostConfig {

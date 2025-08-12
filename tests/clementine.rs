@@ -87,9 +87,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
 
             println!(
                 "Operator {}: automation={}, balance={}",
-                i,
-                status.automation,
-                status.wallet_balance.expect("Balance should be present")
+                i, status.automation, status.wallet_balance
             );
         }
 
@@ -109,9 +107,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
 
             println!(
                 "Verifier {}: automation={}, balance={}",
-                i,
-                status.automation,
-                status.wallet_balance.expect("Balance should be present")
+                i, status.automation, status.wallet_balance
             );
         }
 
