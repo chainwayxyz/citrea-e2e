@@ -108,7 +108,10 @@ impl<T: TestCase> TestCaseRunner<T> {
                     bail!("Shutdown received before completion")
                 }
                 e = failure_rx.recv() => {
-                    bail!(e.unwrap())
+                    if let Some(e) =e {
+                        bail!(e)
+                    }
+                    Ok(())
                 }
             }
         })
