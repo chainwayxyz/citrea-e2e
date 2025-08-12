@@ -506,6 +506,21 @@ where
         cache_path
     };
 
+    // Set RISC0_WORK_DIR for HCP
+    let work_dir = config
+        .base_dir
+        .join("workdir")
+        .join(format!("clementine-{}-{}", role, idx));
+
+    // Ensure host work dir exists before bind-mounting
+    if let Err(e) = tokio::fs::create_dir_all(&work_dir).await {
+        error!(
+            "Failed to create RISC0_WORK_DIR at {}: {}",
+            work_dir.display(),
+            e
+        );
+    }
+
     let env = {
         let mut env = HashMap::new();
         // Inherit environment variables from the host process
@@ -522,6 +537,8 @@ where
                 env.insert(var.to_string(), val);
             }
         }
+
+        env.insert("RISC0_WORK_DIR".to_string(), work_dir.display().to_string());
         env
     };
 
@@ -541,6 +558,7 @@ where
                         config.base_dir.display().to_string(),
                         // Mount the bitvm cache
                         bitvm_cache_path.display().to_string(),
+                        work_dir.display().to_string(),
                     ]),
                     log_path: config.log_path(),
                     volume: VolumeConfig {

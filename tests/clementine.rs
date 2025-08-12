@@ -115,6 +115,54 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
             );
         }
 
+        // If running Clementine in Docker, mine blocks and ensure HCP catches up
+        if WITH_DOCKER {
+            use bitcoincore_rpc::RpcApi;
+            use citrea_e2e::bitcoin::DEFAULT_FINALITY_DEPTH;
+            // Mine a bunch of blocks on DA
+            let da = f.bitcoin_nodes.get(0).unwrap();
+            let start_height = da.get_block_count().await?;
+            let mine_blocks = DEFAULT_FINALITY_DEPTH;
+            da.generate(mine_blocks).await?;
+            let target_height = start_height + mine_blocks;
+
+            // Ask aggregator for entity statuses until HCP height catches up
+            let mut attempts = 0;
+            let max_attempts = 120; // allow up to ~2 minutes
+            loop {
+                let statuses = clementine
+                    .aggregator
+                    .client
+                    .get_entity_statuses(false)
+                    .await
+                    .expect("Failed to get entity statuses from aggregator");
+
+                let mut all_ok = true;
+                for es in statuses.entity_statuses {
+                    if let Some(sr) = es.status_result {
+                        let status = match sr {
+                            citrea_e2e::clementine::client::clementine::entity_status_with_id::StatusResult::Status(s) => s,
+                            _ => { all_ok = false; break; }
+                        };
+                        let h = status.hcp_last_proven_height.unwrap_or(0) as u64;
+                        if h < target_height {
+                            all_ok = false;
+                            break;
+                        }
+                    } else {
+                        all_ok = false;
+                        break;
+                    }
+                }
+                if all_ok {
+                    break;
+                }
+                attempts += 1;
+                anyhow::ensure!(attempts < max_attempts, "HCP did not catch up in time");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+
         Ok(())
     }
 }
