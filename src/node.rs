@@ -15,6 +15,7 @@ use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 use serde::Serialize;
 use tokio::{
     process::Command,
+    sync::mpsc::UnboundedSender,
     time::{sleep, Instant},
 };
 use tracing::{debug, info, trace};
@@ -29,6 +30,7 @@ use crate::{
     docker::DockerEnv,
     framework::TestContext,
     log_provider::LogPathProvider,
+    test_case::watch_log_for_panics,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
@@ -102,6 +104,7 @@ where
     pub client: Client,
     // Bitcoin client targetting node's wallet endpoint
     pub da: BitcoinClient,
+    failure_tx: UnboundedSender<String>,
 }
 
 impl<C> Node<C>
@@ -112,6 +115,7 @@ where
         config: &FullL2NodeConfig<C>,
         da_config: &BitcoinConfig,
         docker: Arc<Option<DockerEnv>>,
+        failure_tx: UnboundedSender<String>,
     ) -> Result<Self> {
         let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
@@ -129,11 +133,18 @@ where
         .await
         .context("Failed to create RPC client")?;
 
+        watch_log_for_panics(
+            config.log_path(),
+            config.kind().to_string(),
+            failure_tx.clone(),
+        );
+
         Ok(Self {
             spawn_output,
             config: config.clone(),
             client,
             da: da_client,
+            failure_tx,
         })
     }
 
@@ -296,10 +307,9 @@ where
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
-        match &mut self.spawn_output {
-            SpawnOutput::Child(pid) => pid.wait().await?,
-            SpawnOutput::Container(_) => unimplemented!("L2 nodes don't run in docker yet"),
-        };
+        if let SpawnOutput::Child(pid) = &mut self.spawn_output {
+            pid.wait().await?;
+        }
         Ok(())
     }
 
@@ -308,7 +318,9 @@ where
         new_config: Option<Self::Config>,
         extra_args: Option<Vec<String>>,
     ) -> Result<()> {
+        let panic_tx = self.failure_tx.clone();
         let config = self.config_mut();
+        let kind = config.kind();
 
         if let Some(new_config) = new_config {
             *config = new_config;
@@ -320,17 +332,20 @@ where
         INDEX.fetch_add(1, Ordering::SeqCst);
 
         let old_dir = config.dir();
-        let new_dir = old_dir.parent().unwrap().join(format!(
-            "{}-{}",
-            config.kind(),
-            INDEX.load(Ordering::SeqCst)
-        ));
+        let new_dir =
+            old_dir
+                .parent()
+                .unwrap()
+                .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
         copy_directory(old_dir, &new_dir)?;
 
         config.set_dir(new_dir);
         config.write_to_file()?;
+        let log_path = config.log_path();
 
         *self.spawn_output() = Self::spawn(config, extra_args)?;
+        watch_log_for_panics(log_path, kind.to_string(), panic_tx);
+
         self.wait_for_ready(None).await
     }
 }
@@ -398,7 +413,7 @@ where
 }
 
 impl NodeCluster<SequencerConfig> {
-    pub async fn new(ctx: &TestContext) -> Result<Self> {
+    pub async fn new(ctx: &TestContext, failure_tx: UnboundedSender<String>) -> Result<Self> {
         let n_nodes = ctx.config.test_case.get_n_nodes(NodeKind::Sequencer);
 
         let mut cluster = Self {
@@ -406,8 +421,13 @@ impl NodeCluster<SequencerConfig> {
         };
         let da_config = &ctx.config.bitcoin[0];
         for config in &ctx.config.sequencer {
-            let node =
-                Node::<SequencerConfig>::new(config, da_config, Arc::clone(&ctx.docker)).await?;
+            let node = Node::<SequencerConfig>::new(
+                config,
+                da_config,
+                Arc::clone(&ctx.docker),
+                failure_tx.clone(),
+            )
+            .await?;
             cluster.inner.push(node);
         }
 

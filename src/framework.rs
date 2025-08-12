@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Context;
 use bitcoincore_rpc::RpcApi;
+use tokio::sync::mpsc::UnboundedSender;
 use tracing::{debug, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -76,6 +77,7 @@ impl TestFramework {
         } else {
             None
         };
+
         let citrea_cli = match &test_case.with_citrea_cli {
             false => None,
             true => Some(CitreaCli::new(CITREA_CLI_ENV)?),
@@ -127,7 +129,7 @@ impl TestFramework {
         Ok(())
     }
 
-    pub async fn init_citrea_nodes(&mut self) -> Result<()> {
+    pub async fn init_citrea_nodes(&mut self, failure_tx: UnboundedSender<String>) -> Result<()> {
         // Use first node config for now, as citrea nodes are expected to interact only with this main node for now.
         // Additional bitcoin node are solely used for simulating a bitcoin network and tx propagation/re-orgs
         let bitcoin_config = &self.ctx.config.bitcoin[0];
@@ -136,7 +138,7 @@ impl TestFramework {
         if self.ctx.config.test_case.get_n_nodes(NodeKind::Sequencer) > 1 {
             self.sequencer_cluster = create_optional(
                 self.ctx.config.test_case.with_sequencer,
-                SequencerCluster::new(&self.ctx),
+                SequencerCluster::new(&self.ctx, failure_tx.clone()),
             )
             .await?;
         } else {
@@ -146,6 +148,7 @@ impl TestFramework {
                     &self.ctx.config.sequencer[0],
                     bitcoin_config,
                     Arc::clone(&self.ctx.docker),
+                    failure_tx.clone(),
                 ),
             )
             .await?;
@@ -158,6 +161,7 @@ impl TestFramework {
                 &self.ctx.config.batch_prover,
                 bitcoin_config,
                 Arc::clone(&self.ctx.docker),
+                failure_tx.clone(),
             ),
         )
         .await?;
@@ -168,6 +172,7 @@ impl TestFramework {
                 &self.ctx.config.light_client_prover,
                 bitcoin_config,
                 Arc::clone(&self.ctx.docker),
+                failure_tx.clone(),
             ),
         )
         .await?;
@@ -178,6 +183,7 @@ impl TestFramework {
                 &self.ctx.config.full_node,
                 bitcoin_config,
                 Arc::clone(&self.ctx.docker),
+                failure_tx.clone(),
             ),
         )
         .await?;
@@ -185,8 +191,8 @@ impl TestFramework {
         Ok(())
     }
 
-    pub async fn init_nodes(&mut self) -> Result<()> {
-        self.init_citrea_nodes().await?;
+    pub async fn init_nodes(&mut self, failure_tx: UnboundedSender<String>) -> Result<()> {
+        self.init_citrea_nodes(failure_tx).await?;
         #[cfg(feature = "clementine")]
         self.init_clementine_nodes().await?;
         Ok(())
