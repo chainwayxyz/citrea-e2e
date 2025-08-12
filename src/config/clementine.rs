@@ -347,6 +347,12 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     /// Security council.
     pub security_council: SecurityCouncil,
 
+    /// The ECDSA address of the citrea/aggregator that will sign the withdrawal params
+    /// after manual verification of the optimistic payout and operator's withdrawal.
+    /// Used for both an extra verification of aggregator's identity and to force citrea
+    /// to check withdrawal params manually during some time after launch.
+    pub aggregator_verification_address: Option<alloy_primitives::Address>,
+
     /// The X25519 public key that will be used to encrypt the emergency stop message.
     pub emergency_stop_encryption_public_key: Option<[u8; 32]>,
 
@@ -450,6 +456,9 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
 
             telemetry: Some(TelemetryConfig::default()),
 
+            // This defaults to a fixed key in Clementine
+            aggregator_verification_address: None,
+
             entity_config: E::default(),
 
             log_dir: TempDir::new()
@@ -466,6 +475,11 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
 }
 
 impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
+    pub fn with_aggregator_verification(mut self, address: alloy_primitives::Address) -> Self {
+        self.aggregator_verification_address = Some(address);
+        self
+    }
+
     /// Uses other configs to generate a ClementineConfig for the given entity type.
     ///
     /// Matches the AggregatorConfig type to determine if the entity is an
