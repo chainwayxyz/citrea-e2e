@@ -3,7 +3,7 @@ use std::{
     fs::File,
     path::PathBuf,
     process::Stdio,
-    sync::{Arc, LazyLock},
+    sync::Arc,
     time::{Duration, Instant},
 };
 
