@@ -4,13 +4,18 @@
 use std::{
     io::Write,
     panic::{self},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use futures::FutureExt;
-use tokio::signal;
+use tokio::{
+    fs::File,
+    io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom},
+    signal,
+    sync::{mpsc, mpsc::UnboundedSender},
+};
 
 use super::{
     config::{BitcoinConfig, TestCaseConfig, TestCaseEnv},
@@ -43,9 +48,13 @@ impl<T: TestCase> TestCaseRunner<T> {
     }
 
     /// Internal method to fund the wallets, connect the nodes, wait for them to be ready.
-    async fn prepare(&self, f: &mut TestFramework) -> Result<()> {
+    async fn prepare(
+        &self,
+        f: &mut TestFramework,
+        failure_tx: UnboundedSender<String>,
+    ) -> Result<()> {
         f.fund_da_wallets().await?;
-        f.init_nodes().await?;
+        f.init_nodes(failure_tx).await?;
         f.bitcoin_nodes.connect_nodes().await?;
 
         if let Some(sequencer) = &f.sequencer {
@@ -71,8 +80,12 @@ impl<T: TestCase> TestCaseRunner<T> {
         Ok(())
     }
 
-    async fn run_test_case(&mut self, f: &mut TestFramework) -> Result<()> {
-        self.prepare(f).await?;
+    async fn run_test_case(
+        &mut self,
+        f: &mut TestFramework,
+        failure_tx: UnboundedSender<String>,
+    ) -> Result<()> {
+        self.prepare(f, failure_tx).await?;
         self.0.setup(f).await?;
         self.0.run_test(f).await
     }
@@ -82,17 +95,23 @@ impl<T: TestCase> TestCaseRunner<T> {
     /// This sets up the framework, executes the test, and ensures cleanup is performed even if a panic occurs.
     pub async fn run(mut self) -> Result<()> {
         let mut framework = None;
+        let (failure_tx, mut failure_rx) = mpsc::unbounded_channel::<String>();
 
         let result = panic::AssertUnwindSafe(async {
             tokio::select! {
                 res = async {
                     framework = Some(TestFramework::new::<T>().await?);
                     let f = framework.as_mut().unwrap();
-                    self.run_test_case(f).await
-                 } => res,
+                    self.run_test_case(f, failure_tx).await
+                } => res,
                 _ = signal::ctrl_c() => {
-                    println!("Initiating shutdown...");
                     bail!("Shutdown received before completion")
+                }
+                e = failure_rx.recv() => {
+                    if let Some(e) =e {
+                        bail!(e)
+                    }
+                    Ok(())
                 }
             }
         })
@@ -281,4 +300,50 @@ pub trait TestCase: Send + Sync + 'static {
     {
         Ok(())
     }
+}
+
+pub fn watch_log_for_panics(
+    log_path: PathBuf,
+    process_name: String,
+    failure_tx: UnboundedSender<String>,
+) {
+    tokio::spawn(async move {
+        while !log_path.exists() {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+
+        let mut file = File::open(&log_path).await.unwrap();
+
+        let _ = file.seek(SeekFrom::End(0)).await;
+        let mut reader = BufReader::new(file);
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+                Ok(_) => {
+                    let line_lower = line.to_lowercase();
+
+                    if line_lower.contains("panic")
+                        || line_lower.contains("fatal")
+                        || line_lower.contains("assertion failed")
+                    {
+                        let _ = failure_tx.send(format!(
+                            "{} panicked with: {}",
+                            process_name,
+                            line.trim()
+                        ));
+                        return;
+                    }
+                }
+                Err(_) => {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    });
 }
