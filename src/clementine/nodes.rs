@@ -409,33 +409,45 @@ pub fn copy_resources(
 /// Ensures that TLS certificates exist for tests.
 /// This will run the certificate generation script if certificates don't exist.
 pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Error> {
-    // avoids double generation of certs when multiple tests run in parallel
-    static GENERATE_LOCK: LazyLock<tokio::sync::Mutex<()>> =
-        LazyLock::new(|| tokio::sync::Mutex::new(()));
-
-    if !get_workspace_root()
-        .join("resources/clementine/certs/ca/ca.pem")
-        .exists()
-    {
-        let _lock = GENERATE_LOCK.lock().await;
-
-        debug!("Generating TLS certificates for tests...");
-
-        let script_path = get_workspace_root().join("resources/clementine/generate-certs.sh");
-
-        let output = Command::new("/bin/bash").arg(script_path).output().await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            error!("Failed to generate certificates: {}", stderr);
-            return Err(std::io::Error::other(format!(
-                "Certificate generation failed: {}",
-                stderr
-            )));
-        }
+    // Prepare lock file next to the certs directory
+    let lock_file_path = get_workspace_root().join("resources/clementine/certs/.certs.lock");
+    if let Some(dir) = lock_file_path.parent() {
+        let _ = std::fs::create_dir_all(dir);
     }
+    let lock_file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock_file_path)?;
 
-    Ok(())
+    // Acquire an exclusive cross-process lock
+    use fs2::FileExt;
+    lock_file.lock_exclusive()?;
+
+    // Ensure we always release the lock
+    let res = async {
+        let ca_pem = get_workspace_root().join("resources/clementine/certs/ca/ca.pem");
+        if !ca_pem.exists() {
+            debug!("Generating TLS certificates for tests...");
+            let script_path = get_workspace_root().join("resources/clementine/generate-certs.sh");
+            let output = Command::new("/bin/bash").arg(script_path).output().await?;
+            if !output.status.success() {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                error!("Failed to generate certificates: {}", stderr);
+                return Err(std::io::Error::other(format!(
+                    "Certificate generation failed: {}",
+                    stderr
+                )));
+            }
+        }
+        Ok(())
+    }
+    .await;
+
+    let _ = fs2::FileExt::unlock(&lock_file);
+
+    res
 }
 
 /// Shared function to spawn any Clementine node type
