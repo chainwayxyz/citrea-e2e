@@ -556,6 +556,7 @@ where
                     host_dir: Some(vec![
                         // Mount the base_dir for config and paramset to be accessible
                         config.base_dir.display().to_string(),
+                        paramset_path.display().to_string(),
                         // Mount the bitvm cache
                         bitvm_cache_path.display().to_string(),
                         work_dir.display().to_string(),
