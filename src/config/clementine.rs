@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
 use crate::{
-    config::{BitcoinConfig, PostgresConfig, RpcConfig}, docker::DockerEnv, log_provider::LogPathProvider, node::NodeKind
+    config::{BitcoinConfig, PostgresConfig, RpcConfig},
+    docker::DockerEnv,
+    log_provider::LogPathProvider,
+    node::NodeKind,
 };
 
 pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey> =
@@ -503,8 +506,17 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             std::any::TypeId::of::<E>() == std::any::TypeId::of::<AggregatorConfig>();
         let certificate_base_dir = base_dir.join("certs");
 
-        let full_node_host = docker.as_ref().and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::FullNode))).unwrap_or("127.0.0.1".to_string());
-        let lcp_host = docker.as_ref().and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::LightClientProver))).unwrap_or("127.0.0.1".to_string());
+        let full_node_host = docker
+            .as_ref()
+            .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::FullNode)))
+            .unwrap_or("127.0.0.1".to_string());
+        let lcp_host = docker
+            .as_ref()
+            .and_then(|d| {
+                d.citrea()
+                    .then(|| d.get_hostname(&NodeKind::LightClientProver))
+            })
+            .unwrap_or("127.0.0.1".to_string());
 
         Self {
             // TODO: need to change the host to 127.0.0.1 until docker support is added
@@ -530,8 +542,7 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             citrea_rpc_url: format!("http://{}:{}", full_node_host, citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
                 "http://{}:{}",
-                lcp_host,
-                citrea_light_client_prover_rpc.bind_port
+                lcp_host, citrea_light_client_prover_rpc.bind_port
             ),
 
             server_cert_path: certificate_base_dir.join("server").join("server.pem"),

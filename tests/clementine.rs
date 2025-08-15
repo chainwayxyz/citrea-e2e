@@ -150,7 +150,10 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                         };
                         let h = status.hcp_last_proven_height.unwrap_or(0) as u64;
                         if h < target_height {
-                            debug!("entity {:?} behind, {h} (height) < {target_height} (target)", es.entity_id.unwrap());
+                            debug!(
+                                "entity {:?} behind, {h} (height) < {target_height} (target)",
+                                es.entity_id.unwrap()
+                            );
                             all_ok = false;
                             break;
                         }
@@ -174,7 +177,10 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
 
 #[tokio::test]
 async fn test_clementine_integration_w_docker() -> Result<()> {
-    std::env::set_var("CITREA_DOCKER_IMAGE", "chainwayxyz/citrea-test:ca479a4147be1c3a472e76a3f117124683d81ab5");
+    std::env::set_var(
+        "CITREA_DOCKER_IMAGE",
+        "chainwayxyz/citrea-test:ca479a4147be1c3a472e76a3f117124683d81ab5",
+    );
     TestCaseRunner::new(ClementineIntegrationTest::<true>)
         .run()
         .await
