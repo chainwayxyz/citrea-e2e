@@ -11,9 +11,7 @@ use serde::{Deserialize, Serialize};
 use tempfile::TempDir;
 
 use crate::{
-    config::{BitcoinConfig, PostgresConfig, RpcConfig},
-    log_provider::LogPathProvider,
-    node::NodeKind,
+    config::{BitcoinConfig, PostgresConfig, RpcConfig}, docker::DockerEnv, log_provider::LogPathProvider, node::NodeKind
 };
 
 pub static UNSPENDABLE_XONLY_PUBKEY: LazyLock<bitcoin::secp256k1::XOnlyPublicKey> =
@@ -149,6 +147,7 @@ impl ClementineConfig<AggregatorConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<AggregatorConfig>,
@@ -167,6 +166,7 @@ impl ClementineConfig<AggregatorConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -226,6 +226,7 @@ impl ClementineConfig<OperatorConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<OperatorConfig>,
@@ -239,6 +240,7 @@ impl ClementineConfig<OperatorConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -282,6 +284,7 @@ impl ClementineConfig<VerifierConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<VerifierConfig>,
@@ -295,6 +298,7 @@ impl ClementineConfig<VerifierConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -491,12 +495,16 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         base_dir: PathBuf,
         overrides: ClementineConfig<E>,
     ) -> Self {
         let is_aggregator =
             std::any::TypeId::of::<E>() == std::any::TypeId::of::<AggregatorConfig>();
         let certificate_base_dir = base_dir.join("certs");
+
+        let full_node_host = docker.as_ref().and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::FullNode))).unwrap_or("127.0.0.1".to_string());
+        let lcp_host = docker.as_ref().and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::LightClientProver))).unwrap_or("127.0.0.1".to_string());
 
         Self {
             // TODO: need to change the host to 127.0.0.1 until docker support is added
@@ -519,9 +527,10 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             db_password: postgres_config.password,
             db_name: "clementine".to_string(), // overriden by caller
 
-            citrea_rpc_url: format!("http://127.0.0.1:{}", citrea_rpc.bind_port),
+            citrea_rpc_url: format!("http://{}:{}", full_node_host, citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
-                "http://127.0.0.1:{}",
+                "http://{}:{}",
+                lcp_host,
                 citrea_light_client_prover_rpc.bind_port
             ),
 

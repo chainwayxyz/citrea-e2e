@@ -7,6 +7,7 @@ use citrea_e2e::{
     test_case::{TestCase, TestCaseRunner},
     Result,
 };
+use tracing::debug;
 
 /// Integration test for Clementine gRPC clients.
 ///
@@ -35,6 +36,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
             n_verifiers: 2,
             n_operators: 2,
             with_full_node: true,
+            with_light_client_prover: true,
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
@@ -121,10 +123,12 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
             use citrea_e2e::bitcoin::DEFAULT_FINALITY_DEPTH;
             // Mine a bunch of blocks on DA
             let da = f.bitcoin_nodes.get(0).unwrap();
-            let start_height = da.get_block_count().await?;
-            let mine_blocks = DEFAULT_FINALITY_DEPTH;
-            da.generate(mine_blocks).await?;
-            let target_height = start_height + mine_blocks;
+            let target_height = da.get_block_count().await?;
+            // round down to nearest 100, HCP proves in 100 block batches
+            let target_height = target_height / 100 * 100;
+
+            // finalize the start_height
+            da.generate(DEFAULT_FINALITY_DEPTH).await?;
 
             // Ask aggregator for entity statuses until HCP height catches up
             let mut attempts = 0;
@@ -146,6 +150,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                         };
                         let h = status.hcp_last_proven_height.unwrap_or(0) as u64;
                         if h < target_height {
+                            debug!("entity {:?} behind, {h} (height) < {target_height} (target)", es.entity_id.unwrap());
                             all_ok = false;
                             break;
                         }
@@ -169,6 +174,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
 
 #[tokio::test]
 async fn test_clementine_integration_w_docker() -> Result<()> {
+    std::env::set_var("CITREA_DOCKER_IMAGE", "chainwayxyz/citrea-test:ca479a4147be1c3a472e76a3f117124683d81ab5");
     TestCaseRunner::new(ClementineIntegrationTest::<true>)
         .run()
         .await

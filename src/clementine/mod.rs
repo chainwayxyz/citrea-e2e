@@ -70,6 +70,7 @@ impl ClementineIntegration {
         docker: &Option<crate::docker::DockerEnv>,
     ) -> Result<crate::config::ClementineClusterConfig> {
         use anyhow::Context;
+        use crate::node::NodeKind;
 
         use crate::{
             config::{
@@ -97,6 +98,7 @@ impl ClementineIntegration {
                 bitcoin_config.clone(),
                 full_node_rpc.clone(),
                 light_client_rpc.clone(),
+                docker,
                 clementine_dir.to_path_buf(),
                 port,
                 T::clementine_verifier_config(i),
@@ -104,7 +106,7 @@ impl ClementineIntegration {
             // When running in Docker, use host.docker.internal so containers can reach host-published ports
             let host = docker
                 .as_ref()
-                .and_then(|d| d.clementine().then(|| "host.docker.internal".to_string()))
+                .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::ClementineVerifier(i))))
                 .unwrap_or("127.0.0.1".to_string());
             verifier_endpoints.push(format!("https://{}:{}", host, port));
         }
@@ -119,13 +121,14 @@ impl ClementineIntegration {
                 bitcoin_config.clone(),
                 full_node_rpc.clone(),
                 light_client_rpc.clone(),
+                docker,
                 clementine_dir.to_path_buf(),
                 port,
                 T::clementine_operator_config(i),
             ));
             let host = docker
                 .as_ref()
-                .and_then(|d| d.clementine().then(|| "host.docker.internal".to_string()))
+                .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::ClementineOperator(i))))
                 .unwrap_or("127.0.0.1".to_string());
             operator_endpoints.push(format!("https://{}:{}", host, port));
         }
@@ -138,6 +141,7 @@ impl ClementineIntegration {
             bitcoin_config.clone(),
             full_node_rpc.clone(),
             light_client_rpc.clone(),
+            docker,
             clementine_dir.to_path_buf(),
             port,
             T::clementine_aggregator_config(),

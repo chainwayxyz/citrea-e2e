@@ -37,6 +37,7 @@ basicConstraints = CA:true
 [alt_names]
 DNS.1 = localhost
 DNS.2 = host.docker.internal
+DNS.3 = *.e2e.internal
 IP.1 = 127.0.0.1
 EOF
 

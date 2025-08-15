@@ -31,8 +31,9 @@ use crate::{
 };
 
 pub const CLEMENTINE_NODE_STARTUP_TIMEOUT: Duration = Duration::from_secs(360);
-const DEFAULT_CLEMENTINE_DOCKER_IMAGE: &str =
-    "chainwayxyz/clementine@sha256:99111a1d44f7f699d639f104003d301db49739f9926765b2950fae8e448004a9";
+const DEFAULT_CLEMENTINE_DOCKER_IMAGE: &str = "chainwayxyz/clementine-automation:latest";
+const DEFAULT_DOCKER_CLIENT_URL: &str =
+    "https://download.docker.com/linux/static/stable/x86_64/docker-27.0.3.tgz";
 
 pub struct ClementineAggregator {
     pub config: ClementineConfig<AggregatorConfig>,
@@ -450,6 +451,143 @@ pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Erro
     res
 }
 
+/// Ensures that a docker client binary exists for Clementine containers.
+/// If no env is provided, uses a default static Docker client URL.
+/// This downloads to `resources/docker/docker-linux-amd64` under
+/// an exclusive file lock so concurrent test runs do not race.
+/// Returns the path to the binary if it exists after this call, otherwise None.
+pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<PathBuf>, std::io::Error>
+{
+    let url = std::env::var("CLEMENTINE_DOCKER_BINARY_URL")
+        .ok()
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| DEFAULT_DOCKER_CLIENT_URL.to_string());
+
+    // Prepare lock file next to the docker binary directory
+    let lock_file_path = get_workspace_root().join("resources/docker/.docker.lock");
+    if let Some(dir) = lock_file_path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let lock_file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock_file_path)?;
+
+    // Acquire an exclusive cross-process lock
+    use fs2::FileExt;
+    lock_file.lock_exclusive()?;
+
+    // Ensure we always release the lock
+    let res = async {
+        let target_path = get_workspace_root().join("resources/docker/docker-linux-amd64");
+
+        if !target_path.exists() {
+            debug!("Downloading docker client for Clementine from {}...", url);
+            if let Some(dir) = target_path.parent() {
+                let _ = tokio::fs::create_dir_all(dir).await;
+            }
+
+            if url.ends_with(".tgz") || url.ends_with(".tar.gz") {
+                // Download tarball
+                let tmp_tgz = target_path.with_extension("tgz.partial");
+                let output = Command::new("/usr/bin/env")
+                    .arg("bash")
+                    .arg("-c")
+                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_tgz.display()))
+                    .output()
+                    .await?;
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    error!("Failed to download docker client tarball: {}", stderr);
+                    return Err(std::io::Error::other(format!(
+                        "Docker client download failed: {}",
+                        stderr
+                    )));
+                }
+
+                // Extract and move the docker binary into place
+                let extract_dir = target_path
+                    .parent()
+                    .unwrap_or_else(|| std::path::Path::new("."))
+                    .join(".docker-extract");
+                let _ = tokio::fs::remove_dir_all(&extract_dir).await;
+                tokio::fs::create_dir_all(&extract_dir).await?;
+
+                let output = Command::new("/usr/bin/env")
+                    .arg("bash")
+                    .arg("-c")
+                    .arg(format!(
+                        "tar -xzf '{}' -C '{}'",
+                        tmp_tgz.display(),
+                        extract_dir.display()
+                    ))
+                    .output()
+                    .await?;
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    error!("Failed to extract docker client tarball: {}", stderr);
+                    return Err(std::io::Error::other(format!(
+                        "Docker client extract failed: {}",
+                        stderr
+                    )));
+                }
+
+                let extracted_binary = extract_dir.join("docker").join("docker");
+                if !extracted_binary.exists() {
+                    return Err(std::io::Error::other("Extracted docker binary not found"));
+                }
+
+                let mut perms = tokio::fs::metadata(&extracted_binary).await?.permissions();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    perms.set_mode(0o755);
+                }
+                tokio::fs::set_permissions(&extracted_binary, perms).await?;
+                tokio::fs::rename(&extracted_binary, &target_path).await?;
+                let _ = tokio::fs::remove_dir_all(&extract_dir).await;
+                let _ = tokio::fs::remove_file(&tmp_tgz).await;
+            } else {
+                // Download single binary
+                let tmp_path = target_path.with_extension("partial");
+                let output = Command::new("/usr/bin/env")
+                    .arg("bash")
+                    .arg("-c")
+                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_path.display()))
+                    .output()
+                    .await?;
+
+                if !output.status.success() {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    error!("Failed to download docker client: {}", stderr);
+                    return Err(std::io::Error::other(format!(
+                        "Docker client download failed: {}",
+                        stderr
+                    )));
+                }
+
+                let mut perms = tokio::fs::metadata(&tmp_path).await?.permissions();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    perms.set_mode(0o755);
+                }
+                tokio::fs::set_permissions(&tmp_path, perms).await?;
+                tokio::fs::rename(&tmp_path, &target_path).await?;
+            }
+        }
+
+        Ok(Some(target_path))
+    }
+    .await;
+
+    let _ = fs2::FileExt::unlock(&lock_file);
+
+    res
+}
+
 /// Shared function to spawn any Clementine node type
 async fn spawn_clementine_node<E: ClementineEntityConfig>(
     config: &ClementineConfig<E>,
@@ -556,6 +694,8 @@ where
 
     let spawn_output = match docker.as_ref() {
         Some(docker) if docker.clementine() => {
+            // Ensure docker client binary if configured; mounting is handled centrally in DockerEnv
+            let _ = ensure_docker_client_if_needed().await;
             docker
                 .spawn(DockerConfig {
                     ports: vec![config.port],
@@ -565,14 +705,17 @@ where
                         .unwrap_or(DEFAULT_CLEMENTINE_DOCKER_IMAGE)
                         .to_string(),
                     cmd: args,
-                    host_dir: Some(vec![
-                        // Mount the base_dir for config and paramset to be accessible
-                        config.base_dir.display().to_string(),
-                        paramset_path.display().to_string(),
-                        // Mount the bitvm cache
-                        bitvm_cache_path.display().to_string(),
-                        work_dir.display().to_string(),
-                    ]),
+                    host_dir: Some({
+                        let mounts = vec![
+                            // Mount the base_dir for config and paramset to be accessible
+                            config.base_dir.display().to_string(),
+                            paramset_path.display().to_string(),
+                            // Mount the bitvm cache
+                            bitvm_cache_path.display().to_string(),
+                            work_dir.display().to_string(),
+                        ];
+                        mounts
+                    }),
                     log_path: config.log_path(),
                     volume: VolumeConfig {
                         name: role.to_string(),

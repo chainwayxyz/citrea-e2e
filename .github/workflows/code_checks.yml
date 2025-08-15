@@ -72,7 +72,7 @@ jobs:
 
     - name: Download Clementine
       run: |
-        wget https://github.com/chainwayxyz/clementine/releases/download/v0.3.26/clementine-core-v0.3.26-with-automation-linux-amd64 -O /tmp/clementine-core
+        wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
         chmod +x /tmp/clementine-core
 
     - name: Run Cargo test
@@ -80,4 +80,4 @@ jobs:
         CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
-      run: cargo test
+      run: cargo test --all-features

@@ -98,7 +98,8 @@ impl DockerEnv {
     }
 
     pub fn get_hostname(&self, kind: &NodeKind) -> String {
-        format!("{kind}-{}", self.id)
+        // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
+        format!("{kind}-{}.e2e.internal", self.id)
     }
 
     pub async fn spawn(&self, config: DockerConfig) -> Result<SpawnOutput> {
@@ -130,7 +131,8 @@ impl DockerEnv {
         network_config.insert(
             self.network_info.id.clone(),
             EndpointSettings {
-                ip_address: Some(self.get_hostname(&config.kind)),
+                // ip_address: Some(self.get_hostname(&config.kind)),
+                aliases: Some(vec![self.get_hostname(&config.kind)]),
                 ..Default::default()
             },
         );
