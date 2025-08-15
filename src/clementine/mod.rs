@@ -69,7 +69,6 @@ impl ClementineIntegration {
         light_client_rpc: crate::config::RpcConfig,
         docker: &Option<crate::docker::DockerEnv>,
     ) -> Result<crate::config::ClementineClusterConfig> {
-        use crate::node::NodeKind;
         use anyhow::Context;
 
         use crate::{
@@ -77,6 +76,7 @@ impl ClementineIntegration {
                 AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig,
                 VerifierConfig,
             },
+            node::NodeKind,
             utils::get_available_port,
         };
 
