@@ -75,6 +75,11 @@ jobs:
         wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
         chmod +x /tmp/clementine-core
 
+    - name: Copy Docker binary
+      run: |
+        mkdir -p resources/docker
+        cp /usr/bin/docker ./resources/docker/docker-linux-amd64
+
     - name: Run Cargo test
       env:
         CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
