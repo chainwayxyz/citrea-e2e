@@ -7,7 +7,7 @@ use citrea_e2e::{
     test_case::{TestCase, TestCaseRunner},
     Result,
 };
-use tracing::debug;
+use tracing::info;
 
 /// Integration test for Clementine gRPC clients.
 ///
@@ -123,12 +123,17 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
             use citrea_e2e::bitcoin::DEFAULT_FINALITY_DEPTH;
             // Mine a bunch of blocks on DA
             let da = f.bitcoin_nodes.get(0).unwrap();
+
             let target_height = da.get_block_count().await?;
+            if target_height < 100 {
+                da.generate(100 - target_height).await?;
+            }
+
             // round down to nearest 100, HCP proves in 100 block batches
             let target_height = target_height / 100 * 100;
 
-            // finalize the start_height
-            da.generate(DEFAULT_FINALITY_DEPTH).await?;
+            // ensure target_height finalized
+            da.generate(DEFAULT_FINALITY_DEPTH + 1).await?;
 
             // Ask aggregator for entity statuses until HCP height catches up
             let mut attempts = 0;
@@ -150,7 +155,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                         };
                         let h = status.hcp_last_proven_height.unwrap_or(0) as u64;
                         if h < target_height {
-                            debug!(
+                            info!(
                                 "entity {:?} behind, {h} (height) < {target_height} (target)",
                                 es.entity_id.unwrap()
                             );
@@ -187,6 +192,7 @@ async fn test_clementine_integration_w_docker() -> Result<()> {
 }
 
 #[tokio::test]
+#[ignore = "won't pass before Clementine releases again with fixes"]
 async fn test_clementine_integration_wo_docker() -> Result<()> {
     TestCaseRunner::new(ClementineIntegrationTest::<false>)
         .run()
