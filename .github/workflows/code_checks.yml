@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TERM_VERBOSE: true
   CARGOFLAGS: --workspace --all-targets --all-features
-  RUST_LOG: citrea-e2e=trace,debug
+  RUST_LOG: citrea-e2e=trace,info
   RISC0_DEV_MODE: 1
 
 jobs:
@@ -57,8 +57,8 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install protoc
-      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
 
     - name: Set up Rust
       uses: actions-rs/toolchain@v1
@@ -72,12 +72,17 @@ jobs:
 
     - name: Download Clementine
       run: |
-        wget https://github.com/chainwayxyz/clementine/releases/download/v0.3.26/clementine-core-v0.3.26-with-automation-linux-amd64 -O /tmp/clementine-core
+        wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
         chmod +x /tmp/clementine-core
+
+    - name: Copy Docker binary
+      run: |
+        mkdir -p resources/docker
+        cp /usr/bin/docker ./resources/docker/docker-linux-amd64
 
     - name: Run Cargo test
       env:
         CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
-      run: cargo test
+      run: cargo test --all-features

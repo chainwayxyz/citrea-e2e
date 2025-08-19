@@ -17,7 +17,8 @@ use std::{
 pub use bitcoin::BitcoinConfig;
 #[cfg(feature = "clementine")]
 pub use clementine::{
-    AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig, VerifierConfig,
+    AggregatorConfig, ClementineClusterConfig, ClementineConfig, ClementineEntityConfig,
+    OperatorConfig, VerifierConfig,
 };
 pub use docker::{DockerConfig, VolumeConfig};
 #[cfg(feature = "clementine")]

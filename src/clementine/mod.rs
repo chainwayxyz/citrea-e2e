@@ -67,6 +67,7 @@ impl ClementineIntegration {
         bitcoin_config: crate::config::BitcoinConfig,
         full_node_rpc: crate::config::RpcConfig,
         light_client_rpc: crate::config::RpcConfig,
+        docker: &Option<crate::docker::DockerEnv>,
     ) -> Result<crate::config::ClementineClusterConfig> {
         use anyhow::Context;
 
@@ -75,6 +76,7 @@ impl ClementineIntegration {
                 AggregatorConfig, ClementineClusterConfig, ClementineConfig, OperatorConfig,
                 VerifierConfig,
             },
+            node::NodeKind,
             utils::get_available_port,
         };
 
@@ -96,11 +98,20 @@ impl ClementineIntegration {
                 bitcoin_config.clone(),
                 full_node_rpc.clone(),
                 light_client_rpc.clone(),
+                docker,
                 clementine_dir.to_path_buf(),
                 port,
                 T::clementine_verifier_config(i),
             ));
-            verifier_endpoints.push(format!("https://127.0.0.1:{}", port));
+            // When running in Docker, use host.docker.internal so containers can reach host-published ports
+            let host = docker
+                .as_ref()
+                .and_then(|d| {
+                    d.clementine()
+                        .then(|| d.get_hostname(&NodeKind::ClementineVerifier(i)))
+                })
+                .unwrap_or("127.0.0.1".to_string());
+            verifier_endpoints.push(format!("https://{}:{}", host, port));
         }
 
         let mut operators = vec![];
@@ -113,11 +124,19 @@ impl ClementineIntegration {
                 bitcoin_config.clone(),
                 full_node_rpc.clone(),
                 light_client_rpc.clone(),
+                docker,
                 clementine_dir.to_path_buf(),
                 port,
                 T::clementine_operator_config(i),
             ));
-            operator_endpoints.push(format!("https://127.0.0.1:{}", port));
+            let host = docker
+                .as_ref()
+                .and_then(|d| {
+                    d.clementine()
+                        .then(|| d.get_hostname(&NodeKind::ClementineOperator(i)))
+                })
+                .unwrap_or("127.0.0.1".to_string());
+            operator_endpoints.push(format!("https://{}:{}", host, port));
         }
 
         let port = get_available_port()?;
@@ -128,6 +147,7 @@ impl ClementineIntegration {
             bitcoin_config.clone(),
             full_node_rpc.clone(),
             light_client_rpc.clone(),
+            docker,
             clementine_dir.to_path_buf(),
             port,
             T::clementine_aggregator_config(),
