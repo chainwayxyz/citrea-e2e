@@ -463,6 +463,12 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
         .filter(|u| !u.is_empty())
         .unwrap_or_else(|| DEFAULT_DOCKER_CLIENT_URL.to_string());
 
+    // If the docker client already exists, short-circuit without taking the lock
+    let target_path = get_workspace_root().join("resources/docker/docker-linux-amd64");
+    if target_path.exists() {
+        return Ok(Some(target_path));
+    }
+
     // Prepare lock file next to the docker binary directory
     let lock_file_path = get_workspace_root().join("resources/docker/.docker.lock");
     if let Some(dir) = lock_file_path.parent() {
@@ -475,9 +481,21 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
         .truncate(false)
         .open(&lock_file_path)?;
 
-    // Acquire an exclusive cross-process lock
-    use fs2::FileExt;
-    lock_file.lock_exclusive()?;
+    // Acquire an exclusive cross-process lock with timeout to avoid deadlocks
+    let start = Instant::now();
+    let timeout = Duration::from_secs(30);
+    loop {
+        // Prefer a non-blocking try-lock; retry until timeout
+        if fs2::FileExt::try_lock_exclusive(&lock_file).is_ok() {
+            break;
+        }
+        if start.elapsed() >= timeout {
+            return Err(std::io::Error::other(
+                "Failed to acquire docker client lock within timeout",
+            ));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
 
     // Ensure we always release the lock
     let res = async {
