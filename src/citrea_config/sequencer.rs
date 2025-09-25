@@ -21,6 +21,8 @@ pub struct SequencerConfig {
     pub block_production_interval_ms: u64,
     /// Bridge system contract initialize function parameters
     pub bridge_initialize_params: String,
+    /// L1 fee rate multiplier
+    pub l1_fee_rate_multiplier: f64,
     /// Configuration for the listen mode sequencer
     pub listen_mode_config: Option<ListenModeConfig>,
 }
@@ -37,6 +39,7 @@ impl Default for SequencerConfig {
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            l1_fee_rate_multiplier: 1.0,
             listen_mode_config: None,
         }
     }
@@ -127,6 +130,7 @@ mod tests {
             base_fee_tx_limit = 100000
             base_fee_tx_size = 200
             max_account_slots = 16
+            l1_fee_rate_multiplier = 0.75
         "#;
 
         let config_file = create_config_from(config);
@@ -151,6 +155,7 @@ mod tests {
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            l1_fee_rate_multiplier: 0.75,
             listen_mode_config: None,
         };
         assert_eq!(config, expected);
@@ -174,6 +179,7 @@ mod tests {
             base_fee_tx_limit = 100000
             base_fee_tx_size = 200
             max_account_slots = 16
+            l1_fee_rate_multiplier = 1.0
             [listen_mode_config]
             sequencer_client_url = "http://localhost:8545"
             sync_blocks_count = 10
@@ -201,6 +207,7 @@ mod tests {
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            l1_fee_rate_multiplier: 1.0,
             listen_mode_config: Some(ListenModeConfig {
                 sequencer_client_url: "http://localhost:8545".to_string(),
                 sync_blocks_count: 10,
