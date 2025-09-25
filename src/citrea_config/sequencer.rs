@@ -23,6 +23,8 @@ pub struct SequencerConfig {
     pub bridge_initialize_params: String,
     /// L1 fee rate multiplier
     pub l1_fee_rate_multiplier: f64,
+    /// Maximum L1 fee rate (sat/vbyte)
+    pub max_l1_fee_rate: u64,
     /// Configuration for the listen mode sequencer
     pub listen_mode_config: Option<ListenModeConfig>,
 }
@@ -40,6 +42,7 @@ impl Default for SequencerConfig {
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 1.0,
+            max_l1_fee_rate: 10,
             listen_mode_config: None,
         }
     }
@@ -123,6 +126,7 @@ mod tests {
             block_production_interval_ms = 1000
             bridge_initialize_params = "000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000002d4a209fb3a961d8b1f4ec1caa220c6a50b815febc0b689ddf0b9ddfbf99cb74479e41ac0063066369747265611400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a08000000003b9aca006800000000000000000000000000000000000000000000"
             l1_fee_rate_multiplier = 0.75
+            max_l1_fee_rate = 10
             
             [mempool_conf]
             pending_tx_limit = 100000
@@ -157,6 +161,7 @@ mod tests {
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 0.75,
+            max_l1_fee_rate: 10,
             listen_mode_config: None,
         };
         assert_eq!(config, expected);
@@ -173,6 +178,7 @@ mod tests {
             block_production_interval_ms = 1000
             bridge_initialize_params = "000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000002d4a209fb3a961d8b1f4ec1caa220c6a50b815febc0b689ddf0b9ddfbf99cb74479e41ac0063066369747265611400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a08000000003b9aca006800000000000000000000000000000000000000000000"
             l1_fee_rate_multiplier = 1.0
+            max_l1_fee_rate = 1
 
             [mempool_conf]
             pending_tx_limit = 100000
@@ -211,6 +217,7 @@ mod tests {
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 1.0,
+            max_l1_fee_rate: 1,
             listen_mode_config: Some(ListenModeConfig {
                 sequencer_client_url: "http://localhost:8545".to_string(),
                 sync_blocks_count: 10,
