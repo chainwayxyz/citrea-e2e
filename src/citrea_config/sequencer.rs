@@ -40,7 +40,7 @@ impl Default for SequencerConfig {
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 1.0,
-            max_l1_fee_rate: 10,
+            max_l1_fee_rate: 15,
         }
     }
 }
