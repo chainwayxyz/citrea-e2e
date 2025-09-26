@@ -24,7 +24,7 @@ pub struct SequencerConfig {
     /// L1 fee rate multiplier
     pub l1_fee_rate_multiplier: f64,
     /// Maximum L1 fee rate (sat/vbyte)
-    pub max_l1_fee_rate: u64,
+    pub max_l1_fee_rate_sat_vb: u64,
 }
 
 impl Default for SequencerConfig {
@@ -40,7 +40,7 @@ impl Default for SequencerConfig {
             mempool_conf: SequencerMempoolConfig::default(),
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 1.0,
-            max_l1_fee_rate: 15,
+            max_l1_fee_rate_sat_vb: 15,
         }
     }
 }
@@ -105,7 +105,7 @@ mod tests {
             block_production_interval_ms = 1000
             bridge_initialize_params = "000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000008ac7230489e80000000000000000000000000000000000000000000000000000000000000000002d4a209fb3a961d8b1f4ec1caa220c6a50b815febc0b689ddf0b9ddfbf99cb74479e41ac0063066369747265611400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a08000000003b9aca006800000000000000000000000000000000000000000000"
             l1_fee_rate_multiplier = 0.75
-            max_l1_fee_rate = 10
+            max_l1_fee_rate_sat_vb = 10
             
             [mempool_conf]
             pending_tx_limit = 100000
@@ -140,7 +140,7 @@ mod tests {
             block_production_interval_ms: 1000,
             bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
             l1_fee_rate_multiplier: 0.75,
-            max_l1_fee_rate: 10,
+            max_l1_fee_rate_sat_vb: 10,
         };
         assert_eq!(config, expected);
     }
