@@ -23,6 +23,8 @@ pub struct BatchProverConfig {
     pub proof_sampling_number: usize,
     /// If true prover will try to recover ongoing proving sessions
     pub enable_recovery: bool,
+    /// Maximum number of commitments to include in a single proof
+    pub max_commitments_per_proof: Option<usize>,
 }
 
 impl Default for BatchProverConfig {
@@ -31,6 +33,7 @@ impl Default for BatchProverConfig {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
             enable_recovery: true,
+            max_commitments_per_proof: None,
         }
     }
 }
@@ -72,6 +75,7 @@ mod tests {
             proving_mode = "skip"
             proof_sampling_number = 500
             enable_recovery = true
+            max_commitments_per_proof = 100
         "#;
 
         let config_file = create_config_from(config);
@@ -81,6 +85,7 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             enable_recovery: true,
+            max_commitments_per_proof: Some(100),
         };
         assert_eq!(config, expected);
     }
