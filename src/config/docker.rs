@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::PathBuf};
+use std::{collections::HashMap, fmt::Debug, path::PathBuf};
 
 use serde::Serialize;
 use tracing::debug;
@@ -32,6 +32,7 @@ pub struct DockerConfig {
     pub host_dir: Option<Vec<String>>,
     pub kind: NodeKind,
     pub throttle: Option<ThrottleConfig>,
+    pub env: HashMap<String, String>,
 }
 
 impl From<&BitcoinConfig> for DockerConfig {
@@ -60,6 +61,7 @@ impl From<&BitcoinConfig> for DockerConfig {
             host_dir: None,
             kind: NodeKind::Bitcoin,
             throttle: None, // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
+            env: HashMap::new(),
         }
     }
 }
@@ -94,6 +96,7 @@ where
             ]),
             kind,
             throttle: config.throttle.clone(),
+            env: HashMap::new(),
         }
     }
 }
@@ -130,6 +133,7 @@ impl From<&PostgresConfig> for DockerConfig {
             host_dir: None,
             kind: NodeKind::Postgres,
             throttle: None,
+            env: HashMap::new(),
         }
     }
 }

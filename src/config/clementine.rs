@@ -12,6 +12,7 @@ use tempfile::TempDir;
 
 use crate::{
     config::{BitcoinConfig, PostgresConfig, RpcConfig},
+    docker::DockerEnv,
     log_provider::LogPathProvider,
     node::NodeKind,
 };
@@ -122,10 +123,22 @@ impl Default for TelemetryConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AggregatorConfig {
     pub verifier_endpoints: Vec<String>,
     pub operator_endpoints: Vec<String>,
+    pub secret_key: SecretKey,
+}
+
+impl Default for AggregatorConfig {
+    fn default() -> Self {
+        Self {
+            verifier_endpoints: Vec::new(),
+            operator_endpoints: Vec::new(),
+            secret_key: SecretKey::from_slice(&seeded_key("aggregator", 0))
+                .expect("known valid input"),
+        }
+    }
 }
 
 impl ClementineConfig<AggregatorConfig> {
@@ -137,16 +150,18 @@ impl ClementineConfig<AggregatorConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<AggregatorConfig>,
     ) -> Self {
+        let mut entity_config = overrides.entity_config.clone();
+        entity_config.verifier_endpoints = verifier_endpoints;
+        entity_config.operator_endpoints = operator_endpoints;
+
         Self {
             port,
-            entity_config: AggregatorConfig {
-                verifier_endpoints,
-                operator_endpoints,
-            },
+            entity_config,
             // Aggregator uses the first verifier's database
             db_name: format!("clementine-{}", 0),
             ..ClementineConfig::<AggregatorConfig>::from_configs(
@@ -154,6 +169,7 @@ impl ClementineConfig<AggregatorConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -213,6 +229,7 @@ impl ClementineConfig<OperatorConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<OperatorConfig>,
@@ -226,6 +243,7 @@ impl ClementineConfig<OperatorConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -269,6 +287,7 @@ impl ClementineConfig<VerifierConfig> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         clementine_dir: PathBuf,
         port: u16,
         overrides: ClementineConfig<VerifierConfig>,
@@ -282,6 +301,7 @@ impl ClementineConfig<VerifierConfig> {
                 bitcoin_config,
                 citrea_rpc,
                 citrea_light_client_prover_rpc,
+                docker,
                 clementine_dir,
                 overrides,
             )
@@ -291,7 +311,7 @@ impl ClementineConfig<VerifierConfig> {
 /// Configuration options for any Clementine target (tests, binaries etc.).
 /// Named `BridgeConfig` in the original Clementine codebase.
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct ClementineConfig<E: Debug + Clone> {
+pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     // -- Required by all entities --
     /// Protocol paramset
     ///
@@ -333,6 +353,15 @@ pub struct ClementineConfig<E: Debug + Clone> {
 
     /// Security council.
     pub security_council: SecurityCouncil,
+
+    /// The ECDSA address of the citrea/aggregator that will sign the withdrawal params
+    /// after manual verification of the optimistic payout and operator's withdrawal.
+    /// Used for both an extra verification of aggregator's identity and to force citrea
+    /// to check withdrawal params manually during some time after launch.
+    pub aggregator_verification_address: Option<alloy_primitives::Address>,
+
+    /// The X25519 public key that will be used to encrypt the emergency stop message.
+    pub emergency_stop_encryption_public_key: Option<[u8; 32]>,
 
     // TLS certificates
     /// Path to the server certificate file.
@@ -380,13 +409,19 @@ pub struct ClementineConfig<E: Debug + Clone> {
 
     /// Logging directory (used in Citrea-E2E code, NOT passed to Clementine)
     pub log_dir: PathBuf,
+
+    /// Base directory for Clementine
+    pub base_dir: PathBuf,
+
+    /// Docker image to use for the node
+    pub image: Option<String>,
 }
 
-impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
+impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
     fn default() -> Self {
         Self {
             protocol_paramset: None,
-            host: "127.0.0.1".to_string(),
+            host: "0.0.0.0".to_string(),
             port: 17000,
 
             bitcoin_rpc_url: "http://127.0.0.1:18443/wallet/admin".to_string(),
@@ -411,6 +446,13 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
                 threshold: 1,
             },
 
+            emergency_stop_encryption_public_key: Some(
+                hex::decode("025d32d10ec7b899df4eeb4d80918b7f0a1f2a28f6af24f71aa2a59c69c0d531")
+                    .expect("valid hex")
+                    .try_into()
+                    .expect("valid key"),
+            ),
+
             server_cert_path: PathBuf::from("certs/server/server.pem"),
             server_key_path: PathBuf::from("certs/server/server.key"),
             client_cert_path: PathBuf::from("certs/client/client.pem"),
@@ -421,16 +463,30 @@ impl<E: Debug + Clone + Default> Default for ClementineConfig<E> {
 
             telemetry: Some(TelemetryConfig::default()),
 
+            // This defaults to a fixed key in Clementine
+            aggregator_verification_address: None,
+
             entity_config: E::default(),
 
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")
                 .keep(),
+
+            base_dir: TempDir::new()
+                .expect("Failed to create temporary directory")
+                .keep(),
+
+            image: None,
         }
     }
 }
 
-impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
+impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
+    pub fn with_aggregator_verification(mut self, address: alloy_primitives::Address) -> Self {
+        self.aggregator_verification_address = Some(address);
+        self
+    }
+
     /// Uses other configs to generate a ClementineConfig for the given entity type.
     ///
     /// Matches the AggregatorConfig type to determine if the entity is an
@@ -442,6 +498,7 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
         bitcoin_config: BitcoinConfig,
         citrea_rpc: RpcConfig,
         citrea_light_client_prover_rpc: RpcConfig,
+        docker: &Option<DockerEnv>,
         base_dir: PathBuf,
         overrides: ClementineConfig<E>,
     ) -> Self {
@@ -449,26 +506,43 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
             std::any::TypeId::of::<E>() == std::any::TypeId::of::<AggregatorConfig>();
         let certificate_base_dir = base_dir.join("certs");
 
+        let full_node_host = docker
+            .as_ref()
+            .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::FullNode)))
+            .unwrap_or("127.0.0.1".to_string());
+        let lcp_host = docker
+            .as_ref()
+            .and_then(|d| {
+                d.citrea()
+                    .then(|| d.get_hostname(&NodeKind::LightClientProver))
+            })
+            .unwrap_or("127.0.0.1".to_string());
+
         Self {
             // TODO: need to change the host to 127.0.0.1 until docker support is added
             bitcoin_rpc_url: format!(
-                "http://127.0.0.1:{}/wallet/{}",
+                "http://{}:{}/wallet/{}",
+                bitcoin_config
+                    .docker_host
+                    .unwrap_or("127.0.0.1".to_string()),
                 bitcoin_config.rpc_port,
                 NodeKind::Bitcoin
             ),
             bitcoin_rpc_user: bitcoin_config.rpc_user,
             bitcoin_rpc_password: bitcoin_config.rpc_password,
 
-            db_host: "127.0.0.1".to_string(),
+            db_host: postgres_config
+                .docker_host
+                .unwrap_or("127.0.0.1".to_string()),
             db_port: postgres_config.port as usize,
             db_user: postgres_config.user,
             db_password: postgres_config.password,
             db_name: "clementine".to_string(), // overriden by caller
 
-            citrea_rpc_url: format!("http://127.0.0.1:{}", citrea_rpc.bind_port),
+            citrea_rpc_url: format!("http://{}:{}", full_node_host, citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
-                "http://127.0.0.1:{}",
-                citrea_light_client_prover_rpc.bind_port
+                "http://{}:{}",
+                lcp_host, citrea_light_client_prover_rpc.bind_port
             ),
 
             server_cert_path: certificate_base_dir.join("server").join("server.pem"),
@@ -499,6 +573,8 @@ impl<E: Debug + Clone + Default + 'static> ClementineConfig<E> {
                 // default to the base regtest paramset
                 Some(base_dir.join("regtest_paramset.toml"))
             }),
+
+            base_dir: base_dir.clone(),
 
             // These values can be overridden by the caller using overrides.
             // header_chain_proof_path: None,
@@ -536,7 +612,7 @@ impl LogPathProvider for ClementineConfig<OperatorConfig> {
     }
 
     fn kind(&self) -> NodeKind {
-        NodeKind::ClementineOperator
+        NodeKind::ClementineOperator(self.entity_config.idx())
     }
 
     fn stderr_path(&self) -> PathBuf {
@@ -552,7 +628,7 @@ impl LogPathProvider for ClementineConfig<VerifierConfig> {
     }
 
     fn kind(&self) -> NodeKind {
-        NodeKind::ClementineVerifier
+        NodeKind::ClementineVerifier(self.entity_config.idx())
     }
 
     fn stderr_path(&self) -> PathBuf {
@@ -566,6 +642,28 @@ pub struct ClementineClusterConfig {
     pub aggregator: ClementineConfig<AggregatorConfig>,
     pub operators: Vec<ClementineConfig<OperatorConfig>>,
     pub verifiers: Vec<ClementineConfig<VerifierConfig>>,
+}
+
+pub trait ClementineEntityConfig: Serialize + Debug + Clone + Default {
+    fn idx(&self) -> u8;
+}
+
+impl ClementineEntityConfig for AggregatorConfig {
+    fn idx(&self) -> u8 {
+        0
+    }
+}
+
+impl ClementineEntityConfig for OperatorConfig {
+    fn idx(&self) -> u8 {
+        self.idx
+    }
+}
+
+impl ClementineEntityConfig for VerifierConfig {
+    fn idx(&self) -> u8 {
+        self.idx
+    }
 }
 
 #[cfg(test)]

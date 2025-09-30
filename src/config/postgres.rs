@@ -9,6 +9,7 @@ use crate::{log_provider::LogPathProvider, node::NodeKind};
 pub struct PostgresConfig {
     pub port: u16,
     pub user: String,
+    pub docker_host: Option<String>,
     pub password: String,
     pub log_dir: PathBuf,
     pub extra_args: Vec<String>,
@@ -21,6 +22,7 @@ impl Default for PostgresConfig {
         Self {
             port: 5432,
             user: "clementine".to_string(),
+            docker_host: None,
             password: "clementine".to_string(),
             log_dir: TempDir::new()
                 .expect("Failed to create temporary directory")

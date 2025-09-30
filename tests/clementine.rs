@@ -7,6 +7,7 @@ use citrea_e2e::{
     test_case::{TestCase, TestCaseRunner},
     Result,
 };
+use tracing::info;
 
 /// Integration test for Clementine gRPC clients.
 ///
@@ -25,20 +26,21 @@ use citrea_e2e::{
 /// ### Verifier Service:
 /// - `get_params()` - Returns verifier parameters including public key
 /// - `get_current_status()` - Provides status of the verifier node
-struct ClementineIntegrationTest;
+struct ClementineIntegrationTest<const WITH_DOCKER: bool>;
 
 #[async_trait]
-impl TestCase for ClementineIntegrationTest {
+impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER> {
     fn test_config() -> TestCaseConfig {
         TestCaseConfig {
             with_clementine: true,
             n_verifiers: 2,
             n_operators: 2,
             with_full_node: true,
+            with_light_client_prover: true,
             docker: TestCaseDockerConfig {
                 bitcoin: true,
                 citrea: true,
-                clementine: false,
+                clementine: WITH_DOCKER,
             },
             ..Default::default()
         }
@@ -87,7 +89,9 @@ impl TestCase for ClementineIntegrationTest {
 
             println!(
                 "Operator {}: automation={}, balance={}",
-                i, status.automation, status.wallet_balance
+                i,
+                status.automation,
+                status.wallet_balance.expect("Balance should be present")
             );
         }
 
@@ -107,8 +111,69 @@ impl TestCase for ClementineIntegrationTest {
 
             println!(
                 "Verifier {}: automation={}, balance={}",
-                i, status.automation, status.wallet_balance
+                i,
+                status.automation,
+                status.wallet_balance.expect("Balance should be present")
             );
+        }
+
+        // If running Clementine in Docker, mine blocks and ensure HCP catches up
+        if WITH_DOCKER {
+            use bitcoincore_rpc::RpcApi;
+            use citrea_e2e::bitcoin::DEFAULT_FINALITY_DEPTH;
+            // Mine a bunch of blocks on DA
+            let da = f.bitcoin_nodes.get(0).unwrap();
+
+            let target_height = da.get_block_count().await?;
+            if target_height < 100 {
+                da.generate(100 - target_height).await?;
+            }
+
+            // round down to nearest 100, HCP proves in 100 block batches
+            let target_height = target_height / 100 * 100;
+
+            // ensure target_height finalized
+            da.generate(DEFAULT_FINALITY_DEPTH + 1).await?;
+
+            // Ask aggregator for entity statuses until HCP height catches up
+            let mut attempts = 0;
+            let max_attempts = 120; // allow up to ~2 minutes
+            loop {
+                let statuses = clementine
+                    .aggregator
+                    .client
+                    .get_entity_statuses(false)
+                    .await
+                    .expect("Failed to get entity statuses from aggregator");
+
+                let mut all_ok = true;
+                for es in statuses.entity_statuses {
+                    if let Some(sr) = es.status_result {
+                        let status = match sr {
+                            citrea_e2e::clementine::client::clementine::entity_status_with_id::StatusResult::Status(s) => s,
+                            _ => { all_ok = false; break; }
+                        };
+                        let h = status.hcp_last_proven_height.unwrap_or(0) as u64;
+                        if h < target_height {
+                            info!(
+                                "entity {:?} behind, {h} (height) < {target_height} (target)",
+                                es.entity_id.unwrap()
+                            );
+                            all_ok = false;
+                            break;
+                        }
+                    } else {
+                        all_ok = false;
+                        break;
+                    }
+                }
+                if all_ok {
+                    break;
+                }
+                attempts += 1;
+                anyhow::ensure!(attempts < max_attempts, "HCP did not catch up in time");
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
         }
 
         Ok(())
@@ -116,6 +181,16 @@ impl TestCase for ClementineIntegrationTest {
 }
 
 #[tokio::test]
-async fn test_clementine_integration() -> Result<()> {
-    TestCaseRunner::new(ClementineIntegrationTest).run().await
+async fn test_clementine_integration_w_docker() -> Result<()> {
+    TestCaseRunner::new(ClementineIntegrationTest::<true>)
+        .run()
+        .await
+}
+
+#[tokio::test]
+#[ignore = "won't pass before Clementine releases again with fixes"]
+async fn test_clementine_integration_wo_docker() -> Result<()> {
+    TestCaseRunner::new(ClementineIntegrationTest::<false>)
+        .run()
+        .await
 }
