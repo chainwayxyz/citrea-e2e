@@ -81,6 +81,7 @@ pub struct TestCaseConfig {
     pub clementine_dir: Option<String>,
     pub test_id: String,
     pub mode: CitreaMode,
+    pub stop_nodes_on_exit: bool,
 }
 
 impl Default for TestCaseConfig {
@@ -112,6 +113,7 @@ impl Default for TestCaseConfig {
             clementine_dir: None,
             test_id,
             mode: CitreaMode::Dev,
+            stop_nodes_on_exit: true,
         }
     }
 }
