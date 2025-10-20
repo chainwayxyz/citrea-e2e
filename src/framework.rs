@@ -299,7 +299,12 @@ impl TestFramework {
     }
 
     pub async fn stop(&mut self) -> Result<()> {
-        info!("Stopping framework...");
+        if !self.ctx.config.test_case.stop_nodes_on_exit {
+            info!("Stopping framework but keeping nodes alive...");
+            return Ok(());
+        }
+
+        info!("Stopping framework and shutting down nodes...");
 
         #[cfg(feature = "clementine")]
         {
