@@ -49,13 +49,14 @@ mod tests {
     use std::{
         fs::File,
         io::{Read, Write},
-        path::Path,
+        path::{Path, PathBuf},
     };
 
     use serde::de::DeserializeOwned;
     use tempfile::NamedTempFile;
 
     use super::*;
+    use crate::citrea_config::risc0::{LocalProverConfig, Risc0ProverConfig};
 
     /// Reads toml file as a specific type.
     pub fn from_toml_path<P: AsRef<Path>, R: DeserializeOwned>(path: P) -> anyhow::Result<R> {

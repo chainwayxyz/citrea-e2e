@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
 
 /// Boundless storage configuration for S3
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]

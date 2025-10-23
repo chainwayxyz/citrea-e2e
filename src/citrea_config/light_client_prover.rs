@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::batch_prover::ProverGuestRunConfig;
+use crate::citrea_config::risc0::Risc0HostConfig;
 
 /// Light client prover configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
