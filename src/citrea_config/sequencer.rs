@@ -66,6 +66,12 @@ pub struct SequencerMempoolConfig {
     pub base_fee_tx_size: u64,
     /// Max number of executable transaction slots guaranteed per account
     pub max_account_slots: u64,
+    /// Maximum reorg depth for mempool updates (default: 64 blocks = 2 epochs)
+    pub max_update_depth: Option<u64>,
+    /// Maximum accounts to reload from state at once (default: 100)
+    pub max_reload_accounts: Option<usize>,
+    /// Maximum lifetime for non-executable transactions in seconds (default: 10800 = 3 hours)
+    pub max_tx_lifetime_secs: Option<u64>,
 }
 
 impl Default for SequencerMempoolConfig {
@@ -78,6 +84,9 @@ impl Default for SequencerMempoolConfig {
             base_fee_tx_limit: 100_000,
             base_fee_tx_size: 200,
             max_account_slots: 16,
+            max_update_depth: None,
+            max_reload_accounts: None,
+            max_tx_lifetime_secs: None,
         }
     }
 }
@@ -156,6 +165,9 @@ mod tests {
                 base_fee_tx_limit: 100000,
                 base_fee_tx_size: 200,
                 max_account_slots: 16,
+                max_update_depth: None,
+                max_reload_accounts: None,
+                max_tx_lifetime_secs: None,
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
@@ -212,6 +224,9 @@ mod tests {
                 base_fee_tx_limit: 100000,
                 base_fee_tx_size: 200,
                 max_account_slots: 16,
+                max_update_depth: None,
+                max_reload_accounts: None,
+                max_tx_lifetime_secs: None,
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
