@@ -350,7 +350,7 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     pub bridge_contract_address: String,
     // Initial header chain proof receipt's file path.
     pub header_chain_proof_path: Option<PathBuf>,
-    /// Batch size of the header chain proofs
+    /// Batch size of the header chain proofs.
     pub header_chain_proof_batch_size: u32,
 
     /// Security council.
