@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::citrea_config::risc0::Risc0HostConfig;
+
 /// The possible configurations of the prover.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -25,6 +27,9 @@ pub struct BatchProverConfig {
     pub enable_recovery: bool,
     /// Maximum number of commitments to include in a single proof
     pub max_commitments_per_proof: Option<usize>,
+    /// Configuration for Risc0Host
+    #[serde(default)]
+    pub risc0_host_config: Risc0HostConfig,
 }
 
 impl Default for BatchProverConfig {
@@ -34,6 +39,7 @@ impl Default for BatchProverConfig {
             proof_sampling_number: 0,
             enable_recovery: true,
             max_commitments_per_proof: None,
+            risc0_host_config: Default::default(),
         }
     }
 }
@@ -43,13 +49,14 @@ mod tests {
     use std::{
         fs::File,
         io::{Read, Write},
-        path::Path,
+        path::{Path, PathBuf},
     };
 
     use serde::de::DeserializeOwned;
     use tempfile::NamedTempFile;
 
     use super::*;
+    use crate::citrea_config::risc0::{LocalProverConfig, Risc0ProverConfig};
 
     /// Reads toml file as a specific type.
     pub fn from_toml_path<P: AsRef<Path>, R: DeserializeOwned>(path: P) -> anyhow::Result<R> {
@@ -76,6 +83,13 @@ mod tests {
             proof_sampling_number = 500
             enable_recovery = true
             max_commitments_per_proof = 100
+
+            [risc0_host_config]
+            tx_backup_dir = "/tmp/backup"
+            
+            [risc0_host_config.prover.Local]
+            r0vm_path = "path/to/vm"
+            dev_mode = false
         "#;
 
         let config_file = create_config_from(config);
@@ -86,6 +100,13 @@ mod tests {
             proof_sampling_number: 500,
             enable_recovery: true,
             max_commitments_per_proof: Some(100),
+            risc0_host_config: Risc0HostConfig {
+                prover: Risc0ProverConfig::Local(LocalProverConfig {
+                    r0vm_path: Some(PathBuf::from("path/to/vm")),
+                    dev_mode: false,
+                }),
+                tx_backup_dir: Some(PathBuf::from("/tmp/backup")),
+            },
         };
         assert_eq!(config, expected);
     }
