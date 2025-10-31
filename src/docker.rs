@@ -1,7 +1,7 @@
-#![allow(deprecated)] // Allowing deprecation for now as v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
+#![allow(deprecated)] // Allowing deprecation for now as bollard v0.19.1 has bogus warning messages that cannot be fixed as of now. TODO remove when possible
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -9,7 +9,9 @@ use bollard::{
     container::{Config, LogOutput, NetworkingConfig},
     models::{EndpointSettings, Mount, PortBinding},
     network::CreateNetworkOptions,
-    query_parameters::{CreateContainerOptions, CreateImageOptions, LogsOptions},
+    query_parameters::{
+        CreateContainerOptions, CreateImageOptions, ListContainersOptionsBuilder, LogsOptions,
+    },
     secret::MountTypeEnum,
     service::HostConfig,
     volume::CreateVolumeOptions,
@@ -20,7 +22,7 @@ use tokio::{fs::File, io::AsyncWriteExt, sync::Mutex, task::JoinHandle};
 use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
-use crate::{config::TestCaseDockerConfig, node::NodeKind};
+use crate::{config::TestCaseDockerConfig, node::NodeKind, utils::get_workspace_root};
 
 #[derive(Debug)]
 pub struct ContainerSpawnOutput {
@@ -96,7 +98,8 @@ impl DockerEnv {
     }
 
     pub fn get_hostname(&self, kind: &NodeKind) -> String {
-        format!("{kind}-{}", self.id)
+        // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
+        format!("{kind}-{}.e2e.internal", self.id)
     }
 
     pub async fn spawn(&self, config: DockerConfig) -> Result<SpawnOutput> {
@@ -128,7 +131,8 @@ impl DockerEnv {
         network_config.insert(
             self.network_info.id.clone(),
             EndpointSettings {
-                ip_address: Some(self.get_hostname(&config.kind)),
+                // ip_address: Some(self.get_hostname(&config.kind)),
+                aliases: Some(vec![self.get_hostname(&config.kind)]),
                 ..Default::default()
             },
         );
@@ -152,6 +156,38 @@ impl DockerEnv {
             }
         }
 
+        // Always forward host Docker socket into containers
+        let docker_sock = "/var/run/docker.sock";
+        if Path::new(docker_sock).exists() {
+            mounts.push(Mount {
+                target: Some(docker_sock.to_string()),
+                source: Some(docker_sock.to_string()),
+                typ: Some(MountTypeEnum::BIND),
+                ..Default::default()
+            });
+        } else {
+            debug!("Host docker socket not found at {docker_sock}, skipping mount");
+        }
+
+        // Optionally mount a docker CLI into the container if provided in resources
+        // This is useful for images that do not include the docker client.
+        let resources_cli = get_workspace_root()
+            .join("resources")
+            .join("docker")
+            .join("docker-linux-amd64");
+        if resources_cli.exists() {
+            mounts.push(Mount {
+                target: Some("/usr/local/bin/docker".to_string()),
+                source: Some(resources_cli.display().to_string()),
+                typ: Some(MountTypeEnum::BIND),
+                ..Default::default()
+            });
+            debug!(
+                "Mounted docker CLI from resources: {}",
+                resources_cli.display()
+            );
+        }
+
         let mut host_config = HostConfig {
             port_bindings: Some(port_bindings),
             mounts: Some(mounts),
@@ -171,12 +207,23 @@ impl DockerEnv {
             }
         }
 
+        let mut envs = config.env.clone();
+
+        // Backwards compatibility for old fixed env
+        envs.entry("PARALLEL_PROOF_LIMIT".to_string())
+            .or_insert("1".to_string());
+
+        let envs = envs
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>();
+
         let container_config = Config {
             hostname: Some(format!("{}-{}", config.kind, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
-            env: Some(vec!["PARALLEL_PROOF_LIMIT=1".to_string()]), // Todo proper env handling
+            env: Some(envs),
             host_config: Some(host_config),
             networking_config: Some(NetworkingConfig {
                 endpoints_config: network_config,
@@ -286,7 +333,7 @@ impl DockerEnv {
 
         let containers = self
             .docker
-            .list_containers(None::<bollard::query_parameters::ListContainersOptions>)
+            .list_containers(Some(ListContainersOptionsBuilder::new().all(true).build()))
             .await?;
         for container in containers {
             if let (Some(id), Some(networks)) = (
@@ -300,6 +347,7 @@ impl DockerEnv {
                             None::<bollard::query_parameters::StopContainerOptions>,
                         )
                         .await?;
+
                     self.docker
                         .remove_container(
                             &id,
@@ -386,5 +434,11 @@ impl DockerEnv {
     // Should run citrea in docker
     pub fn citrea(&self) -> bool {
         self.test_case_config.citrea
+    }
+
+    // Should run clementine in docker
+    #[cfg(feature = "clementine")]
+    pub fn clementine(&self) -> bool {
+        self.test_case_config.clementine
     }
 }

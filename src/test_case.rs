@@ -4,19 +4,26 @@
 use std::{
     io::Write,
     panic::{self},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{bail, Context};
 use async_trait::async_trait;
 use futures::FutureExt;
-use tokio::signal;
+use tokio::{
+    fs::File,
+    io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom},
+    signal,
+    sync::{mpsc, mpsc::UnboundedSender},
+};
 
 use super::{
     config::{BitcoinConfig, TestCaseConfig, TestCaseEnv},
     framework::TestFramework,
     Result,
 };
+#[cfg(feature = "clementine")]
+use crate::config::{AggregatorConfig, ClementineConfig, OperatorConfig, VerifierConfig};
 use crate::{
     config::{BatchProverConfig, LightClientProverConfig, SequencerConfig, ThrottleConfig},
     traits::NodeT,
@@ -25,7 +32,8 @@ use crate::{
 const CITREA_ENV: &str = "CITREA_E2E_TEST_BINARY";
 pub const CITREA_CLI_ENV: &str = "CITREA_CLI_E2E_TEST_BINARY";
 const BITCOIN_ENV: &str = "BITCOIN_E2E_TEST_BINARY";
-const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
+#[cfg(feature = "clementine")]
+pub const CLEMENTINE_ENV: &str = "CLEMENTINE_E2E_TEST_BINARY";
 
 // TestCaseRunner manages the lifecycle of a test case, including setup, execution, and cleanup.
 /// It creates a test framework with the associated configs, spawns required nodes, connects them,
@@ -40,14 +48,25 @@ impl<T: TestCase> TestCaseRunner<T> {
     }
 
     /// Internal method to fund the wallets, connect the nodes, wait for them to be ready.
-    async fn prepare(&self, f: &mut TestFramework) -> Result<()> {
+    async fn prepare(
+        &self,
+        f: &mut TestFramework,
+        failure_tx: UnboundedSender<String>,
+    ) -> Result<()> {
         f.fund_da_wallets().await?;
-        f.init_nodes().await?;
+        f.init_nodes(failure_tx).await?;
         f.bitcoin_nodes.connect_nodes().await?;
 
         if let Some(sequencer) = &f.sequencer {
             sequencer.wait_for_ready(None).await?;
         }
+
+        if let Some(sequencer) = &f.sequencer_cluster {
+            for sequencer in sequencer.iter() {
+                sequencer.wait_for_ready(None).await?;
+            }
+        }
+
         if let Some(batch_prover) = &f.batch_prover {
             batch_prover.wait_for_ready(None).await?;
         }
@@ -61,8 +80,12 @@ impl<T: TestCase> TestCaseRunner<T> {
         Ok(())
     }
 
-    async fn run_test_case(&mut self, f: &mut TestFramework) -> Result<()> {
-        self.prepare(f).await?;
+    async fn run_test_case(
+        &mut self,
+        f: &mut TestFramework,
+        failure_tx: UnboundedSender<String>,
+    ) -> Result<()> {
+        self.prepare(f, failure_tx).await?;
         self.0.setup(f).await?;
         self.0.run_test(f).await
     }
@@ -72,17 +95,23 @@ impl<T: TestCase> TestCaseRunner<T> {
     /// This sets up the framework, executes the test, and ensures cleanup is performed even if a panic occurs.
     pub async fn run(mut self) -> Result<()> {
         let mut framework = None;
+        let (failure_tx, mut failure_rx) = mpsc::unbounded_channel::<String>();
 
         let result = panic::AssertUnwindSafe(async {
             tokio::select! {
                 res = async {
                     framework = Some(TestFramework::new::<T>().await?);
                     let f = framework.as_mut().unwrap();
-                    self.run_test_case(f).await
-                 } => res,
+                    self.run_test_case(f, failure_tx).await
+                } => res,
                 _ = signal::ctrl_c() => {
-                    println!("Initiating shutdown...");
                     bail!("Shutdown received before completion")
+                }
+                e = failure_rx.recv() => {
+                    if let Some(e) =e {
+                        bail!(e)
+                    }
+                    Ok(())
                 }
             }
         })
@@ -157,6 +186,7 @@ impl<T: TestCase> TestCaseRunner<T> {
     ///
     /// * `path` - Location of the Clementine binary to be used when spawning binary.
     ///
+    #[cfg(feature = "clementine")]
     pub fn set_clementine_path<P: AsRef<Path>>(self, path: P) -> Self {
         self.set_binary_path(CLEMENTINE_ENV, path)
     }
@@ -216,6 +246,39 @@ pub trait TestCase: Send + Sync + 'static {
         LightClientProverConfig::default()
     }
 
+    /// Returns the verifier configuration for the test.
+    /// Override this method to provide a custom verifier configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_verifier_config(idx: u8) -> ClementineConfig<VerifierConfig> {
+        ClementineConfig::<VerifierConfig> {
+            entity_config: VerifierConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    /// Returns the operator configuration for the test.
+    /// Override this method to provide a custom operator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_operator_config(idx: u8) -> ClementineConfig<OperatorConfig> {
+        ClementineConfig::<OperatorConfig> {
+            entity_config: OperatorConfig::default_for_idx(idx),
+            ..Default::default()
+        }
+    }
+
+    /// Returns the aggregator configuration for the test.
+    /// Override this method to provide a custom aggregator configuration.
+    /// You may only override some properties, these are listed in [`ClementineConfig::from_configs`]
+    #[cfg(feature = "clementine")]
+    fn clementine_aggregator_config() -> ClementineConfig<AggregatorConfig> {
+        ClementineConfig::<AggregatorConfig> {
+            entity_config: AggregatorConfig::default(),
+            ..Default::default()
+        }
+    }
+
     /// Returns the test setup
     /// Override this method to add custom initialization logic
     async fn setup(&self, _framework: &mut TestFramework) -> Result<()> {
@@ -237,4 +300,50 @@ pub trait TestCase: Send + Sync + 'static {
     {
         Ok(())
     }
+}
+
+pub fn watch_log_for_panics(
+    log_path: PathBuf,
+    process_name: String,
+    failure_tx: UnboundedSender<String>,
+) {
+    tokio::spawn(async move {
+        while !log_path.exists() {
+            tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+        }
+
+        let mut file = File::open(&log_path).await.unwrap();
+
+        let _ = file.seek(SeekFrom::End(0)).await;
+        let mut reader = BufReader::new(file);
+        let mut line = String::new();
+
+        loop {
+            line.clear();
+            match reader.read_line(&mut line).await {
+                Ok(0) => {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+                Ok(_) => {
+                    let line_lower = line.to_lowercase();
+
+                    if line_lower.contains("panic")
+                        || line_lower.contains("fatal")
+                        || line_lower.contains("assertion failed")
+                    {
+                        let _ = failure_tx.send(format!(
+                            "{} panicked with: {}",
+                            process_name,
+                            line.trim()
+                        ));
+                        return;
+                    }
+                }
+                Err(_) => {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            }
+        }
+    });
 }

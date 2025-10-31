@@ -15,6 +15,7 @@ use bitcoincore_rpc::{Auth, Client as BitcoinClient};
 use serde::Serialize;
 use tokio::{
     process::Command,
+    sync::mpsc::UnboundedSender,
     time::{sleep, Instant},
 };
 use tracing::{debug, info, trace};
@@ -24,10 +25,12 @@ use crate::{
     client::Client,
     config::{
         BatchProverConfig, BitcoinConfig, DockerConfig, EmptyConfig, FullL2NodeConfig,
-        LightClientProverConfig,
+        LightClientProverConfig, SequencerConfig,
     },
     docker::DockerEnv,
+    framework::TestContext,
     log_provider::LogPathProvider,
+    test_case::watch_log_for_panics,
     traits::{NodeT, Restart, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
@@ -40,6 +43,13 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    #[cfg(feature = "clementine")]
+    ClementineAggregator,
+    #[cfg(feature = "clementine")]
+    ClementineVerifier(u8),
+    #[cfg(feature = "clementine")]
+    ClementineOperator(u8),
+    Postgres,
 }
 
 impl NodeKind {
@@ -50,6 +60,13 @@ impl NodeKind {
             NodeKind::LightClientProver => 3,
             NodeKind::Sequencer => 4,
             NodeKind::FullNode => 5,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineAggregator => 6,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineVerifier(_) => 7,
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineOperator(_) => 8,
+            NodeKind::Postgres => 9,
         }
     }
 }
@@ -62,6 +79,13 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineVerifier(idx) => write!(f, "clementine-verifier-{idx}"),
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineOperator(idx) => write!(f, "clementine-operator-{idx}"),
+            NodeKind::Postgres => write!(f, "postgres"),
         }
     }
 }
@@ -70,6 +94,7 @@ pub type FullNode = Node<EmptyConfig>;
 pub type LightClientProver = Node<LightClientProverConfig>;
 pub type BatchProver = Node<BatchProverConfig>;
 
+/// A Citrea node
 pub struct Node<C>
 where
     C: Clone + Debug + Serialize + Send + Sync,
@@ -79,6 +104,7 @@ where
     pub client: Client,
     // Bitcoin client targetting node's wallet endpoint
     pub da: BitcoinClient,
+    failure_tx: UnboundedSender<String>,
 }
 
 impl<C> Node<C>
@@ -89,6 +115,7 @@ where
         config: &FullL2NodeConfig<C>,
         da_config: &BitcoinConfig,
         docker: Arc<Option<DockerEnv>>,
+        failure_tx: UnboundedSender<String>,
     ) -> Result<Self> {
         let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
 
@@ -106,11 +133,18 @@ where
         .await
         .context("Failed to create RPC client")?;
 
+        watch_log_for_panics(
+            config.log_path(),
+            config.kind().to_string(),
+            failure_tx.clone(),
+        );
+
         Ok(Self {
             spawn_output,
             config: config.clone(),
             client,
             da: da_client,
+            failure_tx,
         })
     }
 
@@ -273,10 +307,9 @@ where
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
-        match &mut self.spawn_output {
-            SpawnOutput::Child(pid) => pid.wait().await?,
-            SpawnOutput::Container(_) => unimplemented!("L2 nodes don't run in docker yet"),
-        };
+        if let SpawnOutput::Child(pid) = &mut self.spawn_output {
+            pid.wait().await?;
+        }
         Ok(())
     }
 
@@ -285,7 +318,9 @@ where
         new_config: Option<Self::Config>,
         extra_args: Option<Vec<String>>,
     ) -> Result<()> {
+        let panic_tx = self.failure_tx.clone();
         let config = self.config_mut();
+        let kind = config.kind();
 
         if let Some(new_config) = new_config {
             *config = new_config;
@@ -297,21 +332,110 @@ where
         INDEX.fetch_add(1, Ordering::SeqCst);
 
         let old_dir = config.dir();
-        let new_dir = old_dir.parent().unwrap().join(format!(
-            "{}-{}",
-            config.kind(),
-            INDEX.load(Ordering::SeqCst)
-        ));
+        let new_dir =
+            old_dir
+                .parent()
+                .unwrap()
+                .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
         copy_directory(old_dir, &new_dir)?;
+
         config.set_dir(new_dir);
+        config.write_to_file()?;
+        let log_path = config.log_path();
 
         config.write_to_file()?;
 
         *self.spawn_output() = Self::spawn(config, extra_args)?;
+        watch_log_for_panics(log_path, kind.to_string(), panic_tx);
+
         self.wait_for_ready(None).await
     }
 }
 
+pub struct NodeCluster<C>
+where
+    C: Clone + Debug + Serialize + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
+{
+    inner: Vec<Node<C>>,
+}
+
+impl<C> NodeCluster<C>
+where
+    C: Clone + Debug + Serialize + Send + Sync,
+    DockerConfig: From<FullL2NodeConfig<C>>,
+{
+    pub async fn stop_all(&mut self) -> Result<()> {
+        for node in &mut self.inner {
+            node.stop().await?;
+        }
+        Ok(())
+    }
+
+    pub async fn wait_for_sync(&self, timeout: Option<Duration>) -> Result<()> {
+        let start = Instant::now();
+        let timeout = timeout.unwrap_or(Duration::from_secs(60));
+        while start.elapsed() < timeout {
+            let l2_height = self
+                .get(0)
+                .expect("Cluster should have at least 1 node")
+                .client()
+                .ledger_get_head_l2_block_height()
+                .await?;
+            let l1_height = self
+                .get(0)
+                .expect("Cluster should have at least 1 node")
+                .client()
+                .ledger_get_last_scanned_l1_height()
+                .await?;
+            for node in &self.inner {
+                node.wait_for_l1_height(l1_height, Some(timeout)).await?;
+                node.wait_for_l2_height(l2_height, Some(timeout)).await?;
+            }
+        }
+        bail!("Nodes failed to sync within the specified timeout")
+    }
+
+    pub fn get(&self, index: usize) -> Option<&Node<C>> {
+        self.inner.get(index)
+    }
+
+    #[allow(unused)]
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Node<C>> {
+        self.inner.get_mut(index)
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<'_, Node<C>> {
+        self.inner.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Node<C>> {
+        self.inner.iter_mut()
+    }
+}
+
+impl NodeCluster<SequencerConfig> {
+    pub async fn new(ctx: &TestContext, failure_tx: UnboundedSender<String>) -> Result<Self> {
+        let n_nodes = ctx.config.test_case.get_n_nodes(NodeKind::Sequencer);
+
+        let mut cluster = Self {
+            inner: Vec::with_capacity(n_nodes),
+        };
+        let da_config = &ctx.config.bitcoin[0];
+        for config in &ctx.config.sequencer {
+            let node = Node::<SequencerConfig>::new(
+                config,
+                da_config,
+                Arc::clone(&ctx.docker),
+                failure_tx.clone(),
+            )
+            .await?;
+            cluster.inner.push(node);
+        }
+
+        Ok(cluster)
+    }
+}
 pub fn get_citrea_args<C>(config: &FullL2NodeConfig<C>) -> Vec<String>
 where
     C: Clone + Debug + Serialize + Send + Sync,

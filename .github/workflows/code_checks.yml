@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TERM_VERBOSE: true
   CARGOFLAGS: --workspace --all-targets --all-features
-  RUST_LOG: trace
+  RUST_LOG: citrea-e2e=trace,info
   RISC0_DEV_MODE: 1
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Run Cargo fmt
       run: cargo fmt --check
 
@@ -24,16 +24,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+    - name: Install protoc
+      run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Run Cargo clippy
-      run: cargo clippy --no-deps --all-targets -- -Dwarnings
+      run: cargo clippy --no-deps --all-targets --all-features -- -Dwarnings
 
   udeps:
     name: Check unused dependencies
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -49,9 +53,12 @@ jobs:
 
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubicloud-standard-30
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
+
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v3
 
     - name: Set up Rust
       uses: actions-rs/toolchain@v1
@@ -59,5 +66,23 @@ jobs:
         profile: minimal
         toolchain: stable
 
+    - name: Download Clementine bitvm cache dev bin
+      shell: bash
+      run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /tmp/bitvm_cache_dev.bin
+
+    - name: Download Clementine
+      run: |
+        wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
+        chmod +x /tmp/clementine-core
+
+    - name: Copy Docker binary
+      run: |
+        mkdir -p resources/docker
+        cp /usr/bin/docker ./resources/docker/docker-linux-amd64
+
     - name: Run Cargo test
-      run: cargo test
+      env:
+        CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
+        BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
+        RISC0_DEV_MODE: 1
+      run: cargo test --all-features

@@ -66,7 +66,7 @@ impl BitcoinNode {
         target_len: usize,
         timeout: Option<Duration>,
     ) -> Result<()> {
-        let timeout = timeout.unwrap_or(Duration::from_secs(300));
+        let timeout = timeout.unwrap_or(Duration::from_secs(30));
         let start = Instant::now();
         while start.elapsed() < timeout {
             let mempool_len = self.get_raw_mempool().await?.len();
@@ -321,7 +321,8 @@ pub struct BitcoinNodeCluster {
 
 impl BitcoinNodeCluster {
     pub async fn new(ctx: &TestContext) -> Result<Self> {
-        let n_nodes = ctx.config.test_case.n_nodes;
+        let n_nodes = ctx.config.test_case.get_n_nodes(NodeKind::Bitcoin);
+
         let mut cluster = Self {
             inner: Vec::with_capacity(n_nodes),
         };
