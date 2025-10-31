@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{PRE_FORK2_BRIDGE_INITIALIZE_PARAMS, PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS};
+use crate::PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS;
 
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -171,7 +171,7 @@ mod tests {
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
-            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            bridge_initialize_params: hex::encode(PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS),
             l1_fee_rate_multiplier: 0.75,
             max_l1_fee_rate_sat_vb: 10,
             listen_mode_config: None,
@@ -230,7 +230,7 @@ mod tests {
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
-            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            bridge_initialize_params: hex::encode(PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS),
             l1_fee_rate_multiplier: 1.0,
             max_l1_fee_rate_sat_vb: 1,
             listen_mode_config: Some(ListenModeConfig {
