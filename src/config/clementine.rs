@@ -365,6 +365,9 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     /// The X25519 public key that will be used to encrypt the emergency stop message.
     pub emergency_stop_encryption_public_key: Option<[u8; 32]>,
 
+    /// Time to wait after a kickoff to send a watchtower challenge
+    pub time_to_send_watchtower_challenge: u16,
+
     // TLS certificates
     /// Path to the server certificate file.
     ///
@@ -455,6 +458,8 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
                     .try_into()
                     .expect("valid key"),
             ),
+
+            time_to_send_watchtower_challenge: 216,
 
             server_cert_path: PathBuf::from("certs/server/server.pem"),
             server_key_path: PathBuf::from("certs/server/server.key"),
