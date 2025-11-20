@@ -343,6 +343,8 @@ where
         config.write_to_file()?;
         let log_path = config.log_path();
 
+        config.write_to_file()?;
+
         *self.spawn_output() = Self::spawn(config, extra_args)?;
         watch_log_for_panics(log_path, kind.to_string(), panic_tx);
 
