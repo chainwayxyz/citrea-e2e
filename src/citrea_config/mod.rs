@@ -6,6 +6,7 @@
 pub(crate) mod batch_prover;
 pub(crate) mod bitcoin;
 pub(crate) mod light_client_prover;
+pub(crate) mod risc0;
 pub(crate) mod rollup;
 pub(crate) mod sequencer;
 
