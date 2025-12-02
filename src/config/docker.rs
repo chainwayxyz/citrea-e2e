@@ -13,7 +13,7 @@ use crate::{
     utils::get_genesis_path,
 };
 
-const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:29.0";
+const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:30.0";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str = "chainwayxyz/citrea-test:latest";
 
 #[derive(Debug)]
