@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::PRE_FORK2_BRIDGE_INITIALIZE_PARAMS;
+use crate::PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS;
 
 /// Rollup Configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -40,7 +40,7 @@ impl Default for SequencerConfig {
             block_production_interval_ms: 100,
             da_update_interval_ms: 100,
             mempool_conf: SequencerMempoolConfig::default(),
-            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            bridge_initialize_params: hex::encode(PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS),
             l1_fee_rate_multiplier: 1.0,
             max_l1_fee_rate_sat_vb: 10,
             listen_mode_config: None,
@@ -66,6 +66,12 @@ pub struct SequencerMempoolConfig {
     pub base_fee_tx_size: u64,
     /// Max number of executable transaction slots guaranteed per account
     pub max_account_slots: u64,
+    /// Maximum reorg depth for mempool updates (default: 64 blocks = 2 epochs)
+    pub max_update_depth: Option<u64>,
+    /// Maximum accounts to reload from state at once (default: 100)
+    pub max_reload_accounts: Option<usize>,
+    /// Maximum lifetime for non-executable transactions in seconds (default: 10800 = 3 hours)
+    pub max_tx_lifetime_secs: Option<u64>,
 }
 
 impl Default for SequencerMempoolConfig {
@@ -78,6 +84,9 @@ impl Default for SequencerMempoolConfig {
             base_fee_tx_limit: 100_000,
             base_fee_tx_size: 200,
             max_account_slots: 16,
+            max_update_depth: None,
+            max_reload_accounts: None,
+            max_tx_lifetime_secs: None,
         }
     }
 }
@@ -156,10 +165,13 @@ mod tests {
                 base_fee_tx_limit: 100000,
                 base_fee_tx_size: 200,
                 max_account_slots: 16,
+                max_update_depth: None,
+                max_reload_accounts: None,
+                max_tx_lifetime_secs: None,
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
-            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            bridge_initialize_params: hex::encode(PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS),
             l1_fee_rate_multiplier: 0.75,
             max_l1_fee_rate_sat_vb: 10,
             listen_mode_config: None,
@@ -212,10 +224,13 @@ mod tests {
                 base_fee_tx_limit: 100000,
                 base_fee_tx_size: 200,
                 max_account_slots: 16,
+                max_update_depth: None,
+                max_reload_accounts: None,
+                max_tx_lifetime_secs: None,
             },
             da_update_interval_ms: 1000,
             block_production_interval_ms: 1000,
-            bridge_initialize_params: PRE_FORK2_BRIDGE_INITIALIZE_PARAMS.to_string(),
+            bridge_initialize_params: hex::encode(PRE_TANGERINE_BRIDGE_INITIALIZE_PARAMS),
             l1_fee_rate_multiplier: 1.0,
             max_l1_fee_rate_sat_vb: 1,
             listen_mode_config: Some(ListenModeConfig {

@@ -350,6 +350,8 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
     pub bridge_contract_address: String,
     // Initial header chain proof receipt's file path.
     pub header_chain_proof_path: Option<PathBuf>,
+    /// Batch size of the header chain proofs.
+    pub header_chain_proof_batch_size: u32,
 
     /// Security council.
     pub security_council: SecurityCouncil,
@@ -362,6 +364,9 @@ pub struct ClementineConfig<E: Debug + Clone + ClementineEntityConfig> {
 
     /// The X25519 public key that will be used to encrypt the emergency stop message.
     pub emergency_stop_encryption_public_key: Option<[u8; 32]>,
+
+    /// Time to wait after a kickoff to send a watchtower challenge
+    pub time_to_send_watchtower_challenge: u16,
 
     // TLS certificates
     /// Path to the server certificate file.
@@ -440,6 +445,7 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
             bridge_contract_address: "3100000000000000000000000000000000000002".to_string(),
 
             header_chain_proof_path: None,
+            header_chain_proof_batch_size: 100,
 
             security_council: SecurityCouncil {
                 pks: vec![*UNSPENDABLE_XONLY_PUBKEY],
@@ -452,6 +458,8 @@ impl<E: ClementineEntityConfig> Default for ClementineConfig<E> {
                     .try_into()
                     .expect("valid key"),
             ),
+
+            time_to_send_watchtower_challenge: 216,
 
             server_cert_path: PathBuf::from("certs/server/server.pem"),
             server_key_path: PathBuf::from("certs/server/server.key"),
