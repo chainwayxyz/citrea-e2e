@@ -33,6 +33,11 @@ pub use crate::citrea_config::{
     batch_prover::{BatchProverConfig, ProverGuestRunConfig},
     bitcoin::BitcoinServiceConfig,
     light_client_prover::LightClientProverConfig,
+    risc0::{
+        BonsaiProverConfig, BoundlessConfig, BoundlessPinataStorageConfig, BoundlessProverConfig,
+        BoundlessS3StorageConfig, BoundlessStorageConfig, LocalProverConfig, Risc0HostConfig,
+        Risc0ProverConfig,
+    },
     rollup::{RollupConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
     sequencer::{ListenModeConfig, SequencerConfig, SequencerMempoolConfig},
 };
