@@ -32,7 +32,7 @@ impl Default for BitcoinConfig {
                 .keep(),
             extra_args: Vec::new(),
             network: Network::Regtest,
-            docker_image: None,
+            docker_image: std::env::var("BITCOIN_DOCKER_IMAGE").ok(),
             env: Vec::new(),
             idx: 0,
             docker_host: None,
