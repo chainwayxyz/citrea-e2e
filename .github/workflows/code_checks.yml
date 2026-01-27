@@ -10,6 +10,7 @@ env:
   RISC0_DEV_MODE: 1
   BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.0"
   POSTGRES_DOCKER_IMAGE: "postgres:15"
+  CITREA_DOCKER_IMAGE: "chainwayxyz/citrea-test:latest"
 
 jobs:
   docker-setup:
@@ -20,16 +21,18 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/docker
-          key: ${{ runner.os }}-docker-${{ env.BITCOIN_DOCKER_IMAGE }}-${{ env.POSTGRES_DOCKER_IMAGE }}
+          key: ${{ runner.os }}-docker-${{ env.BITCOIN_DOCKER_IMAGE }}-${{ env.POSTGRES_DOCKER_IMAGE }}-${{ env.CITREA_DOCKER_IMAGE }}
 
       - name: Pull and save Docker images
         if: steps.cache-docker.outputs.cache-hit != 'true'
         run: |
           docker pull ${{ env.BITCOIN_DOCKER_IMAGE }}
           docker pull ${{ env.POSTGRES_DOCKER_IMAGE }}
+          docker pull ${{ env.CITREA_DOCKER_IMAGE }}
           mkdir -p /tmp/docker
           docker save ${{ env.BITCOIN_DOCKER_IMAGE }} > /tmp/docker/bitcoin.tar
           docker save ${{ env.POSTGRES_DOCKER_IMAGE }} > /tmp/docker/postgres.tar
+          docker save ${{ env.CITREA_DOCKER_IMAGE }} > /tmp/docker/citrea-test.tar
 
   formatting:
     name: Check formatting
@@ -106,13 +109,14 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /tmp/docker
-        key: ${{ runner.os }}-docker-${{ env.BITCOIN_DOCKER_IMAGE }}-${{ env.POSTGRES_DOCKER_IMAGE }}
+        key: ${{ runner.os }}-docker-${{ env.BITCOIN_DOCKER_IMAGE }}-${{ env.POSTGRES_DOCKER_IMAGE }}-${{ env.CITREA_DOCKER_IMAGE }}
 
     - name: Load Docker images
       continue-on-error: true
       run: |
         docker load < /tmp/docker/bitcoin.tar
         docker load < /tmp/docker/postgres.tar
+        docker load < /tmp/docker/citrea-test.tar
 
     - name: Run Cargo test
       env:
