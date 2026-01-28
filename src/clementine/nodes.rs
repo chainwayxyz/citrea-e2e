@@ -281,8 +281,7 @@ impl ClementineOperator {
         }
 
         let client = result.context(format!(
-            "Failed to connect to Clementine verifier {} in {} seconds",
-            index,
+            "Failed to connect to Clementine verifier {index} in {} seconds",
             start.elapsed().as_secs()
         ))?;
 
@@ -293,7 +292,7 @@ impl ClementineOperator {
             index,
         };
 
-        debug!("Started Clementine operator {}", index);
+        debug!("Started Clementine operator {index}");
         Ok(instance)
     }
 }

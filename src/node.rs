@@ -158,8 +158,7 @@ where
         let stdout_path = config.log_path();
         let stdout_file = File::create(&stdout_path).context("Failed to create stdout file")?;
         info!(
-            "{} stdout logs available at : {}",
-            kind,
+            "{kind} stdout logs available at : {}",
             stdout_path.display()
         );
 
@@ -198,7 +197,7 @@ where
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            trace!("Waiting for l2 block {}", num);
+            trace!("Waiting for l2 block {num}");
             let latest_block = self.client.ledger_get_head_l2_block_height().await?;
 
             if latest_block >= num {
@@ -207,7 +206,7 @@ where
 
             let now = SystemTime::now();
             if start + timeout <= now {
-                bail!("Timeout. Latest L2 block is {:?}", latest_block);
+                bail!("Timeout. Latest L2 block is {latest_block:?}");
             }
 
             sleep(Duration::from_secs(1)).await;
@@ -219,7 +218,7 @@ where
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(600));
         loop {
-            trace!("Waiting for batch prover height {}", height);
+            trace!("Waiting for batch prover height {height}");
             let latest_block = self.client.ledger_get_last_scanned_l1_height().await?;
 
             if latest_block >= height {
@@ -228,7 +227,7 @@ where
 
             let now = SystemTime::now();
             if start + timeout <= now {
-                bail!("Timeout. Latest batch prover L1 height is {}", latest_block);
+                bail!("Timeout. Latest batch prover L1 height is {latest_block}");
             }
 
             sleep(Duration::from_secs(1)).await;
@@ -275,9 +274,8 @@ where
         match response {
             Ok(_) => return Ok(()),
             Err(e) => anyhow::bail!(
-                "{} failed to become ready within the specified timeout, latest ledger_get_head_l2_block_height error: {}",
+                "{} failed to become ready within the specified timeout, latest ledger_get_head_l2_block_height error: {e}",
                 self.config.kind(),
-                e
             )
         }
     }
