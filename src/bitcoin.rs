@@ -79,10 +79,7 @@ impl BitcoinNode {
     }
 
     pub async fn fund_wallet(&self, name: String, blocks: u64) -> Result<()> {
-        let rpc_url = format!(
-            "http://127.0.0.1:{}/wallet/{name}",
-            self.config.rpc_port
-        );
+        let rpc_url = format!("http://127.0.0.1:{}/wallet/{name}", self.config.rpc_port);
         let client = Client::new(
             &rpc_url,
             Auth::UserPass(

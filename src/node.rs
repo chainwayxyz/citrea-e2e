@@ -336,11 +336,7 @@ where
             old_dir
                 .parent()
                 .unwrap()
-                .join(format!(
-                    "{}-{}",
-                    kind,
-                    INDEX.load(Ordering::SeqCst)
-                ));
+                .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
         copy_directory(old_dir, &new_dir)?;
 
         config.set_dir(new_dir);

@@ -426,9 +426,7 @@ fn generate_test_config<T: TestCase>(
     for i in 0..test_case.get_n_nodes(NodeKind::Bitcoin) {
         let data_dir = bitcoin_dir.join(i.to_string());
         std::fs::create_dir_all(&data_dir)
-            .with_context(|| {
-                format!("Failed to create {} directory", data_dir.display())
-            })?;
+            .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
 
         let rpc_port = get_available_port()?;
         let p2p_port = get_available_port()?;
@@ -647,9 +645,7 @@ fn generate_sequencer_configs<T: TestCase>(
     for i in 0..test_case.get_n_nodes(kind) {
         let sequencer_dir = dir.join(i.to_string());
         std::fs::create_dir_all(&sequencer_dir)
-            .with_context(|| {
-                format!("Failed to create {} directory", sequencer_dir.display())
-            })?;
+            .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
 
         let bind_port = get_available_port()?;
         let node_kind = kind.to_string();
@@ -723,9 +719,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {
 
     for path in &paths {
         std::fs::create_dir_all(path)
-            .with_context(|| {
-                format!("Failed to create {} directory", path.display())
-            })?;
+            .with_context(|| format!("Failed to create {} directory", path.display()))?;
     }
 
     Ok(paths)
