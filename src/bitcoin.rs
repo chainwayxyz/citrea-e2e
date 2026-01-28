@@ -75,7 +75,7 @@ impl BitcoinNode {
             }
             sleep(Duration::from_millis(500)).await;
         }
-        bail!("Timeout waiting for mempool to reach length {}", target_len)
+        bail!("Timeout waiting for mempool to reach length {target_len}")
     }
 
     pub async fn fund_wallet(&self, name: String, blocks: u64) -> Result<()> {

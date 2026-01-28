@@ -62,14 +62,14 @@ impl std::str::FromStr for SecurityCouncil {
 
         let threshold = threshold_str
             .parse::<u32>()
-            .map_err(|e| anyhow!("Invalid threshold: {}", e))?;
+            .map_err(|e| anyhow!("Invalid threshold: {e}"))?;
 
         let pks: Result<Vec<XOnlyPublicKey>, _> = pks_str
             .split(',')
             .map(|pk_str| {
                 let bytes =
-                    hex::decode(pk_str).map_err(|e| anyhow!("Invalid hex in public key: {}", e))?;
-                XOnlyPublicKey::from_slice(&bytes).map_err(|e| anyhow!("Invalid public key: {}", e))
+                    hex::decode(pk_str).map_err(|e| anyhow!("Invalid hex in public key: {e}"))?;
+                XOnlyPublicKey::from_slice(&bytes).map_err(|e| anyhow!("Invalid public key: {e}"))
             })
             .collect();
 

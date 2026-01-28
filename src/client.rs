@@ -61,7 +61,7 @@ impl Client {
         let start = SystemTime::now();
         let timeout = timeout.unwrap_or(Duration::from_secs(30)); // Default 30 seconds timeout
         loop {
-            trace!("Waiting for l2 block {}", num);
+            trace!("Waiting for l2 block {num}");
             let latest_block = self.ledger_get_head_l2_block_height().await?;
 
             if latest_block >= num {
@@ -70,7 +70,7 @@ impl Client {
 
             let now = SystemTime::now();
             if start + timeout <= now {
-                bail!("Timeout. Latest L2 block is {:?}", latest_block);
+                bail!("Timeout. Latest L2 block is {latest_block:?}");
             }
 
             sleep(Duration::from_secs(1)).await;

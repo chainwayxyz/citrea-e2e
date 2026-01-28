@@ -181,8 +181,7 @@ impl ClementineVerifier {
         }
 
         let client = result.context(format!(
-            "Failed to connect to Clementine verifier {} in {} seconds",
-            index,
+            "Failed to connect to Clementine verifier {index} in {} seconds",
             start.elapsed().as_secs()
         ))?;
 
@@ -193,7 +192,7 @@ impl ClementineVerifier {
             index,
         };
 
-        debug!("Started Clementine verifier {}", index);
+        debug!("Started Clementine verifier {index}");
         Ok(instance)
     }
 }

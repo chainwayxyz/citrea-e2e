@@ -195,7 +195,7 @@ impl DockerEnv {
         };
 
         if let Some(throttle) = &config.throttle {
-            debug!("Running container with throttle: {:?}", throttle);
+            debug!("Running container with throttle: {throttle:?}");
 
             if let Some(cpu) = &throttle.cpu {
                 host_config.nano_cpus = Some((cpu.cpus * 1_000_000_000.0) as i64);
@@ -317,7 +317,7 @@ impl DockerEnv {
                         info!("\r{status}: {progress}     ");
                     }
                 }
-                Err(e) => return Err(anyhow::anyhow!("Failed to pull image: {}", e)),
+                Err(e) => return Err(anyhow::anyhow!("Failed to pull image: {e}")),
             }
         }
         info!("Image succesfully pulled");
@@ -327,7 +327,7 @@ impl DockerEnv {
 
     pub async fn cleanup(&self) -> Result<()> {
         for id in self.container_ids.lock().await.iter() {
-            debug!("Logs for container {}:", id);
+            debug!("Logs for container {id}:");
             let _ = self.dump_logs_cli(id);
         }
 
@@ -374,7 +374,7 @@ impl DockerEnv {
         log_path: PathBuf,
         kind: &NodeKind,
     ) -> JoinHandle<Result<()>> {
-        info!("{} stdout logs available at : {}", kind, log_path.display());
+        info!("{kind} stdout logs available at : {}", log_path.display());
 
         tokio::spawn(async move {
             if let Some(parent) = log_path.parent() {
