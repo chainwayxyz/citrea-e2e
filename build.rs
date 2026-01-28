@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .out_dir(&out_dir)
             .compile_protos(&[proto_file], &["proto"])?;
 
-        println!("cargo:rerun-if-changed={}", proto_file);
+        println!("cargo:rerun-if-changed={proto_file}");
     }
 
     Ok(())

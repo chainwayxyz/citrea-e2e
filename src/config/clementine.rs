@@ -44,7 +44,7 @@ impl std::fmt::Display for SecurityCouncil {
             .map(|pk| hex::encode(pk.serialize()))
             .collect::<Vec<_>>()
             .join(",");
-        write!(f, "{}", pks_str)
+        write!(f, "{pks_str}")
     }
 }
 
@@ -237,7 +237,7 @@ impl ClementineConfig<OperatorConfig> {
         Self {
             port,
             entity_config: overrides.entity_config.clone(),
-            db_name: format!("clementine-{}", idx),
+            db_name: format!("clementine-{idx}"),
             ..ClementineConfig::<OperatorConfig>::from_configs(
                 postgres_config,
                 bitcoin_config,
@@ -295,7 +295,7 @@ impl ClementineConfig<VerifierConfig> {
         Self {
             port,
             entity_config: overrides.entity_config.clone(),
-            db_name: format!("clementine-{}", idx),
+            db_name: format!("clementine-{idx}"),
             ..ClementineConfig::<VerifierConfig>::from_configs(
                 postgres_config,
                 bitcoin_config,
