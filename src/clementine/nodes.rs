@@ -323,7 +323,9 @@ impl NodeT for ClementineOperator {
     async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
         wait_for_tcp_bound("127.0.0.1", self.config.port, timeout)
             .await
-            .with_context(|| format!("Clementine operator {} failed to become ready", self.index))
+            .with_context(|| {
+                format!("Clementine operator {} failed to become ready", self.index)
+            })
     }
 
     fn client(&self) -> &Self::Client {
@@ -511,7 +513,10 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                 let output = Command::new("/usr/bin/env")
                     .arg("bash")
                     .arg("-c")
-                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_tgz.display()))
+                    .arg(format!(
+                        "curl -fsSL '{url}' -o '{}'",
+                        tmp_tgz.display()
+                    ))
                     .output()
                     .await?;
                 if !output.status.success() {
@@ -569,7 +574,10 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                 let output = Command::new("/usr/bin/env")
                     .arg("bash")
                     .arg("-c")
-                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_path.display()))
+                    .arg(format!(
+                        "curl -fsSL '{url}' -o '{}'",
+                        tmp_path.display()
+                    ))
                     .output()
                     .await?;
 

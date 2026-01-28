@@ -426,7 +426,9 @@ fn generate_test_config<T: TestCase>(
     for i in 0..test_case.get_n_nodes(NodeKind::Bitcoin) {
         let data_dir = bitcoin_dir.join(i.to_string());
         std::fs::create_dir_all(&data_dir)
-            .with_context(|| format!("Failed to create {} directory", data_dir.display()))?;
+            .with_context(|| {
+                format!("Failed to create {} directory", data_dir.display())
+            })?;
 
         let rpc_port = get_available_port()?;
         let p2p_port = get_available_port()?;
@@ -486,7 +488,7 @@ fn generate_test_config<T: TestCase>(
                 da_private_key: Some(
                     "56D08C2DDE7F412F80EC99A0A328F76688C904BD4D1435281EFC9270EC8C8707".to_string(),
                 ),
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },
@@ -510,7 +512,7 @@ fn generate_test_config<T: TestCase>(
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: None,
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },
@@ -645,7 +647,9 @@ fn generate_sequencer_configs<T: TestCase>(
     for i in 0..test_case.get_n_nodes(kind) {
         let sequencer_dir = dir.join(i.to_string());
         std::fs::create_dir_all(&sequencer_dir)
-            .with_context(|| format!("Failed to create {} directory", sequencer_dir.display()))?;
+            .with_context(|| {
+                format!("Failed to create {} directory", sequencer_dir.display())
+            })?;
 
         let bind_port = get_available_port()?;
         let node_kind = kind.to_string();
@@ -655,7 +659,7 @@ fn generate_sequencer_configs<T: TestCase>(
                 da_private_key: Some(
                     "E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262".to_string(),
                 ),
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },
@@ -719,7 +723,9 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {
 
     for path in &paths {
         std::fs::create_dir_all(path)
-            .with_context(|| format!("Failed to create {} directory", path.display()))?;
+            .with_context(|| {
+                format!("Failed to create {} directory", path.display())
+            })?;
     }
 
     Ok(paths)

@@ -547,7 +547,7 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             db_password: postgres_config.password,
             db_name: "clementine".to_string(), // overriden by caller
 
-            citrea_rpc_url: format!("http://{}:{}", full_node_host, citrea_rpc.bind_port),
+            citrea_rpc_url: format!("http://{full_node_host}:{}", citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
                 "http://{}:{}",
                 lcp_host, citrea_light_client_prover_rpc.bind_port

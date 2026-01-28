@@ -1,3 +1,5 @@
+#![deny(clippy::uninlined_format_args)]
+
 pub mod bitcoin;
 pub mod citrea_cli;
 mod citrea_config;

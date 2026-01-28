@@ -79,7 +79,10 @@ impl BitcoinNode {
     }
 
     pub async fn fund_wallet(&self, name: String, blocks: u64) -> Result<()> {
-        let rpc_url = format!("http://127.0.0.1:{}/wallet/{}", self.config.rpc_port, name);
+        let rpc_url = format!(
+            "http://127.0.0.1:{}/wallet/{name}",
+            self.config.rpc_port
+        );
         let client = Client::new(
             &rpc_url,
             Auth::UserPass(
@@ -370,7 +373,7 @@ impl BitcoinNodeCluster {
                         SpawnOutput::Container(container) => container.ip.clone(),
                         SpawnOutput::Child(_) => "127.0.0.1".to_string(),
                     };
-                    let ip_port = format!("{}:{}", ip, to_node.config.p2p_port);
+                    let ip_port = format!("{ip}:{}", to_node.config.p2p_port);
 
                     from_node.onetry_node(&ip_port).await?;
 
