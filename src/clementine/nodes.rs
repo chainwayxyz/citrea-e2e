@@ -797,7 +797,7 @@ async fn setup_clementine_databases(
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(anyhow!("Failed to create database {}: {}", db_name, stderr));
+                return Err(anyhow!("Failed to create database {db_name}: {stderr}"));
             }
         }
     }
