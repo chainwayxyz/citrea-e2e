@@ -111,7 +111,7 @@ impl ClementineIntegration {
                         .then(|| d.get_hostname(&NodeKind::ClementineVerifier(i)))
                 })
                 .unwrap_or("127.0.0.1".to_string());
-            verifier_endpoints.push(format!("https://{}:{}", host, port));
+            verifier_endpoints.push(format!("https://{host}:{port}"));
         }
 
         let mut operators = vec![];
@@ -136,7 +136,7 @@ impl ClementineIntegration {
                         .then(|| d.get_hostname(&NodeKind::ClementineOperator(i)))
                 })
                 .unwrap_or("127.0.0.1".to_string());
-            operator_endpoints.push(format!("https://{}:{}", host, port));
+            operator_endpoints.push(format!("https://{host}:{port}"));
         }
 
         let port = get_available_port()?;

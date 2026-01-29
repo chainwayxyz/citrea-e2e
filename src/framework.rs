@@ -486,7 +486,7 @@ fn generate_test_config<T: TestCase>(
                 da_private_key: Some(
                     "56D08C2DDE7F412F80EC99A0A328F76688C904BD4D1435281EFC9270EC8C8707".to_string(),
                 ),
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },
@@ -510,7 +510,7 @@ fn generate_test_config<T: TestCase>(
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: None,
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },
@@ -655,7 +655,7 @@ fn generate_sequencer_configs<T: TestCase>(
                 da_private_key: Some(
                     "E9873D79C6D87DC0FB6A5778633389F4453213303DA61F20BD67FC233AA33262".to_string(),
                 ),
-                node_url: format!("http://{}/wallet/{}", da_config.node_url, node_kind),
+                node_url: format!("http://{}/wallet/{node_kind}", da_config.node_url),
                 tx_backup_dir: tx_backup_dir.display().to_string(),
                 ..da_config.clone()
             },

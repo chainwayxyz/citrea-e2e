@@ -85,6 +85,9 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
+    - name: Rust cache
+      uses: ubicloud/rust-cache@v2
+
     - name: Install Protoc
       uses: arduino/setup-protoc@v3
 
