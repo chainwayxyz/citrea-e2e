@@ -105,7 +105,7 @@ where
 impl From<&PostgresConfig> for DockerConfig {
     fn from(config: &PostgresConfig) -> Self {
         let image_tag = config.image_tag.as_deref().unwrap_or("15");
-        let image = format!("postgres:{}", image_tag);
+        let image = format!("postgres:{image_tag}");
 
         let mut cmd = vec![
             "bash".to_string(),

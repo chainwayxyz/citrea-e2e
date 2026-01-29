@@ -13,7 +13,7 @@ impl CitreaCli {
             Ok(path) => Ok(CitreaCli {
                 executable_path: PathBuf::from(path),
             }),
-            Err(_) => bail!("Environment variable {} not set", env_var_name),
+            Err(_) => bail!("Environment variable {env_var_name} not set"),
         }
     }
 

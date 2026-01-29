@@ -153,8 +153,7 @@ impl ClementineVerifier {
         )
         .await
         .context(format!(
-            "Clementine verifier {} failed to become ready",
-            index
+            "Clementine verifier {index} failed to become ready"
         ))?;
 
         // Create TLS configuration using Aggregator client cert for access
@@ -182,8 +181,7 @@ impl ClementineVerifier {
         }
 
         let client = result.context(format!(
-            "Failed to connect to Clementine verifier {} in {} seconds",
-            index,
+            "Failed to connect to Clementine verifier {index} in {} seconds",
             start.elapsed().as_secs()
         ))?;
 
@@ -194,7 +192,7 @@ impl ClementineVerifier {
             index,
         };
 
-        debug!("Started Clementine verifier {}", index);
+        debug!("Started Clementine verifier {index}");
         Ok(instance)
     }
 }
@@ -256,7 +254,7 @@ impl ClementineOperator {
             Some(CLEMENTINE_NODE_STARTUP_TIMEOUT),
         )
         .await
-        .with_context(|| format!("Clementine operator {} failed to become ready", index))?;
+        .with_context(|| format!("Clementine operator {index} failed to become ready"))?;
 
         // Create TLS configuration
         let tls_config = TlsConfig::new(
@@ -283,8 +281,7 @@ impl ClementineOperator {
         }
 
         let client = result.context(format!(
-            "Failed to connect to Clementine verifier {} in {} seconds",
-            index,
+            "Failed to connect to Clementine verifier {index} in {} seconds",
             start.elapsed().as_secs()
         ))?;
 
@@ -295,7 +292,7 @@ impl ClementineOperator {
             index,
         };
 
-        debug!("Started Clementine operator {}", index);
+        debug!("Started Clementine operator {index}");
         Ok(instance)
     }
 }
@@ -437,8 +434,7 @@ pub async fn generate_certs_if_needed() -> std::result::Result<(), std::io::Erro
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 error!("Failed to generate certificates: {}", stderr);
                 return Err(std::io::Error::other(format!(
-                    "Certificate generation failed: {}",
-                    stderr
+                    "Certificate generation failed: {stderr}"
                 )));
             }
         }
@@ -513,15 +509,14 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                 let output = Command::new("/usr/bin/env")
                     .arg("bash")
                     .arg("-c")
-                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_tgz.display()))
+                    .arg(format!("curl -fsSL '{url}' -o '{}'", tmp_tgz.display()))
                     .output()
                     .await?;
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     error!("Failed to download docker client tarball: {}", stderr);
                     return Err(std::io::Error::other(format!(
-                        "Docker client download failed: {}",
-                        stderr
+                        "Docker client download failed: {stderr}"
                     )));
                 }
 
@@ -547,8 +542,7 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     error!("Failed to extract docker client tarball: {}", stderr);
                     return Err(std::io::Error::other(format!(
-                        "Docker client extract failed: {}",
-                        stderr
+                        "Docker client extract failed: {stderr}"
                     )));
                 }
 
@@ -573,7 +567,7 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                 let output = Command::new("/usr/bin/env")
                     .arg("bash")
                     .arg("-c")
-                    .arg(format!("curl -fsSL '{}' -o '{}'", url, tmp_path.display()))
+                    .arg(format!("curl -fsSL '{url}' -o '{}'", tmp_path.display()))
                     .output()
                     .await?;
 
@@ -581,8 +575,7 @@ pub async fn ensure_docker_client_if_needed() -> std::result::Result<Option<Path
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     error!("Failed to download docker client: {}", stderr);
                     return Err(std::io::Error::other(format!(
-                        "Docker client download failed: {}",
-                        stderr
+                        "Docker client download failed: {stderr}"
                     )));
                 }
 
@@ -678,7 +671,7 @@ where
     let work_dir = config
         .base_dir
         .join("workdir")
-        .join(format!("clementine-{}-{}", role, idx));
+        .join(format!("clementine-{role}-{idx}"));
 
     // Ensure host work dir exists before bind-mounting
     if let Err(e) = tokio::fs::create_dir_all(&work_dir).await {
@@ -752,7 +745,7 @@ where
                 .stdout(Stdio::from(stdout_file))
                 .stderr(Stdio::from(stderr_file))
                 .spawn()
-                .with_context(|| format!("Failed to spawn Clementine {} process", role))?,
+                .with_context(|| format!("Failed to spawn Clementine {role} process"))?,
         ),
     };
 
@@ -804,7 +797,7 @@ async fn setup_clementine_databases(
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                return Err(anyhow!("Failed to create database {}: {}", db_name, stderr));
+                return Err(anyhow!("Failed to create database {db_name}: {stderr}"));
             }
         }
     }

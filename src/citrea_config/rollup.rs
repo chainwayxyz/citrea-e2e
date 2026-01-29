@@ -215,7 +215,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
     fn from(v: BitcoinConfig) -> Self {
         let ip = v.docker_host.unwrap_or(String::from("127.0.0.1"));
         Self {
-            node_url: format!("{}:{}", ip, v.rpc_port),
+            node_url: format!("{ip}:{}", v.rpc_port),
             node_username: v.rpc_user,
             node_password: v.rpc_password,
             network: v.network,

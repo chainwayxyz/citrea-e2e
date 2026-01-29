@@ -44,7 +44,7 @@ impl std::fmt::Display for SecurityCouncil {
             .map(|pk| hex::encode(pk.serialize()))
             .collect::<Vec<_>>()
             .join(",");
-        write!(f, "{}", pks_str)
+        write!(f, "{pks_str}")
     }
 }
 
@@ -62,14 +62,14 @@ impl std::str::FromStr for SecurityCouncil {
 
         let threshold = threshold_str
             .parse::<u32>()
-            .map_err(|e| anyhow!("Invalid threshold: {}", e))?;
+            .map_err(|e| anyhow!("Invalid threshold: {e}"))?;
 
         let pks: Result<Vec<XOnlyPublicKey>, _> = pks_str
             .split(',')
             .map(|pk_str| {
                 let bytes =
-                    hex::decode(pk_str).map_err(|e| anyhow!("Invalid hex in public key: {}", e))?;
-                XOnlyPublicKey::from_slice(&bytes).map_err(|e| anyhow!("Invalid public key: {}", e))
+                    hex::decode(pk_str).map_err(|e| anyhow!("Invalid hex in public key: {e}"))?;
+                XOnlyPublicKey::from_slice(&bytes).map_err(|e| anyhow!("Invalid public key: {e}"))
             })
             .collect();
 
@@ -237,7 +237,7 @@ impl ClementineConfig<OperatorConfig> {
         Self {
             port,
             entity_config: overrides.entity_config.clone(),
-            db_name: format!("clementine-{}", idx),
+            db_name: format!("clementine-{idx}"),
             ..ClementineConfig::<OperatorConfig>::from_configs(
                 postgres_config,
                 bitcoin_config,
@@ -295,7 +295,7 @@ impl ClementineConfig<VerifierConfig> {
         Self {
             port,
             entity_config: overrides.entity_config.clone(),
-            db_name: format!("clementine-{}", idx),
+            db_name: format!("clementine-{idx}"),
             ..ClementineConfig::<VerifierConfig>::from_configs(
                 postgres_config,
                 bitcoin_config,
@@ -547,7 +547,7 @@ impl<E: ClementineEntityConfig + 'static> ClementineConfig<E> {
             db_password: postgres_config.password,
             db_name: "clementine".to_string(), // overriden by caller
 
-            citrea_rpc_url: format!("http://{}:{}", full_node_host, citrea_rpc.bind_port),
+            citrea_rpc_url: format!("http://{full_node_host}:{}", citrea_rpc.bind_port),
             citrea_light_client_prover_url: format!(
                 "http://{}:{}",
                 lcp_host, citrea_light_client_prover_rpc.bind_port

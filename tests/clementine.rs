@@ -79,13 +79,13 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                 .client
                 .get_x_only_public_key()
                 .await
-                .unwrap_or_else(|_| panic!("Failed to get public key from operator {}", i));
+                .unwrap_or_else(|_| panic!("Failed to get public key from operator {i}"));
 
             let status = operator
                 .client
                 .get_current_status()
                 .await
-                .unwrap_or_else(|_| panic!("Failed to get status from operator {}", i));
+                .unwrap_or_else(|_| panic!("Failed to get status from operator {i}"));
 
             println!(
                 "Operator {}: automation={}, balance={}",
@@ -101,13 +101,13 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                 .client
                 .get_params()
                 .await
-                .unwrap_or_else(|_| panic!("Failed to get params from verifier {}", i));
+                .unwrap_or_else(|_| panic!("Failed to get params from verifier {i}"));
 
             let status = verifier
                 .client
                 .get_current_status()
                 .await
-                .unwrap_or_else(|_| panic!("Failed to get status from verifier {}", i));
+                .unwrap_or_else(|_| panic!("Failed to get status from verifier {i}"));
 
             println!(
                 "Verifier {}: automation={}, balance={}",
