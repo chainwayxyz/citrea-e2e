@@ -29,7 +29,7 @@ pub struct BatchProverConfig {
     pub max_commitments_per_proof: Option<usize>,
     /// Configuration for Risc0Host
     #[serde(default)]
-    pub risc0_host_config: Risc0HostConfig,
+    pub risc0_host: Risc0HostConfig,
 }
 
 impl Default for BatchProverConfig {
@@ -39,7 +39,7 @@ impl Default for BatchProverConfig {
             proof_sampling_number: 0,
             enable_recovery: true,
             max_commitments_per_proof: None,
-            risc0_host_config: Default::default(),
+            risc0_host: Default::default(),
         }
     }
 }
@@ -84,10 +84,10 @@ mod tests {
             enable_recovery = true
             max_commitments_per_proof = 100
 
-            [risc0_host_config]
+            [risc0_host]
             tx_backup_dir = "/tmp/backup"
             
-            [risc0_host_config.prover.Local]
+            [risc0_host.prover.Local]
             r0vm_path = "path/to/vm"
             dev_mode = false
         "#;
@@ -100,7 +100,7 @@ mod tests {
             proof_sampling_number: 500,
             enable_recovery: true,
             max_commitments_per_proof: Some(100),
-            risc0_host_config: Risc0HostConfig {
+            risc0_host: Risc0HostConfig {
                 prover: Risc0ProverConfig::Local(LocalProverConfig {
                     r0vm_path: Some(PathBuf::from("path/to/vm")),
                     dev_mode: false,
