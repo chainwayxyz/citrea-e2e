@@ -136,14 +136,18 @@ pub struct BoundlessConfig {
 
 impl BoundlessConfig {
     pub fn from_env() -> Self {
-        Self {
+        let cfg = Self {
             wallet_private_key: std::env::var("BOUNDLESS_WALLET_PRIVATE_KEY")
                 .expect("BOUNDLESS_WALLET_PRIVATE_KEY must be set"),
             rpc_url: std::env::var("BOUNDLESS_RPC_URL").expect("BOUNDLESS_RPC_URL must be set"),
             is_offchain: std::env::var("BOUNDLESS_IS_OFFCHAIN")
                 .map(|v| v == "1" || v.to_lowercase() == "true")
                 .unwrap_or(false),
-        }
+        };
+
+        println!("Loaded BoundlessConfig from environment: {:?}", cfg);
+
+        cfg
     }
 }
 
