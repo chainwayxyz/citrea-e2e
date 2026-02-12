@@ -406,6 +406,7 @@ fn generate_test_config<T: TestCase>(
 ) -> Result<TestConfig> {
     let env = T::test_env();
     let bitcoin = T::bitcoin_config();
+    println!("Calling default config for batch prover");
     let batch_prover = T::batch_prover_config();
     let mut light_client_prover = T::light_client_prover_config();
     let sequencer_rollup = RollupConfig::default();

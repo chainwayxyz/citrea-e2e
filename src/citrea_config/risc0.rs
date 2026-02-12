@@ -188,7 +188,9 @@ pub enum Risc0ProverConfig {
 
 impl Risc0ProverConfig {
     pub fn from_env_or_default() -> Self {
-        match std::env::var("RISC0_PROVER").as_deref() {
+        let env_var = std::env::var("RISC0_PROVER");
+        println!("RISC0_PROVER env var: {:?}", env_var);
+        match env_var.as_deref() {
             Ok("boundless") => Self::Boundless(Box::new(BoundlessProverConfig::from_env())),
             Ok("bonsai") => Self::Bonsai(BonsaiProverConfig::from_env()),
             _ => Self::Local(LocalProverConfig::default()),
