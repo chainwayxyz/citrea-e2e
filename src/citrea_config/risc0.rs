@@ -145,7 +145,7 @@ impl BoundlessConfig {
                 .unwrap_or(false),
         };
 
-        println!("Loaded BoundlessConfig from environment: {:?}", cfg);
+        println!("Loaded BoundlessConfig from environment: {cfg:?}");
 
         cfg
     }
