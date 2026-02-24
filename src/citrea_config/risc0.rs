@@ -156,9 +156,6 @@ impl BoundlessConfig {
 pub struct LocalProverConfig {
     /// Optional path to the r0vm binary
     pub r0vm_path: Option<PathBuf>,
-    /// Enable dev mode
-    #[serde(default)]
-    pub dev_mode: bool,
 }
 
 /// Configuration for the Bonsai prover
