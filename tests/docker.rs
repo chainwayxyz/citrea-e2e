@@ -5,6 +5,7 @@ use citrea_e2e::{
     config::{TestCaseConfig, TestCaseDockerConfig},
     framework::TestFramework,
     test_case::{TestCase, TestCaseRunner},
+    traits::Restart,
     Result,
 };
 
@@ -65,4 +66,53 @@ impl TestCase for DockerIntegrationTest {
 #[tokio::test]
 async fn test_docker_integration() -> Result<()> {
     TestCaseRunner::new(DockerIntegrationTest).run().await
+}
+
+struct DockerSequencerRestartTest;
+
+#[async_trait]
+impl TestCase for DockerSequencerRestartTest {
+    fn test_config() -> TestCaseConfig {
+        TestCaseConfig {
+            docker: TestCaseDockerConfig {
+                bitcoin: true,
+                citrea: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    async fn run_test(&mut self, f: &mut TestFramework) -> Result<()> {
+        let sequencer = f.sequencer.as_mut().unwrap();
+
+        let height_before = sequencer.client.ledger_get_head_l2_block_height().await?;
+
+        let n_blocks = 3;
+        for _ in 0..n_blocks {
+            sequencer.client.send_publish_batch_request().await?;
+        }
+
+        sequencer
+            .wait_for_l2_height(height_before + n_blocks, None)
+            .await?;
+
+        let height_pre_restart = sequencer.client.ledger_get_head_l2_block_height().await?;
+        sequencer.restart(None, None).await?;
+        let height_post_restart = sequencer.client.ledger_get_head_l2_block_height().await?;
+
+        assert_eq!(height_pre_restart, height_post_restart);
+
+        sequencer.client.send_publish_batch_request().await?;
+        sequencer
+            .wait_for_l2_height(height_post_restart + 1, None)
+            .await?;
+
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn test_docker_sequencer_restart() -> Result<()> {
+    TestCaseRunner::new(DockerSequencerRestartTest).run().await
 }
