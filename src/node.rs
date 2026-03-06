@@ -32,7 +32,7 @@ use crate::{
     framework::TestContext,
     log_provider::LogPathProvider,
     test_case::watch_log_for_panics,
-    traits::{NodeT, Restart, SpawnOutput},
+    traits::{NodeT, Restart, RestartPolicy, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
 };
@@ -107,6 +107,7 @@ where
     pub da: BitcoinClient,
     failure_tx: UnboundedSender<String>,
     docker_env: Arc<Option<DockerEnv>>,
+    restart_policy: RestartPolicy,
 }
 
 impl<C> Node<C>
@@ -148,6 +149,7 @@ where
             da: da_client,
             failure_tx,
             docker_env: docker,
+            restart_policy: RestartPolicy::default(),
         })
     }
 
@@ -306,6 +308,10 @@ where
     C: Clone + Serialize + Debug + Send + Sync,
     DockerConfig: From<FullL2NodeConfig<C>>,
 {
+    fn set_restart_policy(&mut self, policy: RestartPolicy) {
+        self.restart_policy = policy;
+    }
+
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
         match &mut self.spawn_output {
@@ -317,7 +323,6 @@ where
                     bail!("Missing docker environment")
                 };
 
-                // Keep docker volumes for persistence, remove only the container.
                 env.docker
                     .wait_container(
                         &output.id,
@@ -364,14 +369,20 @@ where
         copy_directory(&old_dir, &new_dir)?;
 
         self.config.set_dir(new_dir);
+
+        let was_container = matches!(&self.spawn_output, SpawnOutput::Container(_));
+        let restart_in_docker = matches!(self.restart_policy, RestartPolicy::Docker)
+            && matches!(self.docker_env.as_ref(), Some(docker) if docker.citrea());
+        if was_container && !restart_in_docker {
+            self.config.normalize_network_for_local_process();
+        }
+
         self.config.write_to_file()?;
         let log_path = self.config.log_path();
         let config_for_spawn = self.config.clone();
 
-        *self.spawn_output() = match self.docker_env.as_ref() {
-            Some(docker) if docker.citrea() => {
-                <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?
-            }
+        *self.spawn_output() = match restart_in_docker {
+            true => <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?,
             _ => Self::spawn(&config_for_spawn, extra_args)?,
         };
         watch_log_for_panics(log_path, kind.to_string(), panic_tx);
@@ -439,6 +450,12 @@ where
 
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Node<C>> {
         self.inner.iter_mut()
+    }
+
+    pub fn set_restart_policy(&mut self, policy: RestartPolicy) {
+        for node in &mut self.inner {
+            node.set_restart_policy(policy);
+        }
     }
 }
 

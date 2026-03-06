@@ -64,7 +64,11 @@ impl DockerEnv {
     /// Create a volume per node
     /// Keeps track of volumes for cleanup
     async fn create_volume(&self, config: &DockerConfig) -> Result<()> {
-        let volume_name = format!("{}-{}", config.volume.name, self.id);
+        let Some(volume) = config.volume.as_ref() else {
+            return Ok(());
+        };
+
+        let volume_name = format!("{}-{}", volume.name, self.id);
         if self.volumes.lock().await.contains(&volume_name) {
             return Ok(());
         }
@@ -145,13 +149,16 @@ impl DockerEnv {
             },
         );
 
-        let volume_name = format!("{}-{}", config.volume.name, self.id);
-        let mut mounts = vec![Mount {
-            target: Some(config.volume.target.clone()),
-            source: Some(volume_name),
-            typ: Some(MountTypeEnum::VOLUME),
-            ..Default::default()
-        }];
+        let mut mounts = Vec::new();
+        if let Some(volume) = config.volume.as_ref() {
+            let volume_name = format!("{}-{}", volume.name, self.id);
+            mounts.push(Mount {
+                target: Some(volume.target.clone()),
+                source: Some(volume_name),
+                typ: Some(MountTypeEnum::VOLUME),
+                ..Default::default()
+            });
+        }
 
         if let Some(host_dir) = &config.host_dir {
             for dir in host_dir {

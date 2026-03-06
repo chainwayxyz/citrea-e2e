@@ -232,6 +232,16 @@ where
     pub fn mode(&self) -> &CitreaMode {
         &self.base.mode
     }
+
+    /// Normalizes docker-network URLs to host-local URLs for spawned binaries
+    pub fn normalize_network_for_local_process(&mut self) {
+        self.rollup.da.node_url = rewrite_url_host_to_localhost(&self.rollup.da.node_url);
+
+        if let Some(runner) = self.rollup.runner.as_mut() {
+            runner.sequencer_client_url =
+                rewrite_url_host_to_localhost(&runner.sequencer_client_url);
+        }
+    }
 }
 
 impl<T> LogPathProvider for FullL2NodeConfig<T>
@@ -248,5 +258,75 @@ where
 
     fn stderr_path(&self) -> PathBuf {
         self.dir().join("stderr.log")
+    }
+}
+
+fn rewrite_url_host_to_localhost(url: &str) -> String {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_string();
+    };
+
+    let authority_end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let authority = &rest[..authority_end];
+    let suffix = &rest[authority_end..];
+
+    let (userinfo, host_port) = match authority.rsplit_once('@') {
+        Some((userinfo, host_port)) => (Some(userinfo), host_port),
+        None => (None, authority),
+    };
+
+    let mut rewritten = format!("{scheme}://");
+    if let Some(userinfo) = userinfo {
+        rewritten.push_str(userinfo);
+        rewritten.push('@');
+    }
+
+    rewritten.push_str(&localhost_with_port(host_port));
+    rewritten.push_str(suffix);
+    rewritten
+}
+
+fn localhost_with_port(host_port: &str) -> String {
+    if host_port.is_empty() {
+        return "127.0.0.1".to_string();
+    }
+
+    let port = if host_port.starts_with('[') {
+        host_port
+            .find(']')
+            .and_then(|idx| host_port.get(idx + 1..))
+            .and_then(|rest| rest.strip_prefix(':'))
+    } else {
+        host_port.rsplit_once(':').map(|(_, port)| port)
+    };
+
+    match port.filter(|port| !port.is_empty()) {
+        Some(port) => format!("127.0.0.1:{port}"),
+        None => "127.0.0.1".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rewrite_url_host_to_localhost;
+
+    #[test]
+    fn rewrite_url_preserves_path_and_port() {
+        let url = "http://bitcoin-123.e2e.internal:18443/wallet/sequencer";
+        let expected = "http://127.0.0.1:18443/wallet/sequencer";
+        assert_eq!(rewrite_url_host_to_localhost(url), expected);
+    }
+
+    #[test]
+    fn rewrite_url_preserves_userinfo_query_and_fragment() {
+        let url = "https://user:pass@bitcoin-123.e2e.internal:18443/path?x=1#tip";
+        let expected = "https://user:pass@127.0.0.1:18443/path?x=1#tip";
+        assert_eq!(rewrite_url_host_to_localhost(url), expected);
+    }
+
+    #[test]
+    fn rewrite_url_without_scheme_is_left_unchanged() {
+        let url = "bitcoin-123.e2e.internal:18443/wallet/sequencer";
+        assert_eq!(rewrite_url_host_to_localhost(url), url);
     }
 }
