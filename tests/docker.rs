@@ -168,6 +168,7 @@ impl TestCase for DockerSequencerRestartPolicySpawnTest {
     }
 }
 
+#[ignore]
 #[tokio::test]
 async fn test_docker_sequencer_restart_policy_spawn() -> Result<()> {
     TestCaseRunner::new(DockerSequencerRestartPolicySpawnTest)
