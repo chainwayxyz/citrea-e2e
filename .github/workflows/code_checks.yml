@@ -106,6 +106,24 @@ jobs:
         wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
         chmod +x /tmp/clementine-core
 
+    - name: Download latest Citrea binary
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        release_json="$(curl -fsSL \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          https://api.github.com/repos/chainwayxyz/citrea/releases/latest)"
+        citrea_download_url="$(echo "$release_json" | grep -Eo 'https://github.com/chainwayxyz/citrea/releases/download/[^"]+/citrea-v[^"]+-linux-amd64' | head -n1)"
+        if [ -z "$citrea_download_url" ]; then
+          echo "Failed to resolve latest citrea linux-amd64 download URL"
+          exit 1
+        fi
+        wget "$citrea_download_url" -O /tmp/citrea
+        chmod +x /tmp/citrea
+
     - name: Copy Docker binary
       run: |
         mkdir -p resources/docker
@@ -128,6 +146,7 @@ jobs:
     - name: Run Cargo test
       env:
         CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
+        CITREA_E2E_TEST_BINARY: /tmp/citrea
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
       run: cargo test --all-features
