@@ -362,7 +362,18 @@ where
                 .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
         copy_directory(&old_dir, &new_dir)?;
 
-        self.config.set_dir(new_dir);
+        self.config.set_dir(new_dir.clone());
+
+        // Also copy and update the storage (RocksDB) directory.
+        // When restarting from Docker to a local process on Linux, the storage files
+        // are owned by root (from the container). We must copy them to a new location
+        // so the local process can write to them.
+        let old_storage = self.config.rollup.storage.path.clone();
+        if old_storage.exists() {
+            let new_storage = new_dir.join("storage");
+            copy_directory(&old_storage, &new_storage)?;
+            self.config.rollup.storage.path = new_storage;
+        }
 
         let was_container = matches!(&self.spawn_output, SpawnOutput::Container(_));
         let restart_in_docker = matches!(self.config.restart_policy, RestartPolicy::Docker)
