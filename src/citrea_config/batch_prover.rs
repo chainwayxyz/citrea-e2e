@@ -89,7 +89,6 @@ mod tests {
             
             [risc0_host.prover.Local]
             r0vm_path = "path/to/vm"
-            dev_mode = false
         "#;
 
         let config_file = create_config_from(config);
@@ -103,7 +102,6 @@ mod tests {
             risc0_host: Risc0HostConfig {
                 prover: Risc0ProverConfig::Local(LocalProverConfig {
                     r0vm_path: Some(PathBuf::from("path/to/vm")),
-                    dev_mode: false,
                 }),
                 tx_backup_dir: Some(PathBuf::from("/tmp/backup")),
             },
