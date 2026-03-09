@@ -290,6 +290,7 @@ impl Restart for BitcoinNode {
                         None::<bollard::query_parameters::RemoveContainerOptions>,
                     )
                     .await?;
+                env.untrack_container(&output.id).await;
                 info!("Docker container {} succesfully removed", output.id);
                 Ok(())
             }

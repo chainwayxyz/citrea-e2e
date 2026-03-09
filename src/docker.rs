@@ -65,6 +65,10 @@ impl DockerEnv {
     /// Keeps track of volumes for cleanup
     async fn create_volume(&self, config: &DockerConfig) -> Result<()> {
         let volume_name = format!("{}-{}", config.volume.name, self.id);
+        if self.volumes.lock().await.contains(&volume_name) {
+            return Ok(());
+        }
+
         self.docker
             .create_volume(CreateVolumeOptions {
                 name: volume_name.clone(),
@@ -100,6 +104,10 @@ impl DockerEnv {
     pub fn get_hostname(&self, kind: &NodeKind) -> String {
         // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
         format!("{kind}-{}.e2e.internal", self.id)
+    }
+
+    pub async fn untrack_container(&self, container_id: &str) {
+        self.container_ids.lock().await.remove(container_id);
     }
 
     pub async fn spawn(&self, config: DockerConfig) -> Result<SpawnOutput> {
