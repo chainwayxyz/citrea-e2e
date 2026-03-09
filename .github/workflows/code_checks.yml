@@ -97,7 +97,15 @@ jobs:
         profile: minimal
         toolchain: stable
 
+    - name: Restore bitvm cache dev bin
+      id: bitvm-cache-dev-bin
+      uses: ubicloud/cache@v4
+      with:
+        path: /tmp/bitvm_cache_dev.bin
+        key: ${{ runner.os }}-bitvm-cache-dev-bin-v1
+
     - name: Download Clementine bitvm cache dev bin
+      if: steps.bitvm-cache-dev-bin.outputs.cache-hit != 'true'
       shell: bash
       run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /tmp/bitvm_cache_dev.bin
 
