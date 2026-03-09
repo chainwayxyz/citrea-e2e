@@ -8,7 +8,7 @@ env:
   CARGOFLAGS: --workspace --all-targets --all-features
   RUST_LOG: citrea-e2e=trace,info
   RISC0_DEV_MODE: 1
-  BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.0"
+  BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.2"
   POSTGRES_DOCKER_IMAGE: "postgres:15"
   CITREA_DOCKER_IMAGE: "chainwayxyz/citrea-test:latest"
   CLEMENTINE_DOCKER_IMAGE: "chainwayxyz/clementine-automation:latest"

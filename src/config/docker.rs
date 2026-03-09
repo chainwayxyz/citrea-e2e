@@ -13,7 +13,7 @@ use crate::{
     utils::get_genesis_path,
 };
 
-const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:30.0";
+const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:30.2";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str = "chainwayxyz/citrea-test:latest";
 
 #[derive(Debug)]
@@ -87,8 +87,8 @@ where
             cmd: args,
             log_path: config.dir().join("stdout.log"),
             volume: VolumeConfig {
-                name: format!("{kind}"),
-                target: format!("/{kind}/data"),
+                name: format!("{kind}-{}", config.rollup.rpc.bind_port),
+                target: config.rollup.storage.path.display().to_string(),
             },
             host_dir: Some(vec![
                 config.dir().to_owned().display().to_string(),
