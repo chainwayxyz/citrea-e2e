@@ -94,7 +94,6 @@ pub trait NodeT: Send {
 // - Call restart if you need to wait for node to be fully shutdown and brough back up with new config.
 #[async_trait]
 pub trait Restart: NodeT + Send {
-    fn set_restart_policy(&mut self, _policy: RestartPolicy) {}
     async fn wait_until_stopped(&mut self) -> Result<()>;
     async fn start(
         &mut self,

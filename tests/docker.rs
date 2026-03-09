@@ -152,7 +152,7 @@ impl TestCase for DockerSequencerRestartPolicySpawnTest {
 
         let height_pre_restart = sequencer.client.ledger_get_head_l2_block_height().await?;
 
-        sequencer.set_restart_policy(RestartPolicy::Spawn); // Switch restart policy to using `CITREA_E2E_TEST_BINARY` binary
+        sequencer.config.restart_policy = RestartPolicy::Spawn; // Switch restart policy to using `CITREA_E2E_TEST_BINARY` binary
         sequencer.restart(None, None).await?;
 
         let height_post_restart = sequencer.client.ledger_get_head_l2_block_height().await?;

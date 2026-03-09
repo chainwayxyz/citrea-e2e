@@ -41,7 +41,7 @@ pub use crate::citrea_config::{
     rollup::{RollupConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
     sequencer::{ListenModeConfig, SequencerConfig, SequencerMempoolConfig},
 };
-use crate::{log_provider::LogPathProvider, node::NodeKind, Result};
+use crate::{log_provider::LogPathProvider, node::NodeKind, traits::RestartPolicy, Result};
 
 #[derive(Clone, Debug, Default)]
 pub enum DaLayer {
@@ -96,6 +96,7 @@ where
     pub rollup: RollupConfig,
     kind: NodeKind,
     pub throttle: Option<ThrottleConfig>,
+    pub restart_policy: RestartPolicy,
 }
 
 impl<T> FullL2NodeConfig<T>
@@ -127,6 +128,7 @@ where
             rollup,
             kind,
             throttle,
+            restart_policy: RestartPolicy::Docker,
         };
 
         conf.write_to_file()?;

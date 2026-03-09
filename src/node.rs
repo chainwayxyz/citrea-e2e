@@ -107,7 +107,6 @@ where
     pub da: BitcoinClient,
     failure_tx: UnboundedSender<String>,
     docker_env: Arc<Option<DockerEnv>>,
-    restart_policy: RestartPolicy,
 }
 
 impl<C> Node<C>
@@ -149,7 +148,6 @@ where
             da: da_client,
             failure_tx,
             docker_env: docker,
-            restart_policy: RestartPolicy::default(),
         })
     }
 
@@ -308,10 +306,6 @@ where
     C: Clone + Serialize + Debug + Send + Sync,
     DockerConfig: From<FullL2NodeConfig<C>>,
 {
-    fn set_restart_policy(&mut self, policy: RestartPolicy) {
-        self.restart_policy = policy;
-    }
-
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
         match &mut self.spawn_output {
@@ -371,7 +365,7 @@ where
         self.config.set_dir(new_dir);
 
         let was_container = matches!(&self.spawn_output, SpawnOutput::Container(_));
-        let restart_in_docker = matches!(self.restart_policy, RestartPolicy::Docker)
+        let restart_in_docker = matches!(self.config.restart_policy, RestartPolicy::Docker)
             && matches!(self.docker_env.as_ref(), Some(docker) if docker.citrea());
         if was_container && !restart_in_docker {
             self.config.normalize_network_for_local_process();
@@ -450,12 +444,6 @@ where
 
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Node<C>> {
         self.inner.iter_mut()
-    }
-
-    pub fn set_restart_policy(&mut self, policy: RestartPolicy) {
-        for node in &mut self.inner {
-            node.set_restart_policy(policy);
-        }
     }
 }
 
