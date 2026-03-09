@@ -128,7 +128,7 @@ where
             rollup,
             kind,
             throttle,
-            restart_policy: RestartPolicy::Docker,
+            restart_policy: Default::default(),
         };
 
         conf.write_to_file()?;
