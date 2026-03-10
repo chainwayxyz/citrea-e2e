@@ -28,7 +28,7 @@ pub struct DockerConfig {
     pub image: String,
     pub cmd: Vec<String>,
     pub log_path: PathBuf,
-    pub volume: VolumeConfig,
+    pub volume: Option<VolumeConfig>,
     pub host_dir: Option<Vec<String>>,
     pub kind: NodeKind,
     pub throttle: Option<ThrottleConfig>,
@@ -54,10 +54,10 @@ impl From<&BitcoinConfig> for DockerConfig {
                 .unwrap_or_else(|| DEFAULT_BITCOIN_DOCKER_IMAGE.to_string()),
             cmd: args,
             log_path: config.data_dir.join("regtest").join("debug.log"),
-            volume: VolumeConfig {
+            volume: Some(VolumeConfig {
                 name: format!("bitcoin-{}", config.idx),
                 target: "/home/bitcoin/.bitcoin".to_string(),
-            },
+            }),
             host_dir: None,
             kind: NodeKind::Bitcoin,
             throttle: None, // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
@@ -86,13 +86,11 @@ where
                 .unwrap_or(DEFAULT_CITREA_DOCKER_IMAGE.to_string()),
             cmd: args,
             log_path: config.dir().join("stdout.log"),
-            volume: VolumeConfig {
-                name: format!("{kind}-{}", config.rollup.rpc.bind_port),
-                target: config.rollup.storage.path.display().to_string(),
-            },
+            volume: None,
             host_dir: Some(vec![
                 config.dir().to_owned().display().to_string(),
                 get_genesis_path(config.dir()),
+                config.rollup.storage.path.display().to_string(),
             ]),
             kind,
             throttle: config.throttle.clone(),
@@ -126,10 +124,10 @@ impl From<&PostgresConfig> for DockerConfig {
             image,
             cmd,
             log_path: config.log_path(),
-            volume: VolumeConfig {
+            volume: Some(VolumeConfig {
                 name: "postgres".to_string(),
                 target: "/var/lib/postgresql/data".to_string(),
-            },
+            }),
             host_dir: None,
             kind: NodeKind::Postgres,
             throttle: None,

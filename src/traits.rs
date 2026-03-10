@@ -19,6 +19,13 @@ pub enum SpawnOutput {
     Container(ContainerSpawnOutput),
 }
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq)]
+pub enum RestartPolicy {
+    #[default]
+    Docker,
+    Spawn,
+}
+
 /// The Node trait defines the common interface shared between
 /// BitcoinNode, BatchProver, LightClientProver, Sequencer and FullNode
 #[async_trait]

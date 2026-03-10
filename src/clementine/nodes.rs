@@ -728,10 +728,10 @@ where
                         mounts
                     }),
                     log_path: config.log_path(),
-                    volume: VolumeConfig {
+                    volume: Some(VolumeConfig {
                         name: role.to_string(),
                         target: "/not-used".to_string(),
-                    },
+                    }),
                     kind: config.kind(),
                     throttle: None,
                     env,

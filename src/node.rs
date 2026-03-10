@@ -32,7 +32,7 @@ use crate::{
     framework::TestContext,
     log_provider::LogPathProvider,
     test_case::watch_log_for_panics,
-    traits::{NodeT, Restart, SpawnOutput},
+    traits::{NodeT, Restart, RestartPolicy, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
 };
@@ -317,7 +317,6 @@ where
                     bail!("Missing docker environment")
                 };
 
-                // Keep docker volumes for persistence, remove only the container.
                 env.docker
                     .wait_container(
                         &output.id,
@@ -363,15 +362,32 @@ where
                 .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
         copy_directory(&old_dir, &new_dir)?;
 
-        self.config.set_dir(new_dir);
+        self.config.set_dir(new_dir.clone());
+
+        // Also copy and update the storage (RocksDB) directory.
+        // When restarting from Docker to a local process on Linux, the storage files
+        // are owned by root (from the container). We must copy them to a new location
+        // so the local process can write to them.
+        let old_storage = self.config.rollup.storage.path.clone();
+        if old_storage.exists() {
+            let new_storage = new_dir.join("storage");
+            copy_directory(&old_storage, &new_storage)?;
+            self.config.rollup.storage.path = new_storage;
+        }
+
+        let was_container = matches!(&self.spawn_output, SpawnOutput::Container(_));
+        let restart_in_docker = matches!(self.config.restart_policy, RestartPolicy::Docker)
+            && matches!(self.docker_env.as_ref(), Some(docker) if docker.citrea());
+        if was_container && !restart_in_docker {
+            self.config.normalize_network_for_local_process();
+        }
+
         self.config.write_to_file()?;
         let log_path = self.config.log_path();
         let config_for_spawn = self.config.clone();
 
-        *self.spawn_output() = match self.docker_env.as_ref() {
-            Some(docker) if docker.citrea() => {
-                <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?
-            }
+        *self.spawn_output() = match restart_in_docker {
+            true => <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?,
             _ => Self::spawn(&config_for_spawn, extra_args)?,
         };
         watch_log_for_panics(log_path, kind.to_string(), panic_tx);
