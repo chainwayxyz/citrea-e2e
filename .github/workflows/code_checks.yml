@@ -8,7 +8,7 @@ env:
   CARGOFLAGS: --workspace --all-targets --all-features
   RUST_LOG: citrea-e2e=trace,info
   RISC0_DEV_MODE: 1
-  BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.0"
+  BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.2"
   POSTGRES_DOCKER_IMAGE: "postgres:15"
   CITREA_DOCKER_IMAGE: "chainwayxyz/citrea-test:latest"
   CLEMENTINE_DOCKER_IMAGE: "chainwayxyz/clementine-automation:latest"
@@ -97,7 +97,15 @@ jobs:
         profile: minimal
         toolchain: stable
 
+    - name: Restore bitvm cache dev bin
+      id: bitvm-cache-dev-bin
+      uses: ubicloud/cache@v4
+      with:
+        path: /tmp/bitvm_cache_dev.bin
+        key: ${{ runner.os }}-bitvm-cache-dev-bin-v1
+
     - name: Download Clementine bitvm cache dev bin
+      if: steps.bitvm-cache-dev-bin.outputs.cache-hit != 'true'
       shell: bash
       run: wget https://static.testnet.citrea.xyz/common/bitvm_cache_dev.bin -O /tmp/bitvm_cache_dev.bin
 
@@ -105,6 +113,24 @@ jobs:
       run: |
         wget https://github.com/chainwayxyz/clementine/releases/download/v0.4.1/clementine-core-v0.4.1-with-automation-linux-amd64 -O /tmp/clementine-core
         chmod +x /tmp/clementine-core
+
+    - name: Download latest Citrea binary
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        release_json="$(curl -fsSL \
+          -H "Accept: application/vnd.github+json" \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          https://api.github.com/repos/chainwayxyz/citrea/releases/latest)"
+        citrea_download_url="$(echo "$release_json" | grep -Eo 'https://github.com/chainwayxyz/citrea/releases/download/[^"]+/citrea-v[^"]+-linux-amd64' | head -n1)"
+        if [ -z "$citrea_download_url" ]; then
+          echo "Failed to resolve latest citrea linux-amd64 download URL"
+          exit 1
+        fi
+        wget "$citrea_download_url" -O /tmp/citrea
+        chmod +x /tmp/citrea
 
     - name: Copy Docker binary
       run: |
@@ -128,6 +154,7 @@ jobs:
     - name: Run Cargo test
       env:
         CLEMENTINE_E2E_TEST_BINARY: /tmp/clementine-core
+        CITREA_E2E_TEST_BINARY: /tmp/citrea
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
       run: cargo test --all-features

@@ -51,7 +51,7 @@ impl TestContext {
 }
 
 pub struct TestFramework {
-    ctx: TestContext,
+    pub ctx: TestContext,
     pub bitcoin_nodes: BitcoinNodeCluster,
     #[cfg(feature = "clementine")]
     pub postgres: Option<Postgres>,
@@ -458,6 +458,8 @@ fn generate_test_config<T: TestCase>(
         _ => sequencer_rollup.rpc.bind_host.clone(),
     };
 
+    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
+
     let sequencer_configs = generate_sequencer_configs::<T>(
         &test_case,
         da_config.clone(),
@@ -465,6 +467,7 @@ fn generate_test_config<T: TestCase>(
         &tx_backup_dir,
         &dbs_dir,
         &citrea_bind_host,
+        citrea_docker_image.clone(),
     )?;
 
     let runner_config = Some(RunnerConfig {
@@ -481,6 +484,13 @@ fn generate_test_config<T: TestCase>(
     let batch_prover_rollup = {
         let bind_port = get_available_port()?;
         let node_kind = NodeKind::BatchProver.to_string();
+        let storage_path = dbs_dir.join(format!("{node_kind}-db"));
+        std::fs::create_dir_all(&storage_path).with_context(|| {
+            format!(
+                "Failed to create storage directory {}",
+                storage_path.display()
+            )
+        })?;
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: Some(
@@ -491,7 +501,7 @@ fn generate_test_config<T: TestCase>(
                 ..da_config.clone()
             },
             storage: StorageConfig {
-                path: dbs_dir.join(format!("{node_kind}-db")),
+                path: storage_path,
                 db_max_open_files: None,
             },
             rpc: RpcConfig {
@@ -507,6 +517,13 @@ fn generate_test_config<T: TestCase>(
     let light_client_prover_rollup = {
         let bind_port = get_available_port()?;
         let node_kind = NodeKind::LightClientProver.to_string();
+        let storage_path = dbs_dir.join(format!("{node_kind}-db"));
+        std::fs::create_dir_all(&storage_path).with_context(|| {
+            format!(
+                "Failed to create storage directory {}",
+                storage_path.display()
+            )
+        })?;
         RollupConfig {
             da: BitcoinServiceConfig {
                 da_private_key: None,
@@ -515,7 +532,7 @@ fn generate_test_config<T: TestCase>(
                 ..da_config.clone()
             },
             storage: StorageConfig {
-                path: dbs_dir.join(format!("{node_kind}-db")),
+                path: storage_path,
                 db_max_open_files: None,
             },
             rpc: RpcConfig {
@@ -531,6 +548,13 @@ fn generate_test_config<T: TestCase>(
     let full_node_rollup = {
         let bind_port = get_available_port()?;
         let node_kind = NodeKind::FullNode.to_string();
+        let storage_path = dbs_dir.join(format!("{node_kind}-db"));
+        std::fs::create_dir_all(&storage_path).with_context(|| {
+            format!(
+                "Failed to create storage directory {}",
+                storage_path.display()
+            )
+        })?;
         RollupConfig {
             da: BitcoinServiceConfig {
                 node_url: format!(
@@ -542,7 +566,7 @@ fn generate_test_config<T: TestCase>(
                 ..da_config.clone()
             },
             storage: StorageConfig {
-                path: dbs_dir.join(format!("{node_kind}-db")),
+                path: storage_path,
                 db_max_open_files: None,
             },
             rpc: RpcConfig {
@@ -583,7 +607,6 @@ fn generate_test_config<T: TestCase>(
         (clementine, postgres)
     };
 
-    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
         sequencer: sequencer_configs,
@@ -632,12 +655,12 @@ fn generate_sequencer_configs<T: TestCase>(
     tx_backup_dir: &Path,
     dbs_dir: &Path,
     bind_host: &str,
+    citrea_docker_image: Option<String>,
 ) -> Result<Vec<FullSequencerConfig>> {
     let main_sequencer = T::sequencer_config();
     let env = T::test_env();
     let throttle_config = T::throttle_config();
     let kind = NodeKind::Sequencer;
-    let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
 
     let mut main_sequencer_client_url = String::new();
 
@@ -649,6 +672,13 @@ fn generate_sequencer_configs<T: TestCase>(
 
         let bind_port = get_available_port()?;
         let node_kind = kind.to_string();
+        let storage_path = dbs_dir.join(format!("{node_kind}-{i}-db"));
+        std::fs::create_dir_all(&storage_path).with_context(|| {
+            format!(
+                "Failed to create storage directory {}",
+                storage_path.display()
+            )
+        })?;
         let base_rollup = RollupConfig::default();
         let sequencer_rollup = RollupConfig {
             da: BitcoinServiceConfig {
@@ -660,7 +690,7 @@ fn generate_sequencer_configs<T: TestCase>(
                 ..da_config.clone()
             },
             storage: StorageConfig {
-                path: dbs_dir.join(format!("{node_kind}-{i}-db")),
+                path: storage_path,
                 db_max_open_files: None,
             },
             rpc: RpcConfig {

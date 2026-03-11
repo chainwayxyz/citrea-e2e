@@ -12,6 +12,7 @@ use std::{
 use anyhow::{anyhow, bail, Context};
 use async_trait::async_trait;
 use bitcoincore_rpc::{Auth, Client as BitcoinClient};
+use futures::TryStreamExt;
 use serde::Serialize;
 use tokio::{
     process::Command,
@@ -31,7 +32,7 @@ use crate::{
     framework::TestContext,
     log_provider::LogPathProvider,
     test_case::watch_log_for_panics,
-    traits::{NodeT, Restart, SpawnOutput},
+    traits::{NodeT, Restart, RestartPolicy, SpawnOutput},
     utils::{copy_directory, get_citrea_path, get_genesis_path},
     Result,
 };
@@ -105,6 +106,7 @@ where
     // Bitcoin client targetting node's wallet endpoint
     pub da: BitcoinClient,
     failure_tx: UnboundedSender<String>,
+    docker_env: Arc<Option<DockerEnv>>,
 }
 
 impl<C> Node<C>
@@ -145,6 +147,7 @@ where
             client,
             da: da_client,
             failure_tx,
+            docker_env: docker,
         })
     }
 
@@ -305,9 +308,32 @@ where
 {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
-        if let SpawnOutput::Child(pid) = &mut self.spawn_output {
-            pid.wait().await?;
+        match &mut self.spawn_output {
+            SpawnOutput::Child(pid) => {
+                pid.wait().await?;
+            }
+            SpawnOutput::Container(output) => {
+                let Some(env) = self.docker_env.as_ref() else {
+                    bail!("Missing docker environment")
+                };
+
+                env.docker
+                    .wait_container(
+                        &output.id,
+                        None::<bollard::query_parameters::WaitContainerOptions>,
+                    )
+                    .try_collect::<Vec<_>>()
+                    .await?;
+                env.docker
+                    .remove_container(
+                        &output.id,
+                        None::<bollard::query_parameters::RemoveContainerOptions>,
+                    )
+                    .await?;
+                env.untrack_container(&output.id).await;
+            }
         }
+
         Ok(())
     }
 
@@ -317,11 +343,11 @@ where
         extra_args: Option<Vec<String>>,
     ) -> Result<()> {
         let panic_tx = self.failure_tx.clone();
-        let config = self.config_mut();
-        let kind = config.kind();
+        let kind = self.config.kind();
+        let old_dir = self.config.dir().clone();
 
         if let Some(new_config) = new_config {
-            *config = new_config;
+            self.config = new_config;
         }
 
         // Update and copy to new dir in order not to overwrite the previous datadir when re-spawning
@@ -329,19 +355,41 @@ where
         static INDEX: AtomicU8 = AtomicU8::new(0);
         INDEX.fetch_add(1, Ordering::SeqCst);
 
-        let old_dir = config.dir();
         let new_dir =
             old_dir
                 .parent()
                 .unwrap()
                 .join(format!("{}-{}", kind, INDEX.load(Ordering::SeqCst)));
-        copy_directory(old_dir, &new_dir)?;
+        copy_directory(&old_dir, &new_dir)?;
 
-        config.set_dir(new_dir);
-        config.write_to_file()?;
-        let log_path = config.log_path();
+        self.config.set_dir(new_dir.clone());
 
-        *self.spawn_output() = Self::spawn(config, extra_args)?;
+        // Also copy and update the storage (RocksDB) directory.
+        // When restarting from Docker to a local process on Linux, the storage files
+        // are owned by root (from the container). We must copy them to a new location
+        // so the local process can write to them.
+        let old_storage = self.config.rollup.storage.path.clone();
+        if old_storage.exists() {
+            let new_storage = new_dir.join("storage");
+            copy_directory(&old_storage, &new_storage)?;
+            self.config.rollup.storage.path = new_storage;
+        }
+
+        let was_container = matches!(&self.spawn_output, SpawnOutput::Container(_));
+        let restart_in_docker = matches!(self.config.restart_policy, RestartPolicy::Docker)
+            && matches!(self.docker_env.as_ref(), Some(docker) if docker.citrea());
+        if was_container && !restart_in_docker {
+            self.config.normalize_network_for_local_process();
+        }
+
+        self.config.write_to_file()?;
+        let log_path = self.config.log_path();
+        let config_for_spawn = self.config.clone();
+
+        *self.spawn_output() = match restart_in_docker {
+            true => <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?,
+            _ => Self::spawn(&config_for_spawn, extra_args)?,
+        };
         watch_log_for_panics(log_path, kind.to_string(), panic_tx);
 
         self.wait_for_ready(None).await
