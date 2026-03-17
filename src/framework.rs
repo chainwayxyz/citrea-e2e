@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::{Arc, Once},
 };
@@ -33,8 +34,8 @@ use crate::{
     Result,
 };
 use crate::{clementine::ClementineIntegration, config::SequencerConfig};
-#[cfg(feature = "clementine")]
 use crate::{config::PostgresConfig, postgres::Postgres};
+use crate::{config::TxSenderConfig, tx_sender::TxSender};
 
 pub struct TestContext {
     pub config: TestConfig,
@@ -53,8 +54,8 @@ impl TestContext {
 pub struct TestFramework {
     pub ctx: TestContext,
     pub bitcoin_nodes: BitcoinNodeCluster,
-    #[cfg(feature = "clementine")]
     pub postgres: Option<Postgres>,
+    pub tx_senders: HashMap<NodeKind, TxSender>,
     pub sequencer: Option<Sequencer>,
     pub sequencer_cluster: Option<SequencerCluster>,
     pub batch_prover: Option<BatchProver>,
@@ -93,8 +94,7 @@ impl TestFramework {
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
 
-        #[cfg(feature = "clementine")]
-        let postgres = if ctx.config.test_case.with_clementine {
+        let postgres = if ctx.config.test_case.with_clementine || !ctx.config.tx_sender.is_empty() {
             Some(Postgres::new(&ctx.config.postgres, Arc::clone(&ctx.docker)).await?)
         } else {
             None
@@ -102,8 +102,8 @@ impl TestFramework {
 
         Ok(Self {
             bitcoin_nodes,
-            #[cfg(feature = "clementine")]
             postgres,
+            tx_senders: HashMap::new(),
             sequencer: None,
             sequencer_cluster: None,
             batch_prover: None,
@@ -125,6 +125,17 @@ impl TestFramework {
             self.ctx.config.test_case.with_clementine,
         )
         .await?;
+
+        Ok(())
+    }
+
+    pub async fn init_tx_senders(&mut self, failure_tx: UnboundedSender<String>) -> Result<()> {
+        for config in &self.ctx.config.tx_sender {
+            self.tx_senders.insert(
+                config.owner_kind,
+                TxSender::new(config, Arc::clone(&self.ctx.docker), failure_tx.clone()).await?,
+            );
+        }
 
         Ok(())
     }
@@ -192,7 +203,8 @@ impl TestFramework {
     }
 
     pub async fn init_nodes(&mut self, failure_tx: UnboundedSender<String>) -> Result<()> {
-        self.init_citrea_nodes(failure_tx).await?;
+        self.init_tx_senders(failure_tx.clone()).await?;
+        self.init_citrea_nodes(failure_tx.clone()).await?;
         #[cfg(feature = "clementine")]
         self.init_clementine_nodes().await?;
         Ok(())
@@ -226,6 +238,14 @@ impl TestFramework {
                     .with_clementine
                     .then(|| LogPathProvider::as_erased(&self.ctx.config.clementine.aggregator)),
             ])
+            .chain(
+                self.ctx
+                    .config
+                    .tx_sender
+                    .iter()
+                    .map(LogPathProvider::as_erased)
+                    .map(Option::Some),
+            )
             .chain({
                 #[cfg_attr(not(feature = "clementine"), allow(unused_mut))]
                 let mut clementine_providers = Vec::new();
@@ -336,12 +356,16 @@ impl TestFramework {
             info!("Successfully stopped full_node");
         }
 
+        for (owner_kind, tx_sender) in &mut self.tx_senders {
+            let _ = tx_sender.stop().await;
+            info!("Successfully stopped {} tx-sender", owner_kind);
+        }
+
         if let Some(docker) = self.ctx.docker.as_ref() {
             let _ = docker.cleanup().await;
             info!("Successfully cleaned docker");
         }
 
-        #[cfg(feature = "clementine")]
         if let Some(postgres) = &mut self.postgres {
             let _ = postgres.stop().await;
             info!("Successfully stopped postgres");
@@ -416,7 +440,7 @@ fn generate_test_config<T: TestCase>(
     light_client_prover.initial_da_height = scan_l1_start_height.unwrap_or(120);
     let throttle_config = T::throttle_config();
 
-    let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir, _postgres_dir, clementine_dir] =
+    let [bitcoin_dir, dbs_dir, batch_prover_dir, light_client_prover_dir, sequencer_dir, full_node_dir, genesis_dir, tx_backup_dir, _postgres_dir, clementine_dir, tx_sender_dir] =
         create_dirs(&test_case.dir)?;
 
     copy_genesis_dir(&test_case.genesis_dir, &genesis_dir)?;
@@ -579,23 +603,26 @@ fn generate_test_config<T: TestCase>(
         }
     };
 
-    #[cfg(feature = "clementine")]
-    let (clementine, postgres) = {
-        let postgres = PostgresConfig {
-            port: get_available_port()?,
-            log_dir: _postgres_dir,
-            docker_host: docker
-                .as_ref()
-                .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Postgres))),
-            ..Default::default()
-        };
+    let postgres_enabled_in_docker =
+        test_case.with_sequencer || test_case.with_batch_prover || test_case.with_clementine;
 
+    let postgres = PostgresConfig {
+        port: get_available_port()?,
+        log_dir: _postgres_dir,
+        docker_host: docker
+            .as_ref()
+            .and_then(|d| postgres_enabled_in_docker.then(|| d.get_hostname(&NodeKind::Postgres))),
+        ..Default::default()
+    };
+
+    #[cfg(feature = "clementine")]
+    let clementine = {
         let mut clementine_btc_conf = bitcoin_confs[0].clone();
         clementine_btc_conf.docker_host = docker
             .as_ref()
             .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Bitcoin)));
 
-        let clementine = ClementineIntegration::generate_cluster_config::<T>(
+        ClementineIntegration::generate_cluster_config::<T>(
             &test_case,
             &clementine_dir,
             postgres.clone(),
@@ -603,9 +630,18 @@ fn generate_test_config<T: TestCase>(
             full_node_rollup.rpc.clone(),
             light_client_prover_rollup.rpc.clone(),
             docker,
-        )?;
-        (clementine, postgres)
+        )?
     };
+
+    let tx_sender = generate_tx_sender_configs(
+        &test_case,
+        &postgres,
+        &bitcoin_confs[0],
+        &sequencer_configs,
+        &batch_prover_rollup.da,
+        &tx_sender_dir,
+        docker,
+    )?;
 
     Ok(TestConfig {
         bitcoin: bitcoin_confs,
@@ -641,10 +677,10 @@ fn generate_test_config<T: TestCase>(
             throttle_config.clone(),
         )?,
         test_case,
+        postgres,
+        tx_sender,
         #[cfg(feature = "clementine")]
         clementine,
-        #[cfg(feature = "clementine")]
-        postgres,
     })
 }
 
@@ -732,7 +768,63 @@ fn generate_sequencer_configs<T: TestCase>(
     Ok(sequencer_configs)
 }
 
-fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {
+fn generate_tx_sender_configs(
+    test_case: &TestCaseConfig,
+    postgres: &PostgresConfig,
+    bitcoin_config: &BitcoinConfig,
+    sequencer_configs: &[FullSequencerConfig],
+    batch_prover_da: &BitcoinServiceConfig,
+    tx_sender_dir: &Path,
+    docker: &Option<DockerEnv>,
+) -> Result<Vec<TxSenderConfig>> {
+    let mut tx_senders = Vec::new();
+
+    let bitcoin_docker_host = docker.as_ref().map(|d| {
+        if d.bitcoin() {
+            d.get_hostname(&NodeKind::Bitcoin)
+        } else {
+            "host.docker.internal".to_string()
+        }
+    });
+
+    if test_case.with_sequencer {
+        let mut tx_sender_btc_conf = bitcoin_config.clone();
+        tx_sender_btc_conf.docker_host = bitcoin_docker_host.clone();
+
+        tx_senders.push(TxSenderConfig::new(
+            NodeKind::Sequencer,
+            postgres,
+            &tx_sender_btc_conf,
+            &sequencer_configs[0].rollup.da,
+            tx_sender_dir.to_path_buf(),
+            get_available_port()?,
+            docker
+                .as_ref()
+                .map(|d| d.get_hostname_for("tx-sender-sequencer")),
+        )?);
+    }
+
+    if test_case.with_batch_prover {
+        let mut tx_sender_btc_conf = bitcoin_config.clone();
+        tx_sender_btc_conf.docker_host = bitcoin_docker_host;
+
+        tx_senders.push(TxSenderConfig::new(
+            NodeKind::BatchProver,
+            postgres,
+            &tx_sender_btc_conf,
+            batch_prover_da,
+            tx_sender_dir.to_path_buf(),
+            get_available_port()?,
+            docker
+                .as_ref()
+                .map(|d| d.get_hostname_for("tx-sender-batch-prover")),
+        )?);
+    }
+
+    Ok(tx_senders)
+}
+
+fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 11]> {
     let paths = [
         NodeKind::Bitcoin.to_string(),
         "dbs".to_string(),
@@ -744,6 +836,7 @@ fn create_dirs(base_dir: &Path) -> Result<[PathBuf; 10]> {
         "inscription_txs".to_string(),
         NodeKind::Postgres.to_string(),
         "clementine".to_string(),
+        NodeKind::TxSender.to_string(),
     ]
     .map(|dir| base_dir.join(dir));
 

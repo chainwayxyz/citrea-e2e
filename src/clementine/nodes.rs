@@ -709,6 +709,7 @@ where
             let _ = ensure_docker_client_if_needed().await;
             docker
                 .spawn(DockerConfig {
+                    name: None,
                     ports: vec![config.port],
                     image: config
                         .image

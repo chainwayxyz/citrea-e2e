@@ -7,6 +7,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use bollard::{
     container::{Config, LogOutput, NetworkingConfig},
+    exec::{CreateExecOptions, StartExecOptions, StartExecResults},
     models::{EndpointSettings, Mount, PortBinding},
     network::CreateNetworkOptions,
     query_parameters::{
@@ -105,9 +106,13 @@ impl DockerEnv {
         })
     }
 
-    pub fn get_hostname(&self, kind: &NodeKind) -> String {
+    pub fn get_hostname_for(&self, name: &str) -> String {
         // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
-        format!("{kind}-{}.e2e.internal", self.id)
+        format!("{name}-{}.e2e.internal", self.id)
+    }
+
+    pub fn get_hostname(&self, kind: &NodeKind) -> String {
+        self.get_hostname_for(&kind.to_string())
     }
 
     pub async fn untrack_container(&self, container_id: &str) {
@@ -139,12 +144,17 @@ impl DockerEnv {
             })
             .collect();
 
+        let container_name = config
+            .name
+            .clone()
+            .unwrap_or_else(|| config.kind.to_string());
+
         let mut network_config = HashMap::new();
         network_config.insert(
             self.network_info.id.clone(),
             EndpointSettings {
                 // ip_address: Some(self.get_hostname(&config.kind)),
-                aliases: Some(vec![self.get_hostname(&config.kind)]),
+                aliases: Some(vec![self.get_hostname_for(&container_name)]),
                 ..Default::default()
             },
         );
@@ -234,7 +244,7 @@ impl DockerEnv {
             .collect::<Vec<_>>();
 
         let container_config = Config {
-            hostname: Some(format!("{}-{}", config.kind, self.id)),
+            hostname: Some(format!("{}-{}", container_name, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
@@ -303,6 +313,99 @@ impl DockerEnv {
         });
         debug!("{}, spawn_output : {spawn_output:?}", config.kind);
         Ok(spawn_output)
+    }
+
+    pub async fn exec_in_named_container(
+        &self,
+        container_name: &str,
+        env: Vec<String>,
+        cmd: Vec<String>,
+    ) -> Result<()> {
+        let container_id = self.find_tracked_container_id(container_name).await?;
+
+        let exec = self
+            .docker
+            .create_exec(
+                &container_id,
+                CreateExecOptions {
+                    attach_stdout: Some(true),
+                    attach_stderr: Some(true),
+                    env: (!env.is_empty()).then_some(env),
+                    cmd: Some(cmd.clone()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .with_context(|| format!("Failed to create exec in container {container_name}"))?;
+
+        let mut stderr = String::new();
+
+        if let StartExecResults::Attached { mut output, .. } = self
+            .docker
+            .start_exec(&exec.id, None::<StartExecOptions>)
+            .await
+            .with_context(|| format!("Failed to start exec in container {container_name}"))?
+        {
+            while let Some(message) = output.next().await {
+                match message? {
+                    LogOutput::StdOut { .. } | LogOutput::Console { .. } => {}
+                    LogOutput::StdErr { message } => {
+                        stderr.push_str(&String::from_utf8_lossy(&message));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let inspect = self
+            .docker
+            .inspect_exec(&exec.id)
+            .await
+            .with_context(|| format!("Failed to inspect exec in container {container_name}"))?;
+
+        match inspect.exit_code {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(
+                "Command {:?} failed in container {container_name} with exit code {code}: {}",
+                cmd,
+                stderr.trim()
+            )),
+            None => Err(anyhow!(
+                "Command {:?} in container {container_name} finished without an exit code",
+                cmd
+            )),
+        }
+    }
+
+    async fn find_tracked_container_id(&self, container_name: &str) -> Result<String> {
+        let expected_hostname = format!("{container_name}-{}", self.id);
+        let container_ids = self
+            .container_ids
+            .lock()
+            .await
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        for container_id in container_ids {
+            let inspect = self
+                .docker
+                .inspect_container(
+                    &container_id,
+                    None::<bollard::query_parameters::InspectContainerOptions>,
+                )
+                .await
+                .with_context(|| format!("Failed to inspect tracked container {container_id}"))?;
+
+            let hostname = inspect.config.and_then(|config| config.hostname);
+            if hostname.as_deref() == Some(expected_hostname.as_str()) {
+                return Ok(container_id);
+            }
+        }
+
+        Err(anyhow!(
+            "Failed to find tracked container named {container_name}"
+        ))
     }
 
     async fn ensure_image_exists(&self, image: &str) -> Result<()> {

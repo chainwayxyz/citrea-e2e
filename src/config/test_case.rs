@@ -124,7 +124,10 @@ impl TestCaseConfig {
     }
 
     pub fn docker_enabled(&self) -> bool {
-        self.docker.enabled() || self.with_clementine
+        self.docker.enabled()
+            || self.with_clementine
+            || self.with_sequencer
+            || self.with_batch_prover
     }
 }
 
@@ -149,14 +152,17 @@ impl Default for TestCaseDockerConfig {
 }
 
 impl TestCaseDockerConfig {
-    #[cfg(feature = "clementine")]
     pub fn enabled(&self) -> bool {
-        self.bitcoin || self.citrea || self.clementine
-    }
-
-    #[cfg(not(feature = "clementine"))]
-    pub fn enabled(&self) -> bool {
-        self.bitcoin || self.citrea
+        self.bitcoin || self.citrea || {
+            #[cfg(feature = "clementine")]
+            {
+                self.clementine
+            }
+            #[cfg(not(feature = "clementine"))]
+            {
+                false
+            }
+        }
     }
 }
 

@@ -10,11 +10,11 @@ mod docker;
 pub mod framework;
 mod log_provider;
 pub mod node;
-#[cfg(feature = "clementine")]
 pub mod postgres;
 mod sequencer;
 pub mod test_case;
 pub mod traits;
+pub mod tx_sender;
 mod utils;
 
 pub type Result<T> = anyhow::Result<T>;

@@ -4,9 +4,7 @@ use serde::Serialize;
 use tracing::debug;
 
 use super::{throttle::ThrottleConfig, BitcoinConfig, FullL2NodeConfig};
-#[cfg(feature = "clementine")]
-use crate::config::PostgresConfig;
-#[cfg(feature = "clementine")]
+use crate::config::{PostgresConfig, TxSenderConfig};
 use crate::log_provider::LogPathProvider;
 use crate::{
     node::{get_citrea_args, NodeKind},
@@ -15,6 +13,7 @@ use crate::{
 
 const DEFAULT_BITCOIN_DOCKER_IMAGE: &str = "bitcoin/bitcoin:30.2";
 const DEFAULT_CITREA_DOCKER_IMAGE: &str = "chainwayxyz/citrea-test:latest";
+const DEFAULT_TX_SENDER_DOCKER_IMAGE: &str = "chainwayxyz/tx-sender:v0.6.6-alpha.2";
 
 #[derive(Debug)]
 pub struct VolumeConfig {
@@ -24,6 +23,7 @@ pub struct VolumeConfig {
 
 #[derive(Debug)]
 pub struct DockerConfig {
+    pub name: Option<String>,
     pub ports: Vec<u16>,
     pub image: String,
     pub cmd: Vec<String>,
@@ -47,6 +47,7 @@ impl From<&BitcoinConfig> for DockerConfig {
         ]);
 
         Self {
+            name: None,
             ports: vec![config.rpc_port, config.p2p_port],
             image: config
                 .docker_image
@@ -78,6 +79,7 @@ where
         let args = get_citrea_args(&config);
 
         Self {
+            name: None,
             ports: vec![config.rollup.rpc.bind_port],
             image: config
                 .base
@@ -99,7 +101,6 @@ where
     }
 }
 
-#[cfg(feature = "clementine")]
 impl From<&PostgresConfig> for DockerConfig {
     fn from(config: &PostgresConfig) -> Self {
         let image_tag = config.image_tag.as_deref().unwrap_or("15");
@@ -120,6 +121,7 @@ impl From<&PostgresConfig> for DockerConfig {
         cmd.extend(config.extra_args.clone());
 
         Self {
+            name: None,
             ports: vec![config.port],
             image,
             cmd,
@@ -132,6 +134,26 @@ impl From<&PostgresConfig> for DockerConfig {
             kind: NodeKind::Postgres,
             throttle: None,
             env: HashMap::new(),
+        }
+    }
+}
+
+impl From<&TxSenderConfig> for DockerConfig {
+    fn from(config: &TxSenderConfig) -> Self {
+        Self {
+            name: Some(config.alias()),
+            ports: vec![config.rpc_port],
+            image: config
+                .docker_image
+                .clone()
+                .unwrap_or_else(|| DEFAULT_TX_SENDER_DOCKER_IMAGE.to_string()),
+            cmd: vec!["/app/clementine-tx-sender".to_string()],
+            log_path: config.log_path(),
+            volume: None,
+            host_dir: None,
+            kind: NodeKind::TxSender,
+            throttle: None,
+            env: config.docker_env(),
         }
     }
 }

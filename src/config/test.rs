@@ -4,8 +4,8 @@ use super::{
 };
 #[cfg(feature = "clementine")]
 use crate::config::clementine::ClementineClusterConfig;
-#[cfg(feature = "clementine")]
 use crate::config::PostgresConfig;
+use crate::config::TxSenderConfig;
 
 #[derive(Clone, Debug)]
 pub struct TestConfig {
@@ -15,8 +15,8 @@ pub struct TestConfig {
     pub batch_prover: FullBatchProverConfig,
     pub light_client_prover: FullLightClientProverConfig,
     pub full_node: FullFullNodeConfig,
+    pub postgres: PostgresConfig,
+    pub tx_sender: Vec<TxSenderConfig>,
     #[cfg(feature = "clementine")]
     pub clementine: ClementineClusterConfig,
-    #[cfg(feature = "clementine")]
-    pub postgres: PostgresConfig,
 }

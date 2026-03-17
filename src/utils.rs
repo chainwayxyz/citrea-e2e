@@ -1,4 +1,3 @@
-#[cfg(feature = "clementine")]
 use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
@@ -10,9 +9,7 @@ use std::{
 
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-#[cfg(feature = "clementine")]
 use tokio::net::TcpStream;
-#[cfg(feature = "clementine")]
 use tracing::debug;
 
 use super::Result;
@@ -124,7 +121,6 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "clementine")]
 pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>) -> Result<()> {
     let timeout = timeout.unwrap_or(Duration::from_secs(30));
     let start = Instant::now();
