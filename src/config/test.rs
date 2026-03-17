@@ -4,8 +4,7 @@ use super::{
 };
 #[cfg(feature = "clementine")]
 use crate::config::clementine::ClementineClusterConfig;
-use crate::config::PostgresConfig;
-use crate::config::TxSenderConfig;
+use crate::config::{PostgresConfig, TxSenderConfig};
 
 #[derive(Clone, Debug)]
 pub struct TestConfig {

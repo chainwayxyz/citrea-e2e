@@ -269,14 +269,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use bitcoin::Network;
+    use tempfile::TempDir;
+
     use super::TxSenderConfig;
     use crate::{
         citrea_config::bitcoin::BitcoinServiceConfig,
         config::{BitcoinConfig, PostgresConfig},
         node::NodeKind,
     };
-    use bitcoin::Network;
-    use tempfile::TempDir;
 
     #[test]
     fn docker_env_matches_bitcoin_da_credentials() {
@@ -330,6 +331,6 @@ mod tests {
             env.get("BITCOIN_RPC_PASSWORD").map(String::as_str),
             Some("admin")
         );
-        assert!(env.get("PRIVATE_DA_KEY").is_none());
+        assert!(!env.contains_key("PRIVATE_DA_KEY"));
     }
 }

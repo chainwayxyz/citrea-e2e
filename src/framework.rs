@@ -33,9 +33,12 @@ use crate::{
     },
     Result,
 };
-use crate::{clementine::ClementineIntegration, config::SequencerConfig};
-use crate::{config::PostgresConfig, postgres::Postgres};
-use crate::{config::TxSenderConfig, tx_sender::TxSender};
+use crate::{
+    clementine::ClementineIntegration,
+    config::{PostgresConfig, SequencerConfig, TxSenderConfig},
+    postgres::Postgres,
+    tx_sender::TxSender,
+};
 
 pub struct TestContext {
     pub config: TestConfig,

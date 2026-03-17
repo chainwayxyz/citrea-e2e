@@ -4,9 +4,9 @@ use serde::Serialize;
 use tracing::debug;
 
 use super::{throttle::ThrottleConfig, BitcoinConfig, FullL2NodeConfig};
-use crate::config::{PostgresConfig, TxSenderConfig};
-use crate::log_provider::LogPathProvider;
 use crate::{
+    config::{PostgresConfig, TxSenderConfig},
+    log_provider::LogPathProvider,
     node::{get_citrea_args, NodeKind},
     utils::get_genesis_path,
 };

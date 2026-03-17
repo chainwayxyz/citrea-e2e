@@ -1,10 +1,10 @@
-use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
     future::Future,
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 
 use anyhow::anyhow;
