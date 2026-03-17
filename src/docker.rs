@@ -371,8 +371,7 @@ impl DockerEnv {
                 stderr.trim()
             )),
             None => Err(anyhow!(
-                "Command {:?} in container {container_name} finished without an exit code",
-                cmd
+                "Command {cmd:?} in container {container_name} finished without an exit code"
             )),
         }
     }
