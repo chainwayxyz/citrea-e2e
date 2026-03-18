@@ -169,6 +169,7 @@ impl Default for RollupConfig {
                     .to_string(),
 
                 monitoring: Some(MonitoringConfig::default()),
+                tx_sender_url: None,
             },
             public_keys: RollupPublicKeys {
                 sequencer_public_key: vec![
@@ -222,6 +223,7 @@ impl From<BitcoinConfig> for BitcoinServiceConfig {
             da_private_key: None,
             tx_backup_dir: String::new(),
             monitoring: Some(Default::default()),
+            tx_sender_url: None,
         }
     }
 }

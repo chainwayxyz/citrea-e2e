@@ -35,4 +35,8 @@ pub struct BitcoinServiceConfig {
     pub tx_backup_dir: String,
 
     pub monitoring: Option<MonitoringConfig>,
+
+    /// URL of the external tx-sender service
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tx_sender_url: Option<String>,
 }

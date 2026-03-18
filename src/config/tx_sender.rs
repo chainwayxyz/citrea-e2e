@@ -301,6 +301,7 @@ mod tests {
             ),
             tx_backup_dir: String::new(),
             monitoring: None,
+            tx_sender_url: None,
         };
 
         let config = TxSenderConfig::new(
