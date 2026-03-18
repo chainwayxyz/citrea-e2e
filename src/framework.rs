@@ -650,7 +650,9 @@ fn generate_test_config<T: TestCase>(
         Vec::new()
     };
 
-    // Wire tx_sender_url into DA configs when tx-sender is enabled
+    // Wire tx_sender_url into DA configs when tx-sender is enabled.
+    // Sequencer configs were already written to disk by generate_sequencer_configs(),
+    // so we must re-write them after setting tx_sender_url.
     if test_case.with_tx_sender {
         let use_docker_url = docker.as_ref().map_or(false, |d| d.citrea());
         for tx_cfg in &tx_sender {
@@ -663,6 +665,7 @@ fn generate_test_config<T: TestCase>(
                 NodeKind::Sequencer => {
                     for seq_cfg in &mut sequencer_configs {
                         seq_cfg.rollup.da.tx_sender_url = Some(url.clone());
+                        seq_cfg.write_to_file()?;
                     }
                 }
                 NodeKind::BatchProver => {
