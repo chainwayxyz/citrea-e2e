@@ -1,4 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use anyhow::{bail, Context as _};
 use async_trait::async_trait;
@@ -7,6 +10,7 @@ use jsonrpsee::{
     http_client::HttpClientBuilder,
     rpc_params,
 };
+use tracing::warn;
 
 use crate::{
     config::TxSenderConfig,
@@ -83,34 +87,54 @@ async fn setup_tx_sender_database(
 ) -> Result<()> {
     let docker = docker.context("tx-sender database setup requires Docker")?;
 
-    docker
-        .exec_in_named_container(
-            "postgres",
-            vec![format!("PGPASSWORD={}", config.db_password)],
-            vec![
-                "psql".to_string(),
-                "-h".to_string(),
-                "127.0.0.1".to_string(),
-                "-p".to_string(),
-                config.db_port.to_string(),
-                "-U".to_string(),
-                config.db_user.clone(),
-                "-d".to_string(),
-                "postgres".to_string(),
-                "-v".to_string(),
-                "ON_ERROR_STOP=1".to_string(),
-                "-c".to_string(),
-                format!(
-                    "CREATE DATABASE {} OWNER {}",
-                    sql_ident(&config.db_name),
-                    sql_ident(&config.db_user)
-                ),
-            ],
-        )
-        .await
-        .with_context(|| format!("Failed to create tx-sender database {}", config.db_name))?;
+    let env = vec![format!("PGPASSWORD={}", config.db_password)];
+    let cmd = vec![
+        "psql".to_string(),
+        "-h".to_string(),
+        "127.0.0.1".to_string(),
+        "-p".to_string(),
+        config.db_port.to_string(),
+        "-U".to_string(),
+        config.db_user.clone(),
+        "-d".to_string(),
+        "postgres".to_string(),
+        "-v".to_string(),
+        "ON_ERROR_STOP=1".to_string(),
+        "-c".to_string(),
+        format!(
+            "CREATE DATABASE {} OWNER {}",
+            sql_ident(&config.db_name),
+            sql_ident(&config.db_user)
+        ),
+    ];
 
-    Ok(())
+    let timeout = Duration::from_secs(30);
+    let start = Instant::now();
+    let mut last_err = None;
+
+    while start.elapsed() < timeout {
+        match docker
+            .exec_in_named_container("postgres", env.clone(), cmd.clone())
+            .await
+        {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                warn!(
+                    "Failed to create tx-sender database {}, retrying: {e:#}",
+                    config.db_name
+                );
+                last_err = Some(e);
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+        }
+    }
+
+    Err(last_err.unwrap()).with_context(|| {
+        format!(
+            "Failed to create tx-sender database {} after {timeout:?}",
+            config.db_name
+        )
+    })
 }
 
 fn sql_ident(value: &str) -> String {
@@ -125,8 +149,7 @@ async fn wait_for_tx_sender_ready(endpoint: &str, timeout: Option<Duration>) -> 
         let client = HttpClientBuilder::default().build(endpoint)?;
         match client.request::<u64, _>("send_tx", rpc_params![]).await {
             Err(JsonRpcError::Call(_)) => return Ok(()),
-            Err(_) => tokio::time::sleep(Duration::from_millis(500)).await,
-            Ok(_) => bail!("tx-sender unexpectedly accepted send_tx without params"),
+            _ => tokio::time::sleep(Duration::from_millis(500)).await,
         }
     }
 
