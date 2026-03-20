@@ -499,7 +499,7 @@ impl DockerEnv {
                     .await
                     .context("Failed to create log directory")?;
             }
-            let mut log_file = File::create(log_path)
+            let mut log_file = File::create(&log_path)
                 .await
                 .context("Failed to create log file")?;
             let mut log_stream = docker.logs(
@@ -513,15 +513,28 @@ impl DockerEnv {
                 }),
             );
 
+            // Write stderr to a separate file alongside stdout
+            let stderr_path = log_path.with_extension("stderr.log");
+            let mut stderr_file = File::create(stderr_path)
+                .await
+                .context("Failed to create stderr log file")?;
+
             while let Some(Ok(log_output)) = log_stream.next().await {
-                let log_line = match log_output {
-                    LogOutput::Console { message } | LogOutput::StdOut { message } => message,
+                match log_output {
+                    LogOutput::Console { message } | LogOutput::StdOut { message } => {
+                        log_file
+                            .write_all(&message)
+                            .await
+                            .context("Failed to write log line")?;
+                    }
+                    LogOutput::StdErr { message } => {
+                        stderr_file
+                            .write_all(&message)
+                            .await
+                            .context("Failed to write stderr log line")?;
+                    }
                     _ => continue,
-                };
-                log_file
-                    .write_all(&log_line)
-                    .await
-                    .context("Failed to write log line")?;
+                }
             }
             Ok(())
         })

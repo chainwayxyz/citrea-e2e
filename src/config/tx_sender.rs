@@ -10,7 +10,7 @@ use crate::{
     node::NodeKind,
 };
 
-const DEFAULT_FEE_RATE_HARD_CAP: u64 = 100;
+const DEFAULT_FEE_RATE_HARD_CAP: u64 = 1_000;
 const DEFAULT_MEMPOOL_FEE_RATE_MULTIPLIER: u64 = 1;
 const DEFAULT_MEMPOOL_FEE_RATE_OFFSET_SAT_KVB: u64 = 0;
 const DEFAULT_CPFP_FEE_PAYER_BUMP_WAIT_TIME_SECONDS: u64 = 3600;
@@ -143,6 +143,7 @@ impl TxSenderConfig {
 
     pub fn docker_env(&self) -> HashMap<String, String> {
         let mut env = HashMap::from([
+            ("RUST_LOG".to_string(), "info".to_string()),
             ("NETWORK".to_string(), self.network.to_string()),
             ("SECRET_KEY".to_string(), self.secret_key.clone()),
             ("DB_HOST".to_string(), self.db_host.clone()),
