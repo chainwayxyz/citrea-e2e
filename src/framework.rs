@@ -812,13 +812,21 @@ fn generate_tx_sender_configs(
 ) -> Result<Vec<TxSenderConfig>> {
     let mut tx_senders = Vec::new();
 
-    let bitcoin_docker_host = docker.as_ref().map(|d| {
-        if d.bitcoin() {
-            d.get_hostname(&NodeKind::Bitcoin)
-        } else {
-            "host.docker.internal".to_string()
-        }
-    });
+    let tx_sender_in_docker = docker.as_ref().map_or(false, |d| d.tx_sender());
+
+    // When tx-sender runs in docker, it needs the docker hostname for bitcoin.
+    // When tx-sender runs locally, it can reach bitcoin via 127.0.0.1 (ports are exposed to host).
+    let bitcoin_docker_host = if tx_sender_in_docker {
+        docker.as_ref().map(|d| {
+            if d.bitcoin() {
+                d.get_hostname(&NodeKind::Bitcoin)
+            } else {
+                "host.docker.internal".to_string()
+            }
+        })
+    } else {
+        None
+    };
 
     if test_case.with_sequencer {
         let mut tx_sender_btc_conf = bitcoin_config.clone();
@@ -831,9 +839,13 @@ fn generate_tx_sender_configs(
             &sequencer_configs[0].rollup.da,
             tx_sender_dir.to_path_buf(),
             get_available_port()?,
-            docker
-                .as_ref()
-                .map(|d| d.get_hostname_for("tx-sender-sequencer")),
+            if tx_sender_in_docker {
+                docker
+                    .as_ref()
+                    .map(|d| d.get_hostname_for("tx-sender-sequencer"))
+            } else {
+                None
+            },
         )?);
     }
 
@@ -848,9 +860,13 @@ fn generate_tx_sender_configs(
             batch_prover_da,
             tx_sender_dir.to_path_buf(),
             get_available_port()?,
-            docker
-                .as_ref()
-                .map(|d| d.get_hostname_for("tx-sender-batch-prover")),
+            if tx_sender_in_docker {
+                docker
+                    .as_ref()
+                    .map(|d| d.get_hostname_for("tx-sender-batch-prover"))
+            } else {
+                None
+            },
         )?);
     }
 

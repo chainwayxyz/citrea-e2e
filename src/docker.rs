@@ -566,6 +566,11 @@ impl DockerEnv {
         self.test_case_config.citrea
     }
 
+    // Should run tx-sender in docker
+    pub fn tx_sender(&self) -> bool {
+        self.test_case_config.tx_sender
+    }
+
     // Should run clementine in docker
     #[cfg(feature = "clementine")]
     pub fn clementine(&self) -> bool {

@@ -141,6 +141,33 @@ impl TxSenderConfig {
         )
     }
 
+    /// Environment variables for spawning the tx-sender as a local process.
+    /// Uses 127.0.0.1 for all service addresses since the process runs on the host.
+    pub fn env(&self) -> HashMap<String, String> {
+        let mut env = self.docker_env();
+        env.insert(
+            "TX_SENDER_JSONRPC_BIND".to_string(),
+            "127.0.0.1".to_string(),
+        );
+        env.insert("DB_HOST".to_string(), "127.0.0.1".to_string());
+        env.insert(
+            "BITCOIN_RPC_URL".to_string(),
+            rewrite_bitcoin_rpc_url(&self.bitcoin_rpc_url, "127.0.0.1", self.local_bitcoin_rpc_port()),
+        );
+        env
+    }
+
+    fn local_bitcoin_rpc_port(&self) -> u16 {
+        // Extract port from the bitcoin_rpc_url
+        self.bitcoin_rpc_url
+            .split("://")
+            .nth(1)
+            .and_then(|rest| rest.split('/').next())
+            .and_then(|authority| authority.rsplit(':').next())
+            .and_then(|port| port.parse().ok())
+            .unwrap_or(18443)
+    }
+
     pub fn docker_env(&self) -> HashMap<String, String> {
         let mut env = HashMap::from([
             ("RUST_LOG".to_string(), "info".to_string()),
