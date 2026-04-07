@@ -152,7 +152,11 @@ impl TxSenderConfig {
         env.insert("DB_HOST".to_string(), "127.0.0.1".to_string());
         env.insert(
             "BITCOIN_RPC_URL".to_string(),
-            rewrite_bitcoin_rpc_url(&self.bitcoin_rpc_url, "127.0.0.1", self.local_bitcoin_rpc_port()),
+            rewrite_bitcoin_rpc_url(
+                &self.bitcoin_rpc_url,
+                "127.0.0.1",
+                self.local_bitcoin_rpc_port(),
+            ),
         );
         env
     }

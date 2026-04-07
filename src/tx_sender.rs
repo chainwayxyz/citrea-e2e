@@ -55,9 +55,13 @@ impl TxSender {
     }
 
     fn spawn_local(config: &TxSenderConfig) -> Result<SpawnOutput> {
-        let bin = std::env::var("TX_SENDER_E2E_TEST_BINARY").map(std::path::PathBuf::from).map_err(
-            |_| anyhow::anyhow!("TX_SENDER_E2E_TEST_BINARY is not set. Cannot resolve tx-sender binary path"),
-        )?;
+        let bin = std::env::var("TX_SENDER_E2E_TEST_BINARY")
+            .map(std::path::PathBuf::from)
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "TX_SENDER_E2E_TEST_BINARY is not set. Cannot resolve tx-sender binary path"
+                )
+            })?;
 
         let stdout_path = config.log_path();
         let stdout_file = File::create(&stdout_path).context("Failed to create stdout file")?;
