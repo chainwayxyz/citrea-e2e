@@ -61,9 +61,6 @@ pub struct TestCaseConfig {
     pub with_citrea_cli: bool,
     /// This also enables postgres
     pub with_clementine: bool,
-    /// When true, tx-sender containers are spawned and citrea nodes route
-    /// DA transactions through them instead of broadcasting directly.
-    pub with_tx_sender: bool,
     /// > 0 is required for clementine
     pub n_verifiers: u8,
     /// > 0 is required for clementine
@@ -100,7 +97,6 @@ impl Default for TestCaseConfig {
             n_verifiers: 0,
             n_operators: 0,
             with_clementine: false,
-            with_tx_sender: false,
             timeout: Duration::from_secs(60),
             dir: std::env::var("TEST_OUT_DIR")
                 .map_or_else(
@@ -132,7 +128,6 @@ impl TestCaseConfig {
             || self.with_clementine
             || self.with_sequencer
             || self.with_batch_prover
-            || self.with_tx_sender
     }
 }
 

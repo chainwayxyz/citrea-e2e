@@ -41,6 +41,7 @@ impl<const WITH_DOCKER: bool> TestCase for ClementineIntegrationTest<WITH_DOCKER
                 bitcoin: true,
                 citrea: true,
                 clementine: WITH_DOCKER,
+                ..Default::default()
             },
             ..Default::default()
         }

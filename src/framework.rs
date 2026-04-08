@@ -636,43 +636,37 @@ fn generate_test_config<T: TestCase>(
         )?
     };
 
-    let tx_sender = if test_case.with_tx_sender {
-        generate_tx_sender_configs(
-            &test_case,
-            &postgres,
-            &bitcoin_confs[0],
-            &sequencer_configs,
-            &batch_prover_rollup.da,
-            &tx_sender_dir,
-            docker,
-        )?
-    } else {
-        Vec::new()
-    };
+    let tx_sender = generate_tx_sender_configs(
+        &test_case,
+        &postgres,
+        &bitcoin_confs[0],
+        &sequencer_configs,
+        &batch_prover_rollup.da,
+        &tx_sender_dir,
+        docker,
+    )?;
 
-    // Wire tx_sender_url into DA configs when tx-sender is enabled.
+    // Wire tx_sender_url into DA configs for nodes that use tx-sender.
     // Sequencer configs were already written to disk by generate_sequencer_configs(),
     // so we must re-write them after setting tx_sender_url.
-    if test_case.with_tx_sender {
-        let use_docker_url = docker.as_ref().map_or(false, |d| d.citrea());
-        for tx_cfg in &tx_sender {
-            let url = if use_docker_url {
-                tx_cfg.docker_url()
-            } else {
-                tx_cfg.local_url()
-            };
-            match tx_cfg.owner_kind {
-                NodeKind::Sequencer => {
-                    for seq_cfg in &mut sequencer_configs {
-                        seq_cfg.rollup.da.tx_sender_url = Some(url.clone());
-                        seq_cfg.write_to_file()?;
-                    }
+    let use_docker_url = docker.as_ref().map_or(false, |d| d.citrea());
+    for tx_cfg in &tx_sender {
+        let url = if use_docker_url {
+            tx_cfg.docker_url()
+        } else {
+            tx_cfg.local_url()
+        };
+        match tx_cfg.owner_kind {
+            NodeKind::Sequencer => {
+                for seq_cfg in &mut sequencer_configs {
+                    seq_cfg.rollup.da.tx_sender_url = Some(url.clone());
+                    seq_cfg.write_to_file()?;
                 }
-                NodeKind::BatchProver => {
-                    batch_prover_rollup.da.tx_sender_url = Some(url);
-                }
-                _ => {}
             }
+            NodeKind::BatchProver => {
+                batch_prover_rollup.da.tx_sender_url = Some(url);
+            }
+            _ => {}
         }
     }
 
