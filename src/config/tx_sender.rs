@@ -19,6 +19,7 @@ const DEFAULT_MIN_BUMP_KVB: u64 = 200;
 const DEFAULT_FINALITY_DEPTH: u32 = 5;
 const DEFAULT_POLL_DELAY_MS: u64 = 1000;
 const DEFAULT_INCLUDE_UNSAFE: bool = true;
+const DEFAULT_NONCE_GRIND_PREFIX: &str = "[2]";
 
 #[derive(Clone, Debug)]
 pub struct TxSenderConfig {
@@ -227,6 +228,10 @@ impl TxSenderConfig {
                 "TX_SENDER_INCLUDE_UNSAFE".to_string(),
                 self.include_unsafe.to_string(),
             ),
+            (
+                "TX_SENDER_NONCE_GRIND_PREFIX".to_string(),
+                DEFAULT_NONCE_GRIND_PREFIX.to_string(),
+            ),
             ("TX_SENDER_JSONRPC_BIND".to_string(), "0.0.0.0".to_string()),
             (
                 "TX_SENDER_JSONRPC_PORT".to_string(),
@@ -363,6 +368,11 @@ mod tests {
         assert_eq!(
             env.get("BITCOIN_RPC_PASSWORD").map(String::as_str),
             Some("admin")
+        );
+        assert_eq!(
+            env.get("TX_SENDER_NONCE_GRIND_PREFIX")
+                .map(String::as_str),
+            Some("[2]")
         );
         assert!(!env.contains_key("PRIVATE_DA_KEY"));
     }
