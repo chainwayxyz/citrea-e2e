@@ -174,38 +174,28 @@ async fn setup_tx_sender_database(
     config: &TxSenderConfig,
     docker: Option<&DockerEnv>,
 ) -> Result<()> {
-    let docker = docker.context("tx-sender database setup requires Docker")?;
+    let external = crate::shared_postgres::external_port_from_env().is_some();
 
-    let env = vec![format!("PGPASSWORD={}", config.db_password)];
-    let cmd = vec![
-        "psql".to_string(),
-        "-h".to_string(),
-        "127.0.0.1".to_string(),
-        "-p".to_string(),
-        config.db_port.to_string(),
-        "-U".to_string(),
-        config.db_user.clone(),
-        "-d".to_string(),
-        "postgres".to_string(),
-        "-v".to_string(),
-        "ON_ERROR_STOP=1".to_string(),
-        "-c".to_string(),
-        format!(
-            "CREATE DATABASE {} OWNER {}",
-            sql_ident(&config.db_name),
-            sql_ident(&config.db_user)
-        ),
-    ];
+    let drop_sql = format!("DROP DATABASE IF EXISTS {}", sql_ident(&config.db_name));
+    let create_sql = format!(
+        "CREATE DATABASE {} OWNER {}",
+        sql_ident(&config.db_name),
+        sql_ident(&config.db_user)
+    );
 
-    let timeout = Duration::from_secs(30);
+    let timeout = Duration::from_secs(90);
     let start = Instant::now();
-    let mut last_err = None;
+    let mut last_err: Option<anyhow::Error> = None;
 
     while start.elapsed() < timeout {
-        match docker
-            .exec_in_named_container("postgres", env.clone(), cmd.clone())
-            .await
-        {
+        let result = if external {
+            run_psql_on_host(config, &[&drop_sql, &create_sql]).await
+        } else {
+            let docker = docker.context("tx-sender database setup requires Docker")?;
+            run_psql_in_container(docker, config, &[&drop_sql, &create_sql]).await
+        };
+
+        match result {
             Ok(()) => return Ok(()),
             Err(e) => {
                 warn!(
@@ -226,12 +216,97 @@ async fn setup_tx_sender_database(
     })
 }
 
+async fn run_psql_in_container(
+    docker: &DockerEnv,
+    config: &TxSenderConfig,
+    statements: &[&str],
+) -> Result<()> {
+    for sql in statements {
+        let env = vec![format!("PGPASSWORD={}", config.db_password)];
+        let cmd = vec![
+            "psql".to_string(),
+            "-h".to_string(),
+            "127.0.0.1".to_string(),
+            "-p".to_string(),
+            config.db_port.to_string(),
+            "-U".to_string(),
+            config.db_user.clone(),
+            "-d".to_string(),
+            "postgres".to_string(),
+            "-v".to_string(),
+            "ON_ERROR_STOP=1".to_string(),
+            "-c".to_string(),
+            (*sql).to_string(),
+        ];
+        docker.exec_in_named_container("postgres", env, cmd).await?;
+    }
+    Ok(())
+}
+
+async fn run_psql_on_host(config: &TxSenderConfig, statements: &[&str]) -> Result<()> {
+    for sql in statements {
+        let output = Command::new("psql")
+            .env("PGPASSWORD", &config.db_password)
+            .args([
+                "-h",
+                "127.0.0.1",
+                "-p",
+                &config.db_port.to_string(),
+                "-U",
+                &config.db_user,
+                "-d",
+                "postgres",
+                "-v",
+                "ON_ERROR_STOP=1",
+                "-c",
+                sql,
+            ])
+            .output()
+            .await
+            .context("Failed to run host-side psql")?;
+
+        if !output.status.success() {
+            bail!(
+                "psql failed ({}): {}",
+                output.status,
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+        }
+    }
+    Ok(())
+}
+
+pub async fn drop_tx_sender_database(db_name: &str, port: u16, user: &str, password: &str) {
+    let sql = format!("DROP DATABASE IF EXISTS {}", sql_ident(db_name));
+    let output = Command::new("psql")
+        .env("PGPASSWORD", password)
+        .args([
+            "-h",
+            "127.0.0.1",
+            "-p",
+            &port.to_string(),
+            "-U",
+            user,
+            "-d",
+            "postgres",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-c",
+            &sql,
+        ])
+        .output()
+        .await;
+    if let Err(e) = output {
+        warn!("Failed to drop tx-sender database {db_name}: {e}");
+    }
+}
+
 fn sql_ident(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
 async fn wait_for_tx_sender_ready(endpoint: &str, timeout: Option<Duration>) -> Result<()> {
-    let timeout = timeout.unwrap_or(Duration::from_secs(30));
+    let timeout = timeout.unwrap_or(Duration::from_secs(90));
     let start = std::time::Instant::now();
 
     while start.elapsed() < timeout {

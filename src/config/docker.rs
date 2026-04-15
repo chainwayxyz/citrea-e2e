@@ -33,6 +33,7 @@ pub struct DockerConfig {
     pub kind: NodeKind,
     pub throttle: Option<ThrottleConfig>,
     pub env: HashMap<String, String>,
+    pub extra_hosts: Vec<String>,
 }
 
 impl From<&BitcoinConfig> for DockerConfig {
@@ -63,6 +64,7 @@ impl From<&BitcoinConfig> for DockerConfig {
             kind: NodeKind::Bitcoin,
             throttle: None, // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
             env: HashMap::new(),
+            extra_hosts: Vec::new(),
         }
     }
 }
@@ -97,6 +99,7 @@ where
             kind,
             throttle: config.throttle.clone(),
             env: HashMap::new(),
+            extra_hosts: Vec::new(),
         }
     }
 }
@@ -134,6 +137,7 @@ impl From<&PostgresConfig> for DockerConfig {
             kind: NodeKind::Postgres,
             throttle: None,
             env: HashMap::new(),
+            extra_hosts: Vec::new(),
         }
     }
 }
@@ -154,6 +158,11 @@ impl From<&TxSenderConfig> for DockerConfig {
             kind: NodeKind::TxSender,
             throttle: None,
             env: config.docker_env(),
+            // Map host.docker.internal to the host gateway so the tx-sender can reach
+            // host-published services (e.g. the shared postgres on docker's default bridge).
+            // Docker Desktop resolves host.docker.internal by default, but Linux needs the
+            // explicit host-gateway extra host entry.
+            extra_hosts: vec!["host.docker.internal:host-gateway".to_string()],
         }
     }
 }

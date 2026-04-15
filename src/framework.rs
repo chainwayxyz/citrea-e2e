@@ -43,13 +43,15 @@ use crate::{
 pub struct TestContext {
     pub config: TestConfig,
     pub docker: Arc<Option<DockerEnv>>,
+    pub test_id: String,
 }
 
 impl TestContext {
-    fn new(config: TestConfig, docker: Option<DockerEnv>) -> Self {
+    fn new(config: TestConfig, docker: Option<DockerEnv>, test_id: String) -> Self {
         Self {
             config,
             docker: Arc::new(docker),
+            test_id,
         }
     }
 }
@@ -86,19 +88,29 @@ impl TestFramework {
             false => None,
             true => Some(CitreaCli::new(CITREA_CLI_ENV)?),
         };
-        let config = generate_test_config::<T>(test_case, &docker)?;
+        let test_id = crate::utils::generate_test_id();
+        let external_postgres_port = crate::shared_postgres::external_port_from_env();
+        let config =
+            generate_test_config::<T>(test_case, &docker, &test_id, external_postgres_port)?;
 
         anyhow::ensure!(
             config.test_case.get_n_nodes(NodeKind::Bitcoin) > 0,
             "At least one bitcoin node has to be running"
         );
 
-        let ctx = TestContext::new(config, docker);
+        let ctx = TestContext::new(config, docker, test_id);
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
 
-        let postgres = if ctx.config.test_case.with_clementine || !ctx.config.tx_sender.is_empty() {
-            Some(Postgres::new(&ctx.config.postgres, Arc::clone(&ctx.docker)).await?)
+        let needs_postgres =
+            ctx.config.test_case.with_clementine || !ctx.config.tx_sender.is_empty();
+        let postgres = if needs_postgres {
+            if let Some(port) = external_postgres_port {
+                crate::shared_postgres::ensure_running(port).await?;
+                Some(Postgres::external(&ctx.config.postgres))
+            } else {
+                Some(Postgres::new(&ctx.config.postgres, Arc::clone(&ctx.docker)).await?)
+            }
         } else {
             None
         };
@@ -364,6 +376,25 @@ impl TestFramework {
             info!("Successfully stopped {} tx-sender", owner_kind);
         }
 
+        let postgres_is_external = self
+            .postgres
+            .as_ref()
+            .map(|p| p.is_external())
+            .unwrap_or(false);
+
+        if postgres_is_external {
+            let pg = &self.ctx.config.postgres;
+            for tx_cfg in &self.ctx.config.tx_sender {
+                crate::tx_sender::drop_tx_sender_database(
+                    &tx_cfg.db_name,
+                    pg.port,
+                    &pg.user,
+                    &pg.password,
+                )
+                .await;
+            }
+        }
+
         if let Some(docker) = self.ctx.docker.as_ref() {
             let _ = docker.cleanup().await;
             info!("Successfully cleaned docker");
@@ -430,6 +461,8 @@ impl TestFramework {
 fn generate_test_config<T: TestCase>(
     test_case: TestCaseConfig,
     docker: &Option<DockerEnv>,
+    test_id: &str,
+    external_postgres_port: Option<u16>,
 ) -> Result<TestConfig> {
     let env = T::test_env();
     let bitcoin = T::bitcoin_config();
@@ -609,13 +642,24 @@ fn generate_test_config<T: TestCase>(
     let postgres_enabled_in_docker =
         test_case.with_sequencer || test_case.with_batch_prover || test_case.with_clementine;
 
-    let postgres = PostgresConfig {
-        port: get_available_port()?,
-        log_dir: _postgres_dir,
-        docker_host: docker
-            .as_ref()
-            .and_then(|d| postgres_enabled_in_docker.then(|| d.get_hostname(&NodeKind::Postgres))),
-        ..Default::default()
+    let postgres = if let Some(external_port) = external_postgres_port {
+        PostgresConfig {
+            port: external_port,
+            log_dir: _postgres_dir,
+            docker_host: None,
+            user: crate::shared_postgres::SHARED_POSTGRES_USER.to_string(),
+            password: crate::shared_postgres::SHARED_POSTGRES_PASSWORD.to_string(),
+            ..Default::default()
+        }
+    } else {
+        PostgresConfig {
+            port: get_available_port()?,
+            log_dir: _postgres_dir,
+            docker_host: docker.as_ref().and_then(|d| {
+                postgres_enabled_in_docker.then(|| d.get_hostname(&NodeKind::Postgres))
+            }),
+            ..Default::default()
+        }
     };
 
     #[cfg(feature = "clementine")]
@@ -644,6 +688,7 @@ fn generate_test_config<T: TestCase>(
         &batch_prover_rollup.da,
         &tx_sender_dir,
         docker,
+        test_id,
     )?;
 
     // Wire tx_sender_url into DA configs for nodes that use tx-sender.
@@ -803,6 +848,7 @@ fn generate_tx_sender_configs(
     batch_prover_da: &BitcoinServiceConfig,
     tx_sender_dir: &Path,
     docker: &Option<DockerEnv>,
+    test_id: &str,
 ) -> Result<Vec<TxSenderConfig>> {
     let mut tx_senders = Vec::new();
 
@@ -822,13 +868,27 @@ fn generate_tx_sender_configs(
         None
     };
 
+    // Shared postgres runs on docker's default bridge network, not the per-test network
+    // that holds the tx-sender container. A Docker tx-sender cannot reach it via 127.0.0.1
+    // (that resolves to the container itself), so route through the host gateway instead.
+    let tx_sender_postgres = if tx_sender_in_docker
+        && crate::shared_postgres::external_port_from_env().is_some()
+        && postgres.docker_host.is_none()
+    {
+        let mut p = postgres.clone();
+        p.docker_host = Some("host.docker.internal".to_string());
+        p
+    } else {
+        postgres.clone()
+    };
+
     if test_case.with_sequencer {
         let mut tx_sender_btc_conf = bitcoin_config.clone();
         tx_sender_btc_conf.docker_host = bitcoin_docker_host.clone();
 
         tx_senders.push(TxSenderConfig::new(
             NodeKind::Sequencer,
-            postgres,
+            &tx_sender_postgres,
             &tx_sender_btc_conf,
             &sequencer_configs[0].rollup.da,
             tx_sender_dir.to_path_buf(),
@@ -840,6 +900,7 @@ fn generate_tx_sender_configs(
             } else {
                 None
             },
+            test_id,
         )?);
     }
 
@@ -849,7 +910,7 @@ fn generate_tx_sender_configs(
 
         tx_senders.push(TxSenderConfig::new(
             NodeKind::BatchProver,
-            postgres,
+            &tx_sender_postgres,
             &tx_sender_btc_conf,
             batch_prover_da,
             tx_sender_dir.to_path_buf(),
@@ -861,6 +922,7 @@ fn generate_tx_sender_configs(
             } else {
                 None
             },
+            test_id,
         )?);
     }
 

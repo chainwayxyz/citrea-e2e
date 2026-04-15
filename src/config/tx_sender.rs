@@ -60,6 +60,7 @@ impl TxSenderConfig {
         log_dir: PathBuf,
         rpc_port: u16,
         docker_host: Option<String>,
+        test_id: &str,
     ) -> Result<Self> {
         let Some(secret_key) = da_config.da_private_key.clone() else {
             bail!("tx-sender requires a DA private key in the Bitcoin service config");
@@ -75,7 +76,11 @@ impl TxSenderConfig {
             db_port: postgres_config.port,
             db_user: postgres_config.user.clone(),
             db_password: postgres_config.password.clone(),
-            db_name: format!("tx_sender_{}", owner_kind.db_name_component()),
+            db_name: format!(
+                "tx_sender_{}_{}",
+                owner_kind.db_name_component(),
+                test_id.to_lowercase()
+            ),
             bitcoin_rpc_url: rewrite_bitcoin_rpc_url(
                 &da_config.node_url,
                 &bitcoin_config
@@ -349,6 +354,7 @@ mod tests {
             tempdir.path().to_path_buf(),
             3030,
             Some("tx-sender.test".to_string()),
+            "testid",
         )
         .expect("config");
 
@@ -370,8 +376,7 @@ mod tests {
             Some("admin")
         );
         assert_eq!(
-            env.get("TX_SENDER_NONCE_GRIND_PREFIX")
-                .map(String::as_str),
+            env.get("TX_SENDER_NONCE_GRIND_PREFIX").map(String::as_str),
             Some("[2]")
         );
         assert!(!env.contains_key("PRIVATE_DA_KEY"));

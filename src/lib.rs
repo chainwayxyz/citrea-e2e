@@ -12,6 +12,7 @@ mod log_provider;
 pub mod node;
 pub mod postgres;
 mod sequencer;
+pub mod shared_postgres;
 pub mod test_case;
 pub mod traits;
 pub mod tx_sender;

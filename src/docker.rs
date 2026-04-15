@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use bollard::{
     container::{Config, LogOutput, NetworkingConfig},
     exec::{CreateExecOptions, StartExecOptions, StartExecResults},
-    models::{EndpointSettings, Mount, PortBinding},
+    models::{EndpointSettings, Ipam, IpamConfig, Mount, PortBinding},
     network::CreateNetworkOptions,
     query_parameters::{
         CreateContainerOptions, CreateImageOptions, ListContainersOptionsBuilder, LogsOptions,
@@ -24,6 +24,8 @@ use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
 use crate::{config::TestCaseDockerConfig, node::NodeKind, utils::get_workspace_root};
+
+const NETWORK_SUBNET_CREATE_RETRIES: u16 = 32;
 
 #[derive(Debug)]
 pub struct ContainerSpawnOutput {
@@ -49,6 +51,7 @@ pub struct DockerEnv {
 impl DockerEnv {
     pub async fn new(test_case_config: TestCaseDockerConfig) -> Result<Self> {
         let docker = Docker::connect_with_defaults().context("Failed to connect to Docker")?;
+        let _ = docker.ping().await;
         let test_id = generate_test_id();
         let network_info = Self::create_network(&docker, &test_id).await?;
 
@@ -91,19 +94,41 @@ impl DockerEnv {
     /// Create a new test network and return its network, name and id
     async fn create_network(docker: &Docker, test_case_id: &str) -> Result<NetworkInfo> {
         let network_name = format!("test_network_{test_case_id}");
-        let options = CreateNetworkOptions {
-            name: network_name.clone(),
-            check_duplicate: true,
-            driver: "bridge".to_string(),
-            ..Default::default()
-        };
+        for attempt in 0..NETWORK_SUBNET_CREATE_RETRIES {
+            let subnet = docker_subnet_for(test_case_id, attempt);
+            let options = CreateNetworkOptions {
+                name: network_name.clone(),
+                check_duplicate: true,
+                driver: "bridge".to_string(),
+                ipam: Ipam {
+                    config: Some(vec![IpamConfig {
+                        subnet: Some(subnet.clone()),
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
 
-        let id = docker.create_network(options).await?.id;
+            match docker.create_network(options).await {
+                Ok(response) => {
+                    return Ok(NetworkInfo {
+                        id: response.id,
+                        name: network_name,
+                    });
+                }
+                Err(err) if is_network_overlap_error(&err) => {
+                    info!(
+                        "[docker] subnet {subnet} overlaps with an existing Docker network, retrying"
+                    );
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
 
-        Ok(NetworkInfo {
-            id,
-            name: network_name,
-        })
+        Err(anyhow!(
+            "Failed to create Docker network {network_name} after {NETWORK_SUBNET_CREATE_RETRIES} subnet attempts"
+        ))
     }
 
     pub fn get_hostname_for(&self, name: &str) -> String {
@@ -216,6 +241,7 @@ impl DockerEnv {
         let mut host_config = HostConfig {
             port_bindings: Some(port_bindings),
             mounts: Some(mounts),
+            extra_hosts: (!config.extra_hosts.is_empty()).then(|| config.extra_hosts.clone()),
             ..Default::default()
         };
 
@@ -575,5 +601,54 @@ impl DockerEnv {
     #[cfg(feature = "clementine")]
     pub fn clementine(&self) -> bool {
         self.test_case_config.clementine
+    }
+}
+
+fn docker_subnet_for(test_case_id: &str, attempt: u16) -> String {
+    let seed = test_case_id
+        .bytes()
+        .fold(0u16, |acc, byte| {
+            acc.wrapping_mul(31).wrapping_add(byte as u16)
+        })
+        .wrapping_add(attempt);
+    let second_octet = (seed >> 8) as u8;
+    let third_octet = seed as u8;
+
+    format!("10.{second_octet}.{third_octet}.0/24")
+}
+
+fn is_network_overlap_error(err: &bollard::errors::Error) -> bool {
+    match err {
+        bollard::errors::Error::DockerResponseServerError {
+            status_code,
+            message,
+        } => {
+            *status_code == 400 && {
+                let message = message.to_ascii_lowercase();
+                message.contains("pool overlaps")
+                    || message.contains("overlaps with other one on this address space")
+            }
+        }
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::docker_subnet_for;
+
+    #[test]
+    fn docker_subnet_changes_between_attempts() {
+        assert_ne!(
+            docker_subnet_for("abc123", 0),
+            docker_subnet_for("abc123", 1)
+        );
+    }
+
+    #[test]
+    fn docker_subnet_stays_in_private_10_space() {
+        let subnet = docker_subnet_for("abc123", 0);
+        assert!(subnet.starts_with("10."));
+        assert!(subnet.ends_with(".0/24"));
     }
 }

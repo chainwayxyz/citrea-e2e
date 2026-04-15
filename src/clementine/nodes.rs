@@ -736,6 +736,7 @@ where
                     kind: config.kind(),
                     throttle: None,
                     env,
+                    extra_hosts: Vec::new(),
                 })
                 .await?
         }
