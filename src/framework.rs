@@ -43,15 +43,13 @@ use crate::{
 pub struct TestContext {
     pub config: TestConfig,
     pub docker: Arc<Option<DockerEnv>>,
-    pub test_id: String,
 }
 
 impl TestContext {
-    fn new(config: TestConfig, docker: Option<DockerEnv>, test_id: String) -> Self {
+    fn new(config: TestConfig, docker: Option<DockerEnv>) -> Self {
         Self {
             config,
             docker: Arc::new(docker),
-            test_id,
         }
     }
 }
@@ -88,17 +86,15 @@ impl TestFramework {
             false => None,
             true => Some(CitreaCli::new(CITREA_CLI_ENV)?),
         };
-        let test_id = crate::utils::generate_test_id();
         let external_postgres_port = crate::shared_postgres::external_port_from_env();
-        let config =
-            generate_test_config::<T>(test_case, &docker, &test_id, external_postgres_port)?;
+        let config = generate_test_config::<T>(test_case, &docker, external_postgres_port)?;
 
         anyhow::ensure!(
             config.test_case.get_n_nodes(NodeKind::Bitcoin) > 0,
             "At least one bitcoin node has to be running"
         );
 
-        let ctx = TestContext::new(config, docker, test_id);
+        let ctx = TestContext::new(config, docker);
 
         let bitcoin_nodes = BitcoinNodeCluster::new(&ctx).await?;
 
@@ -461,7 +457,6 @@ impl TestFramework {
 fn generate_test_config<T: TestCase>(
     test_case: TestCaseConfig,
     docker: &Option<DockerEnv>,
-    test_id: &str,
     external_postgres_port: Option<u16>,
 ) -> Result<TestConfig> {
     let env = T::test_env();
@@ -501,21 +496,21 @@ fn generate_test_config<T: TestCase>(
         });
     }
 
-    bitcoin_confs[0].docker_host = docker
-        .as_ref()
-        .and_then(|d| d.citrea().then(|| d.get_hostname(&NodeKind::Bitcoin)));
+    let topology = NetworkTopology::new(&test_case, docker, external_postgres_port);
+
+    bitcoin_confs[0].docker_host = topology.citrea_bitcoin_host();
 
     // Target first bitcoin node as DA for now
     let da_config: BitcoinServiceConfig = bitcoin_confs[0].clone().into();
 
-    let runner_bind_host = match docker.as_ref() {
-        Some(d) if d.citrea() => d.get_hostname(&NodeKind::Sequencer),
-        _ => sequencer_rollup.rpc.bind_host.clone(),
-    };
+    let runner_bind_host = topology
+        .citrea_hostname(&NodeKind::Sequencer)
+        .unwrap_or_else(|| sequencer_rollup.rpc.bind_host.clone());
 
-    let citrea_bind_host = match docker.as_ref() {
-        Some(d) if d.citrea() => "0.0.0.0".to_string(),
-        _ => sequencer_rollup.rpc.bind_host.clone(),
+    let citrea_bind_host = if topology.citrea_in_docker() {
+        "0.0.0.0".to_string()
+    } else {
+        sequencer_rollup.rpc.bind_host.clone()
     };
 
     let citrea_docker_image = std::env::var("CITREA_DOCKER_IMAGE").ok();
@@ -639,35 +634,12 @@ fn generate_test_config<T: TestCase>(
         }
     };
 
-    let postgres_enabled_in_docker =
-        test_case.with_sequencer || test_case.with_batch_prover || test_case.with_clementine;
-
-    let postgres = if let Some(external_port) = external_postgres_port {
-        PostgresConfig {
-            port: external_port,
-            log_dir: _postgres_dir,
-            docker_host: None,
-            user: crate::shared_postgres::SHARED_POSTGRES_USER.to_string(),
-            password: crate::shared_postgres::SHARED_POSTGRES_PASSWORD.to_string(),
-            ..Default::default()
-        }
-    } else {
-        PostgresConfig {
-            port: get_available_port()?,
-            log_dir: _postgres_dir,
-            docker_host: docker.as_ref().and_then(|d| {
-                postgres_enabled_in_docker.then(|| d.get_hostname(&NodeKind::Postgres))
-            }),
-            ..Default::default()
-        }
-    };
+    let postgres = topology.postgres_config(_postgres_dir)?;
 
     #[cfg(feature = "clementine")]
     let clementine = {
         let mut clementine_btc_conf = bitcoin_confs[0].clone();
-        clementine_btc_conf.docker_host = docker
-            .as_ref()
-            .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Bitcoin)));
+        clementine_btc_conf.docker_host = topology.clementine_bitcoin_host();
 
         ClementineIntegration::generate_cluster_config::<T>(
             &test_case,
@@ -687,20 +659,15 @@ fn generate_test_config<T: TestCase>(
         &sequencer_configs,
         &batch_prover_rollup.da,
         &tx_sender_dir,
-        docker,
-        test_id,
+        &topology,
+        &test_case.test_id,
     )?;
 
     // Wire tx_sender_url into DA configs for nodes that use tx-sender.
     // Sequencer configs were already written to disk by generate_sequencer_configs(),
     // so we must re-write them after setting tx_sender_url.
-    let use_docker_url = docker.as_ref().map_or(false, |d| d.citrea());
     for tx_cfg in &tx_sender {
-        let url = if use_docker_url {
-            tx_cfg.docker_url()
-        } else {
-            tx_cfg.local_url()
-        };
+        let url = tx_cfg.url(topology.citrea_in_docker());
         match tx_cfg.owner_kind {
             NodeKind::Sequencer => {
                 for seq_cfg in &mut sequencer_configs {
@@ -754,6 +721,129 @@ fn generate_test_config<T: TestCase>(
         #[cfg(feature = "clementine")]
         clementine,
     })
+}
+
+struct NetworkTopology<'a> {
+    docker: &'a Option<DockerEnv>,
+    external_postgres_port: Option<u16>,
+    citrea_in_docker: bool,
+    tx_sender_in_docker: bool,
+    postgres_in_docker: bool,
+}
+
+impl<'a> NetworkTopology<'a> {
+    const HOST_GATEWAY: &'static str = "host.docker.internal";
+
+    fn new(
+        test_case: &TestCaseConfig,
+        docker: &'a Option<DockerEnv>,
+        external_postgres_port: Option<u16>,
+    ) -> Self {
+        Self {
+            docker,
+            external_postgres_port,
+            citrea_in_docker: docker.as_ref().is_some_and(|d| d.citrea()),
+            tx_sender_in_docker: docker.as_ref().is_some_and(|d| d.tx_sender()),
+            postgres_in_docker: test_case.with_sequencer
+                || test_case.with_batch_prover
+                || test_case.with_clementine,
+        }
+    }
+
+    fn citrea_in_docker(&self) -> bool {
+        self.citrea_in_docker
+    }
+
+    fn citrea_hostname(&self, kind: &NodeKind) -> Option<String> {
+        if self.citrea_in_docker {
+            Some(self.docker_hostname(kind))
+        } else {
+            None
+        }
+    }
+
+    fn citrea_bitcoin_host(&self) -> Option<String> {
+        self.citrea_hostname(&NodeKind::Bitcoin)
+    }
+
+    #[cfg(feature = "clementine")]
+    fn clementine_bitcoin_host(&self) -> Option<String> {
+        self.docker
+            .as_ref()
+            .and_then(|d| d.clementine().then(|| d.get_hostname(&NodeKind::Bitcoin)))
+    }
+
+    fn postgres_config(&self, log_dir: PathBuf) -> Result<PostgresConfig> {
+        if let Some(port) = self.external_postgres_port {
+            Ok(PostgresConfig {
+                port,
+                log_dir,
+                docker_host: None,
+                user: crate::shared_postgres::SHARED_POSTGRES_USER.to_string(),
+                password: crate::shared_postgres::SHARED_POSTGRES_PASSWORD.to_string(),
+                ..Default::default()
+            })
+        } else {
+            Ok(PostgresConfig {
+                port: get_available_port()?,
+                log_dir,
+                docker_host: self
+                    .postgres_in_docker
+                    .then(|| self.docker_hostname(&NodeKind::Postgres)),
+                ..Default::default()
+            })
+        }
+    }
+
+    fn tx_sender_bitcoin_host(&self) -> Option<String> {
+        if !self.tx_sender_in_docker {
+            return None;
+        }
+
+        self.docker.as_ref().map(|d| {
+            if d.bitcoin() {
+                d.get_hostname(&NodeKind::Bitcoin)
+            } else {
+                Self::HOST_GATEWAY.to_string()
+            }
+        })
+    }
+
+    fn tx_sender_postgres(&self, postgres: &PostgresConfig) -> PostgresConfig {
+        if self.tx_sender_in_docker
+            && self.external_postgres_port.is_some()
+            && postgres.docker_host.is_none()
+        {
+            let mut postgres = postgres.clone();
+            postgres.docker_host = Some(Self::HOST_GATEWAY.to_string());
+            postgres
+        } else {
+            postgres.clone()
+        }
+    }
+
+    fn tx_sender_host(&self, docker_name: &str) -> Option<String> {
+        if self.tx_sender_in_docker {
+            self.docker_hostname_for(docker_name)
+        } else if self.citrea_in_docker {
+            Some(Self::HOST_GATEWAY.to_string())
+        } else {
+            None
+        }
+    }
+
+    fn docker_hostname(&self, kind: &NodeKind) -> String {
+        self.docker
+            .as_ref()
+            .expect("docker hostname requested without docker env")
+            .get_hostname(kind)
+    }
+
+    fn docker_hostname_for(&self, docker_name: &str) -> Option<String> {
+        self.docker
+            .as_ref()
+            .map(|docker| docker.get_hostname_for(docker_name))
+    }
 }
 
 fn generate_sequencer_configs<T: TestCase>(
@@ -847,40 +937,19 @@ fn generate_tx_sender_configs(
     sequencer_configs: &[FullSequencerConfig],
     batch_prover_da: &BitcoinServiceConfig,
     tx_sender_dir: &Path,
-    docker: &Option<DockerEnv>,
+    topology: &NetworkTopology<'_>,
     test_id: &str,
 ) -> Result<Vec<TxSenderConfig>> {
     let mut tx_senders = Vec::new();
 
-    let tx_sender_in_docker = docker.as_ref().map_or(false, |d| d.tx_sender());
-
     // When tx-sender runs in docker, it needs the docker hostname for bitcoin.
     // When tx-sender runs locally, it can reach bitcoin via 127.0.0.1 (ports are exposed to host).
-    let bitcoin_docker_host = if tx_sender_in_docker {
-        docker.as_ref().map(|d| {
-            if d.bitcoin() {
-                d.get_hostname(&NodeKind::Bitcoin)
-            } else {
-                "host.docker.internal".to_string()
-            }
-        })
-    } else {
-        None
-    };
+    let bitcoin_docker_host = topology.tx_sender_bitcoin_host();
 
     // Shared postgres runs on docker's default bridge network, not the per-test network
     // that holds the tx-sender container. A Docker tx-sender cannot reach it via 127.0.0.1
     // (that resolves to the container itself), so route through the host gateway instead.
-    let tx_sender_postgres = if tx_sender_in_docker
-        && crate::shared_postgres::external_port_from_env().is_some()
-        && postgres.docker_host.is_none()
-    {
-        let mut p = postgres.clone();
-        p.docker_host = Some("host.docker.internal".to_string());
-        p
-    } else {
-        postgres.clone()
-    };
+    let tx_sender_postgres = topology.tx_sender_postgres(postgres);
 
     if test_case.with_sequencer {
         let mut tx_sender_btc_conf = bitcoin_config.clone();
@@ -893,13 +962,7 @@ fn generate_tx_sender_configs(
             &sequencer_configs[0].rollup.da,
             tx_sender_dir.to_path_buf(),
             get_available_port()?,
-            if tx_sender_in_docker {
-                docker
-                    .as_ref()
-                    .map(|d| d.get_hostname_for("tx-sender-sequencer"))
-            } else {
-                None
-            },
+            topology.tx_sender_host("tx-sender-sequencer"),
             test_id,
         )?);
     }
@@ -915,13 +978,7 @@ fn generate_tx_sender_configs(
             batch_prover_da,
             tx_sender_dir.to_path_buf(),
             get_available_port()?,
-            if tx_sender_in_docker {
-                docker
-                    .as_ref()
-                    .map(|d| d.get_hostname_for("tx-sender-batch-prover"))
-            } else {
-                None
-            },
+            topology.tx_sender_host("tx-sender-batch-prover"),
             test_id,
         )?);
     }

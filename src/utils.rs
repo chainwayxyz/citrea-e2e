@@ -1,9 +1,11 @@
 use std::{
+    collections::HashSet,
     fs::{self, File},
     future::Future,
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
+    sync::{LazyLock, Mutex},
     time::{Duration, Instant},
 };
 
@@ -16,9 +18,71 @@ use super::Result;
 #[cfg(feature = "clementine")]
 use crate::test_case::CLEMENTINE_ENV;
 
+static RESERVED_PORTS: LazyLock<Mutex<HashSet<u16>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+
+const DEFAULT_PORT_RANGE_START: u16 = 20_000;
+const DEFAULT_PORT_RANGE_END: u16 = 30_000;
+const PORT_ALLOCATION_ATTEMPTS: usize = 10_000;
+const PORT_RANGE_START_ENV: &str = "CITREA_E2E_PORT_RANGE_START";
+const PORT_RANGE_END_ENV: &str = "CITREA_E2E_PORT_RANGE_END";
+
 pub fn get_available_port() -> Result<u16> {
-    let listener = TcpListener::bind("127.0.0.1:0")?;
-    Ok(listener.local_addr()?.port())
+    let (start, end) = configured_port_range()?;
+
+    for _ in 0..PORT_ALLOCATION_ATTEMPTS {
+        let port = thread_rng().gen_range(start..end);
+        let mut reserved_ports = RESERVED_PORTS
+            .lock()
+            .expect("reserved port registry mutex poisoned");
+        if reserved_ports.contains(&port) {
+            continue;
+        }
+
+        // Probe on 0.0.0.0 because Docker later publishes ports on all interfaces.
+        let Ok(listener) = TcpListener::bind(("0.0.0.0", port)) else {
+            continue;
+        };
+        drop(listener);
+
+        reserved_ports.insert(port);
+        return Ok(port);
+    }
+
+    Err(anyhow!(
+        "failed to allocate an available port in range {start}..{end} after {PORT_ALLOCATION_ATTEMPTS} attempts"
+    ))
+}
+
+fn configured_port_range() -> Result<(u16, u16)> {
+    let start = std::env::var(PORT_RANGE_START_ENV)
+        .ok()
+        .map(|value| value.parse())
+        .transpose()?
+        .unwrap_or(DEFAULT_PORT_RANGE_START);
+    let end = std::env::var(PORT_RANGE_END_ENV)
+        .ok()
+        .map(|value| value.parse())
+        .transpose()?
+        .unwrap_or(DEFAULT_PORT_RANGE_END);
+
+    if start >= end {
+        return Err(anyhow!(
+            "{PORT_RANGE_START_ENV} ({start}) must be lower than {PORT_RANGE_END_ENV} ({end})"
+        ));
+    }
+
+    if start < 1024 {
+        return Err(anyhow!(
+            "{PORT_RANGE_START_ENV} ({start}) must be at least 1024"
+        ));
+    }
+
+    Ok((start, end))
+}
+
+#[cfg(test)]
+fn default_port_range() -> (u16, u16) {
+    (DEFAULT_PORT_RANGE_START, DEFAULT_PORT_RANGE_END)
 }
 
 pub fn get_workspace_root() -> PathBuf {
@@ -144,5 +208,27 @@ pub async fn create_optional<T>(
         Ok(Some(f.await?))
     } else {
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use super::{default_port_range, get_available_port};
+
+    #[test]
+    fn get_available_port_does_not_reuse_ports_within_process() {
+        let mut ports = HashSet::new();
+        let (start, end) = default_port_range();
+
+        for _ in 0..32 {
+            let port = get_available_port().expect("available port");
+            assert!(ports.insert(port), "duplicate allocated port: {port}");
+            assert!(
+                (start..end).contains(&port),
+                "allocated port {port} outside default test range {start}..{end}"
+            );
+        }
     }
 }

@@ -36,6 +36,24 @@ pub struct DockerConfig {
     pub extra_hosts: Vec<String>,
 }
 
+impl DockerConfig {
+    pub(crate) fn new(kind: NodeKind, image: String, cmd: Vec<String>, log_path: PathBuf) -> Self {
+        Self {
+            name: None,
+            ports: Vec::new(),
+            image,
+            cmd,
+            log_path,
+            volume: None,
+            host_dir: None,
+            kind,
+            throttle: None,
+            env: HashMap::new(),
+            extra_hosts: Vec::new(),
+        }
+    }
+}
+
 impl From<&BitcoinConfig> for DockerConfig {
     fn from(config: &BitcoinConfig) -> Self {
         let mut args = config.args();
@@ -47,25 +65,22 @@ impl From<&BitcoinConfig> for DockerConfig {
             "-daemonwait=0".to_string(),
         ]);
 
-        Self {
-            name: None,
-            ports: vec![config.rpc_port, config.p2p_port],
-            image: config
+        let mut docker = Self::new(
+            NodeKind::Bitcoin,
+            config
                 .docker_image
                 .clone()
                 .unwrap_or_else(|| DEFAULT_BITCOIN_DOCKER_IMAGE.to_string()),
-            cmd: args,
-            log_path: config.data_dir.join("regtest").join("debug.log"),
-            volume: Some(VolumeConfig {
-                name: format!("bitcoin-{}", config.idx),
-                target: "/home/bitcoin/.bitcoin".to_string(),
-            }),
-            host_dir: None,
-            kind: NodeKind::Bitcoin,
-            throttle: None, // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
-            env: HashMap::new(),
-            extra_hosts: Vec::new(),
-        }
+            args,
+            config.data_dir.join("regtest").join("debug.log"),
+        );
+        docker.ports = vec![config.rpc_port, config.p2p_port];
+        docker.volume = Some(VolumeConfig {
+            name: format!("bitcoin-{}", config.idx),
+            target: "/home/bitcoin/.bitcoin".to_string(),
+        });
+        docker.throttle = None; // Not supported for bitcoin yet. Easy to toggle if it ever makes sense to throttle bitcoind nodes
+        docker
     }
 }
 
@@ -80,27 +95,24 @@ where
 
         let args = get_citrea_args(&config);
 
-        Self {
-            name: None,
-            ports: vec![config.rollup.rpc.bind_port],
-            image: config
+        let mut docker = Self::new(
+            kind,
+            config
                 .base
                 .docker_image
                 .clone()
                 .unwrap_or(DEFAULT_CITREA_DOCKER_IMAGE.to_string()),
-            cmd: args,
-            log_path: config.dir().join("stdout.log"),
-            volume: None,
-            host_dir: Some(vec![
-                config.dir().to_owned().display().to_string(),
-                get_genesis_path(config.dir()),
-                config.rollup.storage.path.display().to_string(),
-            ]),
-            kind,
-            throttle: config.throttle.clone(),
-            env: HashMap::new(),
-            extra_hosts: Vec::new(),
-        }
+            args,
+            config.dir().join("stdout.log"),
+        );
+        docker.ports = vec![config.rollup.rpc.bind_port];
+        docker.host_dir = Some(vec![
+            config.dir().to_owned().display().to_string(),
+            get_genesis_path(config.dir()),
+            config.rollup.storage.path.display().to_string(),
+        ]);
+        docker.throttle = config.throttle.clone();
+        docker
     }
 }
 
@@ -123,46 +135,35 @@ impl From<&PostgresConfig> for DockerConfig {
         ];
         cmd.extend(config.extra_args.clone());
 
-        Self {
-            name: None,
-            ports: vec![config.port],
-            image,
-            cmd,
-            log_path: config.log_path(),
-            volume: Some(VolumeConfig {
-                name: "postgres".to_string(),
-                target: "/var/lib/postgresql/data".to_string(),
-            }),
-            host_dir: None,
-            kind: NodeKind::Postgres,
-            throttle: None,
-            env: HashMap::new(),
-            extra_hosts: Vec::new(),
-        }
+        let mut docker = Self::new(NodeKind::Postgres, image, cmd, config.log_path());
+        docker.ports = vec![config.port];
+        docker.volume = Some(VolumeConfig {
+            name: "postgres".to_string(),
+            target: "/var/lib/postgresql/data".to_string(),
+        });
+        docker
     }
 }
 
 impl From<&TxSenderConfig> for DockerConfig {
     fn from(config: &TxSenderConfig) -> Self {
-        Self {
-            name: Some(config.alias()),
-            ports: vec![config.rpc_port],
-            image: config
+        let mut docker = Self::new(
+            NodeKind::TxSender,
+            config
                 .docker_image
                 .clone()
                 .unwrap_or_else(|| DEFAULT_TX_SENDER_DOCKER_IMAGE.to_string()),
-            cmd: vec!["/app/clementine-tx-sender".to_string()],
-            log_path: config.log_path(),
-            volume: None,
-            host_dir: None,
-            kind: NodeKind::TxSender,
-            throttle: None,
-            env: config.docker_env(),
-            // Map host.docker.internal to the host gateway so the tx-sender can reach
-            // host-published services (e.g. the shared postgres on docker's default bridge).
-            // Docker Desktop resolves host.docker.internal by default, but Linux needs the
-            // explicit host-gateway extra host entry.
-            extra_hosts: vec!["host.docker.internal:host-gateway".to_string()],
-        }
+            vec!["/app/clementine-tx-sender".to_string()],
+            config.log_path(),
+        );
+        docker.name = Some(config.alias());
+        docker.ports = vec![config.rpc_port];
+        docker.env = config.docker_env();
+        // Map host.docker.internal to the host gateway so the tx-sender can reach
+        // host-published services (e.g. the shared postgres on docker's default bridge).
+        // Docker Desktop resolves host.docker.internal by default, but Linux needs the
+        // explicit host-gateway extra host entry.
+        docker.extra_hosts = vec!["host.docker.internal:host-gateway".to_string()];
+        docker
     }
 }

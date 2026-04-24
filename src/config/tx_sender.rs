@@ -129,6 +129,14 @@ impl TxSenderConfig {
         format!("http://127.0.0.1:{}", self.rpc_port)
     }
 
+    pub fn url(&self, caller_in_docker: bool) -> String {
+        if caller_in_docker {
+            self.docker_url()
+        } else {
+            self.local_url()
+        }
+    }
+
     pub fn alias(&self) -> String {
         format!("tx-sender-{}", self.owner_kind)
     }
@@ -380,5 +388,41 @@ mod tests {
             Some("[2]")
         );
         assert!(!env.contains_key("PRIVATE_DA_KEY"));
+    }
+
+    #[test]
+    fn url_uses_docker_host_for_docker_callers() {
+        let tempdir = TempDir::new().expect("temp dir");
+        let config = TxSenderConfig {
+            owner_kind: NodeKind::Sequencer,
+            rpc_port: 3030,
+            db_host: "127.0.0.1".to_string(),
+            db_port: 5432,
+            db_user: "postgres".to_string(),
+            db_password: "postgres".to_string(),
+            db_name: "tx_sender_test".to_string(),
+            bitcoin_rpc_url: "http://127.0.0.1:18443/wallet/sequencer".to_string(),
+            bitcoin_rpc_user: "admin".to_string(),
+            bitcoin_rpc_password: "admin".to_string(),
+            network: Network::Regtest,
+            secret_key: "secret".to_string(),
+            private_da_key: None,
+            docker_image: None,
+            docker_host: Some("host.docker.internal".to_string()),
+            log_dir: tempdir.path().to_path_buf(),
+            fee_rate_hard_cap: 1_000,
+            mempool_fee_rate_multiplier: 1,
+            mempool_fee_rate_offset_sat_kvb: 0,
+            cpfp_fee_payer_bump_wait_time_seconds: 3600,
+            fee_bump_after_blocks: 10,
+            min_bump_kvb: 200,
+            finality_depth: 5,
+            poll_delay_ms: 1000,
+            input_unspent_max_retries: None,
+            include_unsafe: true,
+        };
+
+        assert_eq!(config.url(false), "http://127.0.0.1:3030");
+        assert_eq!(config.url(true), "http://host.docker.internal:3030");
     }
 }
