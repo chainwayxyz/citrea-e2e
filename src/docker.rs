@@ -94,8 +94,13 @@ impl DockerEnv {
     /// Create a new test network and return its network, name and id
     async fn create_network(docker: &Docker, test_case_id: &str) -> Result<NetworkInfo> {
         let network_name = format!("test_network_{test_case_id}");
-        for attempt in 0..NETWORK_SUBNET_CREATE_RETRIES {
-            let subnet = docker_subnet_for(test_case_id, attempt);
+        let mut rng = rand::thread_rng();
+        for _ in 0..NETWORK_SUBNET_CREATE_RETRIES {
+            let subnet = format!(
+                "10.{}.{}.0/24",
+                rand::Rng::gen::<u8>(&mut rng),
+                rand::Rng::gen::<u8>(&mut rng)
+            );
             let options = CreateNetworkOptions {
                 name: network_name.clone(),
                 check_duplicate: true,
@@ -341,18 +346,16 @@ impl DockerEnv {
         Ok(spawn_output)
     }
 
-    pub async fn exec_in_named_container(
+    pub async fn exec_in_container(
         &self,
-        container_name: &str,
+        container_id: &str,
         env: Vec<String>,
         cmd: Vec<String>,
     ) -> Result<()> {
-        let container_id = self.find_tracked_container_id(container_name).await?;
-
         let exec = self
             .docker
             .create_exec(
-                &container_id,
+                container_id,
                 CreateExecOptions {
                     attach_stdout: Some(true),
                     attach_stderr: Some(true),
@@ -362,7 +365,7 @@ impl DockerEnv {
                 },
             )
             .await
-            .with_context(|| format!("Failed to create exec in container {container_name}"))?;
+            .with_context(|| format!("Failed to create exec in container {container_id}"))?;
 
         let mut stderr = String::new();
 
@@ -370,7 +373,7 @@ impl DockerEnv {
             .docker
             .start_exec(&exec.id, None::<StartExecOptions>)
             .await
-            .with_context(|| format!("Failed to start exec in container {container_name}"))?
+            .with_context(|| format!("Failed to start exec in container {container_id}"))?
         {
             while let Some(message) = output.next().await {
                 match message? {
@@ -387,50 +390,19 @@ impl DockerEnv {
             .docker
             .inspect_exec(&exec.id)
             .await
-            .with_context(|| format!("Failed to inspect exec in container {container_name}"))?;
+            .with_context(|| format!("Failed to inspect exec in container {container_id}"))?;
 
         match inspect.exit_code {
             Some(0) => Ok(()),
             Some(code) => Err(anyhow!(
-                "Command {:?} failed in container {container_name} with exit code {code}: {}",
+                "Command {:?} failed in container {container_id} with exit code {code}: {}",
                 cmd,
                 stderr.trim()
             )),
             None => Err(anyhow!(
-                "Command {cmd:?} in container {container_name} finished without an exit code"
+                "Command {cmd:?} in container {container_id} finished without an exit code"
             )),
         }
-    }
-
-    async fn find_tracked_container_id(&self, container_name: &str) -> Result<String> {
-        let expected_hostname = format!("{container_name}-{}", self.id);
-        let container_ids = self
-            .container_ids
-            .lock()
-            .await
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-
-        for container_id in container_ids {
-            let inspect = self
-                .docker
-                .inspect_container(
-                    &container_id,
-                    None::<bollard::query_parameters::InspectContainerOptions>,
-                )
-                .await
-                .with_context(|| format!("Failed to inspect tracked container {container_id}"))?;
-
-            let hostname = inspect.config.and_then(|config| config.hostname);
-            if hostname.as_deref() == Some(expected_hostname.as_str()) {
-                return Ok(container_id);
-            }
-        }
-
-        Err(anyhow!(
-            "Failed to find tracked container named {container_name}"
-        ))
     }
 
     async fn ensure_image_exists(&self, image: &str) -> Result<()> {
@@ -604,19 +576,6 @@ impl DockerEnv {
     }
 }
 
-fn docker_subnet_for(test_case_id: &str, attempt: u16) -> String {
-    let seed = test_case_id
-        .bytes()
-        .fold(0u16, |acc, byte| {
-            acc.wrapping_mul(31).wrapping_add(byte as u16)
-        })
-        .wrapping_add(attempt);
-    let second_octet = (seed >> 8) as u8;
-    let third_octet = seed as u8;
-
-    format!("10.{second_octet}.{third_octet}.0/24")
-}
-
 fn is_network_overlap_error(err: &bollard::errors::Error) -> bool {
     match err {
         bollard::errors::Error::DockerResponseServerError {
@@ -630,25 +589,5 @@ fn is_network_overlap_error(err: &bollard::errors::Error) -> bool {
             }
         }
         _ => false,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::docker_subnet_for;
-
-    #[test]
-    fn docker_subnet_changes_between_attempts() {
-        assert_ne!(
-            docker_subnet_for("abc123", 0),
-            docker_subnet_for("abc123", 1)
-        );
-    }
-
-    #[test]
-    fn docker_subnet_stays_in_private_10_space() {
-        let subnet = docker_subnet_for("abc123", 0);
-        assert!(subnet.starts_with("10."));
-        assert!(subnet.ends_with(".0/24"));
     }
 }

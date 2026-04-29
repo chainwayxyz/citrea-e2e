@@ -36,9 +36,15 @@ impl TxSender {
     pub async fn new(
         config: &TxSenderConfig,
         docker: Arc<Option<DockerEnv>>,
+        postgres_container_id: &str,
         failure_tx: tokio::sync::mpsc::UnboundedSender<String>,
     ) -> Result<Self> {
-        setup_tx_sender_database(config, docker.as_ref().as_ref()).await?;
+        let docker_env = docker
+            .as_ref()
+            .as_ref()
+            .context("tx-sender requires a Docker environment for its database setup")?;
+        setup_tx_sender_database(config, docker_env, postgres_container_id).await?;
+
         let spawn_output = <Self as NodeT>::spawn(config, &docker).await?;
         let client = config.local_url();
         watch_log_for_panics(config.log_path(), config.label(), failure_tx.clone());
@@ -74,11 +80,9 @@ impl TxSender {
         let stderr_path = config.stderr_path();
         let stderr_file = File::create(stderr_path).context("Failed to create stderr file")?;
 
-        let env_vars = config.env();
-
         Command::new(bin)
             .kill_on_drop(true)
-            .envs(env_vars)
+            .envs(config.env())
             .stdout(Stdio::from(stdout_file))
             .stderr(Stdio::from(stderr_file))
             .spawn()
@@ -172,10 +176,9 @@ impl Restart for TxSender {
 
 async fn setup_tx_sender_database(
     config: &TxSenderConfig,
-    docker: Option<&DockerEnv>,
+    docker: &DockerEnv,
+    postgres_container_id: &str,
 ) -> Result<()> {
-    let external = crate::shared_postgres::external_port_from_env().is_some();
-
     let drop_sql = format!("DROP DATABASE IF EXISTS {}", sql_ident(&config.db_name));
     let create_sql = format!(
         "CREATE DATABASE {} OWNER {}",
@@ -188,14 +191,14 @@ async fn setup_tx_sender_database(
     let mut last_err: Option<anyhow::Error> = None;
 
     while start.elapsed() < timeout {
-        let result = if external {
-            run_psql_on_host(config, &[&drop_sql, &create_sql]).await
-        } else {
-            let docker = docker.context("tx-sender database setup requires Docker")?;
-            run_psql_in_container(docker, config, &[&drop_sql, &create_sql]).await
-        };
-
-        match result {
+        match run_psql(
+            docker,
+            postgres_container_id,
+            config,
+            &[&drop_sql, &create_sql],
+        )
+        .await
+        {
             Ok(()) => return Ok(()),
             Err(e) => {
                 warn!(
@@ -216,8 +219,9 @@ async fn setup_tx_sender_database(
     })
 }
 
-async fn run_psql_in_container(
+async fn run_psql(
     docker: &DockerEnv,
+    container_id: &str,
     config: &TxSenderConfig,
     statements: &[&str],
 ) -> Result<()> {
@@ -238,67 +242,9 @@ async fn run_psql_in_container(
             "-c".to_string(),
             (*sql).to_string(),
         ];
-        docker.exec_in_named_container("postgres", env, cmd).await?;
+        docker.exec_in_container(container_id, env, cmd).await?;
     }
     Ok(())
-}
-
-async fn run_psql_on_host(config: &TxSenderConfig, statements: &[&str]) -> Result<()> {
-    for sql in statements {
-        let output = Command::new("psql")
-            .env("PGPASSWORD", &config.db_password)
-            .args([
-                "-h",
-                "127.0.0.1",
-                "-p",
-                &config.db_port.to_string(),
-                "-U",
-                &config.db_user,
-                "-d",
-                "postgres",
-                "-v",
-                "ON_ERROR_STOP=1",
-                "-c",
-                sql,
-            ])
-            .output()
-            .await
-            .context("Failed to run host-side psql")?;
-
-        if !output.status.success() {
-            bail!(
-                "psql failed ({}): {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr).trim()
-            );
-        }
-    }
-    Ok(())
-}
-
-pub async fn drop_tx_sender_database(db_name: &str, port: u16, user: &str, password: &str) {
-    let sql = format!("DROP DATABASE IF EXISTS {}", sql_ident(db_name));
-    let output = Command::new("psql")
-        .env("PGPASSWORD", password)
-        .args([
-            "-h",
-            "127.0.0.1",
-            "-p",
-            &port.to_string(),
-            "-U",
-            user,
-            "-d",
-            "postgres",
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            &sql,
-        ])
-        .output()
-        .await;
-    if let Err(e) = output {
-        warn!("Failed to drop tx-sender database {db_name}: {e}");
-    }
 }
 
 fn sql_ident(value: &str) -> String {
