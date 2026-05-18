@@ -23,8 +23,6 @@ pub struct BatchProverConfig {
     pub proving_mode: ProverGuestRunConfig,
     /// Average number of commitments to prove
     pub proof_sampling_number: usize,
-    /// If true prover will try to recover ongoing proving sessions
-    pub enable_recovery: bool,
     /// Maximum number of commitments to include in a single proof
     pub max_commitments_per_proof: Option<usize>,
     /// Configuration for Risc0Host
@@ -37,7 +35,6 @@ impl Default for BatchProverConfig {
         Self {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
-            enable_recovery: true,
             max_commitments_per_proof: None,
             risc0_host: Default::default(),
         }
@@ -81,7 +78,6 @@ mod tests {
         let config = r#"
             proving_mode = "skip"
             proof_sampling_number = 500
-            enable_recovery = true
             max_commitments_per_proof = 100
 
             [risc0_host]
@@ -97,7 +93,6 @@ mod tests {
         let expected = BatchProverConfig {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
-            enable_recovery: true,
             max_commitments_per_proof: Some(100),
             risc0_host: Risc0HostConfig {
                 prover: Risc0ProverConfig::Local(LocalProverConfig {

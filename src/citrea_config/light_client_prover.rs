@@ -10,8 +10,6 @@ pub struct LightClientProverConfig {
     pub proving_mode: ProverGuestRunConfig,
     /// Average number of commitments to prove
     pub proof_sampling_number: usize,
-    /// If true prover will try to recover ongoing proving sessions
-    pub enable_recovery: bool,
     /// The starting DA block to sync from
     pub initial_da_height: u64,
     /// Configuration for Risc0Host
@@ -24,7 +22,6 @@ impl Default for LightClientProverConfig {
         Self {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
-            enable_recovery: true,
             initial_da_height: 1,
             risc0_host: Default::default(),
         }
@@ -67,7 +64,6 @@ mod tests {
         let config = r#"
             proving_mode = "skip"
             proof_sampling_number = 500
-            enable_recovery = true
             initial_da_height = 15
         "#;
 
@@ -77,7 +73,6 @@ mod tests {
         let expected = LightClientProverConfig {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
-            enable_recovery: true,
             initial_da_height: 15,
             risc0_host: Default::default(),
         };
