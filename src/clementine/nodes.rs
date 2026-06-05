@@ -717,6 +717,7 @@ where
                 args,
                 config.log_path(),
             );
+            docker_config.stderr_path = config.stderr_path();
             docker_config.ports = vec![config.port];
             docker_config.host_dir = Some({
                 let mounts = vec![

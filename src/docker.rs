@@ -51,7 +51,10 @@ pub struct DockerEnv {
 impl DockerEnv {
     pub async fn new(test_case_config: TestCaseDockerConfig) -> Result<Self> {
         let docker = Docker::connect_with_defaults().context("Failed to connect to Docker")?;
-        let _ = docker.ping().await;
+        docker
+            .ping()
+            .await
+            .context("Failed to ping Docker daemon")?;
         let test_id = generate_test_id();
         let network_info = Self::create_network(&docker, &test_id).await?;
 
@@ -335,6 +338,7 @@ impl DockerEnv {
             self.docker.clone(),
             container.id.clone(),
             config.log_path,
+            config.stderr_path,
             &config.kind,
         );
 
@@ -487,6 +491,7 @@ impl DockerEnv {
         docker: Docker,
         container_id: String,
         log_path: PathBuf,
+        stderr_path: PathBuf,
         kind: &NodeKind,
     ) -> JoinHandle<Result<()>> {
         info!("{kind} stdout logs available at : {}", log_path.display());
@@ -511,8 +516,6 @@ impl DockerEnv {
                 }),
             );
 
-            // Write stderr to a separate file alongside stdout
-            let stderr_path = log_path.with_extension("stderr.log");
             let mut stderr_file = File::create(stderr_path)
                 .await
                 .context("Failed to create stderr log file")?;

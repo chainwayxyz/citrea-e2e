@@ -129,8 +129,10 @@ impl Restart for TxSender {
     async fn wait_until_stopped(&mut self) -> Result<()> {
         self.stop().await?;
 
-        match &self.spawn_output {
-            SpawnOutput::Child(_) => { /* local process already killed by stop() */ }
+        match &mut self.spawn_output {
+            SpawnOutput::Child(child) => {
+                child.wait().await?;
+            }
             SpawnOutput::Container(output) => {
                 let Some(env) = self.docker.as_ref() else {
                     bail!("Missing docker environment")
@@ -211,7 +213,14 @@ async fn setup_tx_sender_database(
         }
     }
 
-    Err(last_err.unwrap()).with_context(|| {
+    let Some(last_err) = last_err else {
+        bail!(
+            "Failed to create tx-sender database {} after {timeout:?}: no attempts were made",
+            config.db_name
+        );
+    };
+
+    Err(last_err).with_context(|| {
         format!(
             "Failed to create tx-sender database {} after {timeout:?}",
             config.db_name
@@ -254,9 +263,9 @@ fn sql_ident(value: &str) -> String {
 async fn wait_for_tx_sender_ready(endpoint: &str, timeout: Option<Duration>) -> Result<()> {
     let timeout = timeout.unwrap_or(Duration::from_secs(90));
     let start = std::time::Instant::now();
+    let client = HttpClientBuilder::default().build(endpoint)?;
 
     while start.elapsed() < timeout {
-        let client = HttpClientBuilder::default().build(endpoint)?;
         match client.request::<u64, _>("send_tx", rpc_params![]).await {
             Err(JsonRpcError::Call(_)) => return Ok(()),
             _ => tokio::time::sleep(Duration::from_millis(500)).await,

@@ -26,7 +26,7 @@ use serde::Serialize;
 pub use test::TestConfig;
 pub use test_case::{TestCaseConfig, TestCaseDockerConfig, TestCaseEnv};
 pub use throttle::ThrottleConfig;
-pub use tx_sender::TxSenderConfig;
+pub use tx_sender::{TxSenderConfig, TxSenderConfigInput};
 pub use utils::config_to_file;
 
 pub use crate::citrea_config::{

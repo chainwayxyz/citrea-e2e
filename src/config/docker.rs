@@ -28,6 +28,7 @@ pub struct DockerConfig {
     pub image: String,
     pub cmd: Vec<String>,
     pub log_path: PathBuf,
+    pub stderr_path: PathBuf,
     pub volume: Option<VolumeConfig>,
     pub host_dir: Option<Vec<String>>,
     pub kind: NodeKind,
@@ -38,12 +39,14 @@ pub struct DockerConfig {
 
 impl DockerConfig {
     pub(crate) fn new(kind: NodeKind, image: String, cmd: Vec<String>, log_path: PathBuf) -> Self {
+        let stderr_path = log_path.with_extension("stderr.log");
         Self {
             name: None,
             ports: Vec::new(),
             image,
             cmd,
             log_path,
+            stderr_path,
             volume: None,
             host_dir: None,
             kind,
@@ -74,6 +77,7 @@ impl From<&BitcoinConfig> for DockerConfig {
             args,
             config.data_dir.join("regtest").join("debug.log"),
         );
+        docker.stderr_path = config.stderr_path();
         docker.ports = vec![config.rpc_port, config.p2p_port];
         docker.volume = Some(VolumeConfig {
             name: format!("bitcoin-{}", config.idx),
@@ -105,6 +109,7 @@ where
             args,
             config.dir().join("stdout.log"),
         );
+        docker.stderr_path = config.stderr_path();
         docker.ports = vec![config.rollup.rpc.bind_port];
         docker.host_dir = Some(vec![
             config.dir().to_owned().display().to_string(),
@@ -136,6 +141,7 @@ impl From<&PostgresConfig> for DockerConfig {
         cmd.extend(config.extra_args.clone());
 
         let mut docker = Self::new(NodeKind::Postgres, image, cmd, config.log_path());
+        docker.stderr_path = config.stderr_path();
         docker.ports = vec![config.port];
         docker.volume = Some(VolumeConfig {
             name: "postgres".to_string(),
@@ -156,6 +162,7 @@ impl From<&TxSenderConfig> for DockerConfig {
             vec!["/app/clementine-tx-sender".to_string()],
             config.log_path(),
         );
+        docker.stderr_path = config.stderr_path();
         docker.name = Some(config.alias());
         docker.ports = vec![config.rpc_port];
         docker.env = config.docker_env();

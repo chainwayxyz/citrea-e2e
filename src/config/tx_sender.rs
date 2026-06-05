@@ -31,49 +31,53 @@ pub struct TxSenderConfig {
     pub log_dir: PathBuf,
 }
 
+pub struct TxSenderConfigInput<'a> {
+    pub owner_kind: NodeKind,
+    pub postgres_config: &'a PostgresConfig,
+    pub bitcoin_config: &'a BitcoinConfig,
+    pub da_config: &'a BitcoinServiceConfig,
+    pub log_dir: PathBuf,
+    pub rpc_port: u16,
+    pub docker_host: Option<String>,
+    pub test_id: &'a str,
+}
+
 impl TxSenderConfig {
-    pub fn new(
-        owner_kind: NodeKind,
-        postgres_config: &PostgresConfig,
-        bitcoin_config: &BitcoinConfig,
-        da_config: &BitcoinServiceConfig,
-        log_dir: PathBuf,
-        rpc_port: u16,
-        docker_host: Option<String>,
-        test_id: &str,
-    ) -> Result<Self> {
-        let Some(secret_key) = da_config.da_private_key.clone() else {
+    pub fn new(input: TxSenderConfigInput<'_>) -> Result<Self> {
+        let Some(secret_key) = input.da_config.da_private_key.clone() else {
             bail!("tx-sender requires a DA private key in the Bitcoin service config");
         };
 
         Ok(Self {
-            owner_kind,
-            rpc_port,
-            db_host: postgres_config
+            owner_kind: input.owner_kind,
+            rpc_port: input.rpc_port,
+            db_host: input
+                .postgres_config
                 .docker_host
                 .clone()
                 .unwrap_or_else(|| "127.0.0.1".to_string()),
-            db_port: postgres_config.port,
-            db_user: postgres_config.user.clone(),
-            db_password: postgres_config.password.clone(),
+            db_port: input.postgres_config.port,
+            db_user: input.postgres_config.user.clone(),
+            db_password: input.postgres_config.password.clone(),
             db_name: format!(
                 "tx_sender_{}_{}",
-                owner_kind.db_name_component(),
-                test_id.to_lowercase()
+                input.owner_kind.db_name_component(),
+                input.test_id.to_lowercase()
             ),
-            bitcoin_rpc_host: bitcoin_config
+            bitcoin_rpc_host: input
+                .bitcoin_config
                 .docker_host
                 .clone()
                 .unwrap_or_else(|| "127.0.0.1".to_string()),
-            bitcoin_rpc_port: bitcoin_config.rpc_port,
-            bitcoin_rpc_path: bitcoin_rpc_path(&da_config.node_url),
-            bitcoin_rpc_user: da_config.node_username.clone(),
-            bitcoin_rpc_password: da_config.node_password.clone(),
-            network: bitcoin_config.network,
+            bitcoin_rpc_port: input.bitcoin_config.rpc_port,
+            bitcoin_rpc_path: bitcoin_rpc_path(&input.da_config.node_url),
+            bitcoin_rpc_user: input.da_config.node_username.clone(),
+            bitcoin_rpc_password: input.da_config.node_password.clone(),
+            network: input.bitcoin_config.network,
             secret_key,
             docker_image: std::env::var("TX_SENDER_DOCKER_IMAGE").ok(),
-            docker_host,
-            log_dir,
+            docker_host: input.docker_host,
+            log_dir: input.log_dir,
         })
     }
 
