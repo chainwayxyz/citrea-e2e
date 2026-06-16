@@ -102,7 +102,7 @@ pub fn copy_directory(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Resul
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, feature = "clementine"))]
 pub fn make_world_readable(path: &Path) -> io::Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
@@ -123,7 +123,7 @@ pub fn make_world_readable(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
-#[cfg(not(unix))]
+#[cfg(all(not(unix), feature = "clementine"))]
 pub fn make_world_readable(_path: &Path) -> io::Result<()> {
     Ok(())
 }
