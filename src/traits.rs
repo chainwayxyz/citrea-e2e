@@ -40,8 +40,12 @@ pub trait NodeT: Send {
     fn config_mut(&mut self) -> &mut Self::Config;
     fn config(&self) -> &Self::Config;
 
+    fn pre_stop(&mut self) {}
+
     /// Stops the running node
     async fn stop(&mut self) -> Result<()> {
+        self.pre_stop();
+
         match self.spawn_output() {
             SpawnOutput::Child(process) => {
                 if let Some(pid) = process.id() {
