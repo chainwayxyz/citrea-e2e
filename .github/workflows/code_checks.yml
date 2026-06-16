@@ -157,4 +157,4 @@ jobs:
         CITREA_E2E_TEST_BINARY: /tmp/citrea
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
-      run: cargo test --all-features
+      run: cargo test --all-features --locked
