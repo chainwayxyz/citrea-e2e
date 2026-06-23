@@ -55,7 +55,7 @@ jobs:
     - name: Install protoc
       run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
     - name: Run Cargo clippy
-      run: cargo clippy --no-deps --all-targets --all-features -- -Dwarnings
+      run: cargo clippy --no-deps --all-targets --all-features --locked -- -Dwarnings
 
   udeps:
     name: Check unused dependencies
@@ -157,4 +157,4 @@ jobs:
         CITREA_E2E_TEST_BINARY: /tmp/citrea
         BITVM_CACHE_PATH: /tmp/bitvm_cache_dev.bin
         RISC0_DEV_MODE: 1
-      run: cargo test --all-features
+      run: cargo test --all-features --locked

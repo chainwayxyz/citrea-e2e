@@ -102,6 +102,32 @@ pub fn copy_directory(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Resul
     Ok(())
 }
 
+#[cfg(all(unix, feature = "clementine"))]
+pub fn make_world_readable(path: &Path) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    let metadata = fs::metadata(path)?;
+    let mut perms = metadata.permissions();
+
+    if metadata.is_dir() {
+        perms.set_mode(perms.mode() | 0o755);
+        fs::set_permissions(path, perms)?;
+        for entry in fs::read_dir(path)? {
+            make_world_readable(&entry?.path())?;
+        }
+    } else {
+        perms.set_mode(perms.mode() | 0o644);
+        fs::set_permissions(path, perms)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(all(not(unix), feature = "clementine"))]
+pub fn make_world_readable(_path: &Path) -> io::Result<()> {
+    Ok(())
+}
+
 pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     println!("tailing path : {path:?}");
     let file = File::open(path)?;

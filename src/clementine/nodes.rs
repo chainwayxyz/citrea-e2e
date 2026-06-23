@@ -395,13 +395,20 @@ pub fn copy_resources(
     clementine_dir: &Option<String>,
     target_dir: &std::path::Path,
 ) -> std::io::Result<()> {
-    use crate::utils::{copy_directory, get_workspace_root};
+    use crate::utils::{copy_directory, get_workspace_root, make_world_readable};
 
     let clementine_dir = clementine_dir.as_ref().map_or_else(
         || get_workspace_root().join("resources/clementine"),
         std::path::PathBuf::from,
     );
-    copy_directory(clementine_dir, target_dir)
+    copy_directory(clementine_dir, target_dir)?;
+
+    let certs_dir = target_dir.join("certs");
+    if certs_dir.exists() {
+        make_world_readable(&certs_dir)?;
+    }
+
+    Ok(())
 }
 
 /// Ensures that TLS certificates exist for tests.
