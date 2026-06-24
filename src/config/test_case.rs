@@ -124,7 +124,10 @@ impl TestCaseConfig {
     }
 
     pub fn docker_enabled(&self) -> bool {
-        self.docker.enabled() || self.with_clementine
+        self.docker.enabled()
+            || self.with_clementine
+            || self.with_sequencer
+            || self.with_batch_prover
     }
 }
 
@@ -132,6 +135,7 @@ impl TestCaseConfig {
 pub struct TestCaseDockerConfig {
     pub bitcoin: bool,
     pub citrea: bool,
+    pub tx_sender: bool,
     // TODO: need to add support for this
     #[cfg(feature = "clementine")]
     pub clementine: bool,
@@ -142,6 +146,7 @@ impl Default for TestCaseDockerConfig {
         TestCaseDockerConfig {
             bitcoin: parse_bool_env("TEST_BITCOIN_DOCKER").unwrap_or(true),
             citrea: parse_bool_env("TEST_CITREA_DOCKER").unwrap_or(false),
+            tx_sender: parse_bool_env("TEST_TX_SENDER_DOCKER").unwrap_or(true),
             #[cfg(feature = "clementine")]
             clementine: parse_bool_env("TEST_CLEMENTINE_DOCKER").unwrap_or(false),
         }
@@ -149,14 +154,17 @@ impl Default for TestCaseDockerConfig {
 }
 
 impl TestCaseDockerConfig {
-    #[cfg(feature = "clementine")]
     pub fn enabled(&self) -> bool {
-        self.bitcoin || self.citrea || self.clementine
-    }
-
-    #[cfg(not(feature = "clementine"))]
-    pub fn enabled(&self) -> bool {
-        self.bitcoin || self.citrea
+        self.bitcoin || self.citrea || {
+            #[cfg(feature = "clementine")]
+            {
+                self.clementine
+            }
+            #[cfg(not(feature = "clementine"))]
+            {
+                false
+            }
+        }
     }
 }
 

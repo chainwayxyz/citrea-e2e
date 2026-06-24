@@ -1,18 +1,15 @@
-#[cfg(feature = "clementine")]
-use std::time::{Duration, Instant};
 use std::{
     fs::{self, File},
     future::Future,
     io::{self, BufRead, BufReader},
     net::TcpListener,
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 
 use anyhow::anyhow;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-#[cfg(feature = "clementine")]
 use tokio::net::TcpStream;
-#[cfg(feature = "clementine")]
 use tracing::debug;
 
 use super::Result;
@@ -20,7 +17,11 @@ use super::Result;
 use crate::test_case::CLEMENTINE_ENV;
 
 pub fn get_available_port() -> Result<u16> {
-    let listener = TcpListener::bind("127.0.0.1:0")?;
+    // Bind on 0.0.0.0 so the port is also free on every interface Docker
+    // may later publish on. Binding on 127.0.0.1 can hand out a port that
+    // Docker then fails to map because it's already in use on another
+    // interface.
+    let listener = TcpListener::bind("0.0.0.0:0")?;
     Ok(listener.local_addr()?.port())
 }
 
@@ -150,7 +151,6 @@ pub fn tail_file(path: &Path, lines: usize) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "clementine")]
 pub async fn wait_for_tcp_bound(host: &str, port: u16, timeout: Option<Duration>) -> Result<()> {
     let timeout = timeout.unwrap_or(Duration::from_secs(30));
     let start = Instant::now();

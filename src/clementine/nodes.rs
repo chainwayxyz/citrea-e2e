@@ -714,36 +714,35 @@ where
         Some(docker) if docker.clementine() => {
             // Ensure docker client binary if configured; mounting is handled centrally in DockerEnv
             let _ = ensure_docker_client_if_needed().await;
-            docker
-                .spawn(DockerConfig {
-                    ports: vec![config.port],
-                    image: config
-                        .image
-                        .as_deref()
-                        .unwrap_or(DEFAULT_CLEMENTINE_DOCKER_IMAGE)
-                        .to_string(),
-                    cmd: args,
-                    host_dir: Some({
-                        let mounts = vec![
-                            // Mount the base_dir for config and paramset to be accessible
-                            config.base_dir.display().to_string(),
-                            paramset_path.display().to_string(),
-                            // Mount the bitvm cache
-                            bitvm_cache_path.display().to_string(),
-                            work_dir.display().to_string(),
-                        ];
-                        mounts
-                    }),
-                    log_path: config.log_path(),
-                    volume: Some(VolumeConfig {
-                        name: role.to_string(),
-                        target: "/not-used".to_string(),
-                    }),
-                    kind: config.kind(),
-                    throttle: None,
-                    env,
-                })
-                .await?
+            let mut docker_config = DockerConfig::new(
+                config.kind(),
+                config
+                    .image
+                    .as_deref()
+                    .unwrap_or(DEFAULT_CLEMENTINE_DOCKER_IMAGE)
+                    .to_string(),
+                args,
+                config.log_path(),
+            );
+            docker_config.stderr_path = config.stderr_path();
+            docker_config.ports = vec![config.port];
+            docker_config.host_dir = Some({
+                let mounts = vec![
+                    // Mount the base_dir for config and paramset to be accessible
+                    config.base_dir.display().to_string(),
+                    paramset_path.display().to_string(),
+                    // Mount the bitvm cache
+                    bitvm_cache_path.display().to_string(),
+                    work_dir.display().to_string(),
+                ];
+                mounts
+            });
+            docker_config.volume = Some(VolumeConfig {
+                name: role.to_string(),
+                target: "/not-used".to_string(),
+            });
+            docker_config.env = env;
+            docker.spawn(docker_config).await?
         }
         _ => SpawnOutput::Child(
             Command::new(&get_clementine_path()?)

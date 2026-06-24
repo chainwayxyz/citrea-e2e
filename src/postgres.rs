@@ -6,7 +6,7 @@ use tracing::debug;
 
 use crate::{
     config::PostgresConfig,
-    docker::DockerEnv,
+    docker::{ContainerSpawnOutput, DockerEnv},
     traits::{NodeT, SpawnOutput},
     utils::wait_for_tcp_bound,
 };
@@ -15,6 +15,7 @@ pub struct Postgres {
     spawn_output: SpawnOutput,
     pub config: PostgresConfig,
     pub client: (), // Simple unit client for now
+    docker: Arc<Option<DockerEnv>>,
 }
 
 impl Postgres {
@@ -25,6 +26,7 @@ impl Postgres {
             spawn_output,
             config: config.clone(),
             client: (),
+            docker: Arc::clone(&docker),
         };
 
         instance
@@ -34,6 +36,13 @@ impl Postgres {
         debug!("Postgres is ready");
 
         Ok(instance)
+    }
+
+    pub fn container_id(&self) -> Option<&str> {
+        match &self.spawn_output {
+            SpawnOutput::Container(ContainerSpawnOutput { id, .. }) => Some(id),
+            SpawnOutput::Child(_) => None,
+        }
     }
 }
 
@@ -72,9 +81,48 @@ impl NodeT for Postgres {
             self.config.port
         );
 
-        wait_for_tcp_bound("127.0.0.1", self.config.port, timeout)
+        let timeout = timeout.unwrap_or(Duration::from_secs(60));
+        let start = std::time::Instant::now();
+
+        wait_for_tcp_bound("127.0.0.1", self.config.port, Some(timeout))
             .await
-            .context("Postgres failed to become ready")
+            .context("Postgres port failed to bind")?;
+
+        let Some(docker) = self.docker.as_ref() else {
+            return Ok(());
+        };
+        let Some(container_id) = self.container_id() else {
+            return Ok(());
+        };
+
+        let cmd = vec![
+            "pg_isready".to_string(),
+            "-h".to_string(),
+            "127.0.0.1".to_string(),
+            "-p".to_string(),
+            self.config.port.to_string(),
+            "-U".to_string(),
+            self.config.user.clone(),
+            "-d".to_string(),
+            "postgres".to_string(),
+        ];
+
+        let mut last_err: Option<anyhow::Error> = None;
+        while start.elapsed() < timeout {
+            match docker
+                .exec_in_container(container_id, vec![], cmd.clone())
+                .await
+            {
+                Ok(()) => return Ok(()),
+                Err(e) => last_err = Some(e),
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
+        bail!(
+            "Postgres failed to become query-ready: {}",
+            last_err.map(|e| format!("{e:#}")).unwrap_or_default()
+        )
     }
 
     fn client(&self) -> &Self::Client {

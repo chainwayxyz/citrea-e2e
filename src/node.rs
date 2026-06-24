@@ -45,6 +45,7 @@ pub enum NodeKind {
     LightClientProver,
     Sequencer,
     FullNode,
+    TxSender,
     #[cfg(feature = "clementine")]
     ClementineAggregator,
     #[cfg(feature = "clementine")]
@@ -62,13 +63,32 @@ impl NodeKind {
             NodeKind::LightClientProver => 3,
             NodeKind::Sequencer => 4,
             NodeKind::FullNode => 5,
+            NodeKind::TxSender => 6,
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineAggregator => 6,
+            NodeKind::ClementineAggregator => 7,
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineVerifier(_) => 7,
+            NodeKind::ClementineVerifier(_) => 8,
             #[cfg(feature = "clementine")]
-            NodeKind::ClementineOperator(_) => 8,
-            NodeKind::Postgres => 9,
+            NodeKind::ClementineOperator(_) => 9,
+            NodeKind::Postgres => 10,
+        }
+    }
+
+    pub fn db_name_component(&self) -> &'static str {
+        match self {
+            NodeKind::Sequencer => "sequencer",
+            NodeKind::BatchProver => "batch_prover",
+            NodeKind::Bitcoin => "bitcoin",
+            NodeKind::LightClientProver => "light_client_prover",
+            NodeKind::FullNode => "full_node",
+            NodeKind::TxSender => "tx_sender",
+            NodeKind::Postgres => "postgres",
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineAggregator => "clementine_aggregator",
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineVerifier(_) => "clementine_verifier",
+            #[cfg(feature = "clementine")]
+            NodeKind::ClementineOperator(_) => "clementine_operator",
         }
     }
 }
@@ -81,6 +101,7 @@ impl fmt::Display for NodeKind {
             NodeKind::LightClientProver => write!(f, "light-client-prover"),
             NodeKind::Sequencer => write!(f, "sequencer"),
             NodeKind::FullNode => write!(f, "full-node"),
+            NodeKind::TxSender => write!(f, "tx-sender"),
             #[cfg(feature = "clementine")]
             NodeKind::ClementineAggregator => write!(f, "clementine-aggregator"),
             #[cfg(feature = "clementine")]

@@ -7,7 +7,8 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use bollard::{
     container::{Config, LogOutput, NetworkingConfig},
-    models::{EndpointSettings, Mount, PortBinding},
+    exec::{CreateExecOptions, StartExecOptions, StartExecResults},
+    models::{EndpointSettings, Ipam, IpamConfig, Mount, PortBinding},
     network::CreateNetworkOptions,
     query_parameters::{
         CreateContainerOptions, CreateImageOptions, ListContainersOptionsBuilder, LogsOptions,
@@ -23,6 +24,8 @@ use tracing::{debug, error, info};
 
 use super::{config::DockerConfig, traits::SpawnOutput, utils::generate_test_id};
 use crate::{config::TestCaseDockerConfig, node::NodeKind, utils::get_workspace_root};
+
+const NETWORK_SUBNET_CREATE_RETRIES: u16 = 32;
 
 #[derive(Debug)]
 pub struct ContainerSpawnOutput {
@@ -48,6 +51,10 @@ pub struct DockerEnv {
 impl DockerEnv {
     pub async fn new(test_case_config: TestCaseDockerConfig) -> Result<Self> {
         let docker = Docker::connect_with_defaults().context("Failed to connect to Docker")?;
+        docker
+            .ping()
+            .await
+            .context("Failed to ping Docker daemon")?;
         let test_id = generate_test_id();
         let network_info = Self::create_network(&docker, &test_id).await?;
 
@@ -90,24 +97,55 @@ impl DockerEnv {
     /// Create a new test network and return its network, name and id
     async fn create_network(docker: &Docker, test_case_id: &str) -> Result<NetworkInfo> {
         let network_name = format!("test_network_{test_case_id}");
-        let options = CreateNetworkOptions {
-            name: network_name.clone(),
-            check_duplicate: true,
-            driver: "bridge".to_string(),
-            ..Default::default()
-        };
+        let mut rng = rand::thread_rng();
+        for _ in 0..NETWORK_SUBNET_CREATE_RETRIES {
+            let subnet = format!(
+                "10.{}.{}.0/24",
+                rand::Rng::gen::<u8>(&mut rng),
+                rand::Rng::gen::<u8>(&mut rng)
+            );
+            let options = CreateNetworkOptions {
+                name: network_name.clone(),
+                check_duplicate: true,
+                driver: "bridge".to_string(),
+                ipam: Ipam {
+                    config: Some(vec![IpamConfig {
+                        subnet: Some(subnet.clone()),
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
 
-        let id = docker.create_network(options).await?.id;
+            match docker.create_network(options).await {
+                Ok(response) => {
+                    return Ok(NetworkInfo {
+                        id: response.id,
+                        name: network_name,
+                    });
+                }
+                Err(err) if is_network_overlap_error(&err) => {
+                    info!(
+                        "[docker] subnet {subnet} overlaps with an existing Docker network, retrying"
+                    );
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
 
-        Ok(NetworkInfo {
-            id,
-            name: network_name,
-        })
+        Err(anyhow!(
+            "Failed to create Docker network {network_name} after {NETWORK_SUBNET_CREATE_RETRIES} subnet attempts"
+        ))
+    }
+
+    pub fn get_hostname_for(&self, name: &str) -> String {
+        // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
+        format!("{name}-{}.e2e.internal", self.id)
     }
 
     pub fn get_hostname(&self, kind: &NodeKind) -> String {
-        // Use a three-label domain so wildcard SANs like *.e2e.internal are valid for rustls
-        format!("{kind}-{}.e2e.internal", self.id)
+        self.get_hostname_for(&kind.to_string())
     }
 
     pub async fn untrack_container(&self, container_id: &str) {
@@ -139,12 +177,17 @@ impl DockerEnv {
             })
             .collect();
 
+        let container_name = config
+            .name
+            .clone()
+            .unwrap_or_else(|| config.kind.to_string());
+
         let mut network_config = HashMap::new();
         network_config.insert(
             self.network_info.id.clone(),
             EndpointSettings {
                 // ip_address: Some(self.get_hostname(&config.kind)),
-                aliases: Some(vec![self.get_hostname(&config.kind)]),
+                aliases: Some(vec![self.get_hostname_for(&container_name)]),
                 ..Default::default()
             },
         );
@@ -206,6 +249,7 @@ impl DockerEnv {
         let mut host_config = HostConfig {
             port_bindings: Some(port_bindings),
             mounts: Some(mounts),
+            extra_hosts: (!config.extra_hosts.is_empty()).then(|| config.extra_hosts.clone()),
             ..Default::default()
         };
 
@@ -234,7 +278,7 @@ impl DockerEnv {
             .collect::<Vec<_>>();
 
         let container_config = Config {
-            hostname: Some(format!("{}-{}", config.kind, self.id)),
+            hostname: Some(format!("{}-{}", container_name, self.id)),
             image: Some(config.image),
             cmd: Some(config.cmd),
             exposed_ports: Some(exposed_ports),
@@ -294,6 +338,7 @@ impl DockerEnv {
             self.docker.clone(),
             container.id.clone(),
             config.log_path,
+            config.stderr_path,
             &config.kind,
         );
 
@@ -303,6 +348,65 @@ impl DockerEnv {
         });
         debug!("{}, spawn_output : {spawn_output:?}", config.kind);
         Ok(spawn_output)
+    }
+
+    pub async fn exec_in_container(
+        &self,
+        container_id: &str,
+        env: Vec<String>,
+        cmd: Vec<String>,
+    ) -> Result<()> {
+        let exec = self
+            .docker
+            .create_exec(
+                container_id,
+                CreateExecOptions {
+                    attach_stdout: Some(true),
+                    attach_stderr: Some(true),
+                    env: (!env.is_empty()).then_some(env),
+                    cmd: Some(cmd.clone()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .with_context(|| format!("Failed to create exec in container {container_id}"))?;
+
+        let mut stderr = String::new();
+
+        if let StartExecResults::Attached { mut output, .. } = self
+            .docker
+            .start_exec(&exec.id, None::<StartExecOptions>)
+            .await
+            .with_context(|| format!("Failed to start exec in container {container_id}"))?
+        {
+            while let Some(message) = output.next().await {
+                match message? {
+                    LogOutput::StdOut { .. } | LogOutput::Console { .. } => {}
+                    LogOutput::StdErr { message } => {
+                        stderr.push_str(&String::from_utf8_lossy(&message));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let inspect = self
+            .docker
+            .inspect_exec(&exec.id)
+            .await
+            .with_context(|| format!("Failed to inspect exec in container {container_id}"))?;
+
+        match inspect.exit_code {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(
+                "Command {:?} failed in container {container_id} with exit code {code}: {}",
+                cmd,
+                stderr.trim()
+            )),
+            None => Err(anyhow!(
+                "Command {cmd:?} in container {container_id} finished without an exit code"
+            )),
+        }
     }
 
     async fn ensure_image_exists(&self, image: &str) -> Result<()> {
@@ -387,6 +491,7 @@ impl DockerEnv {
         docker: Docker,
         container_id: String,
         log_path: PathBuf,
+        stderr_path: PathBuf,
         kind: &NodeKind,
     ) -> JoinHandle<Result<()>> {
         info!("{kind} stdout logs available at : {}", log_path.display());
@@ -397,7 +502,7 @@ impl DockerEnv {
                     .await
                     .context("Failed to create log directory")?;
             }
-            let mut log_file = File::create(log_path)
+            let mut log_file = File::create(&log_path)
                 .await
                 .context("Failed to create log file")?;
             let mut log_stream = docker.logs(
@@ -411,15 +516,26 @@ impl DockerEnv {
                 }),
             );
 
+            let mut stderr_file = File::create(stderr_path)
+                .await
+                .context("Failed to create stderr log file")?;
+
             while let Some(Ok(log_output)) = log_stream.next().await {
-                let log_line = match log_output {
-                    LogOutput::Console { message } | LogOutput::StdOut { message } => message,
+                match log_output {
+                    LogOutput::Console { message } | LogOutput::StdOut { message } => {
+                        log_file
+                            .write_all(&message)
+                            .await
+                            .context("Failed to write log line")?;
+                    }
+                    LogOutput::StdErr { message } => {
+                        stderr_file
+                            .write_all(&message)
+                            .await
+                            .context("Failed to write stderr log line")?;
+                    }
                     _ => continue,
-                };
-                log_file
-                    .write_all(&log_line)
-                    .await
-                    .context("Failed to write log line")?;
+                }
             }
             Ok(())
         })
@@ -451,9 +567,30 @@ impl DockerEnv {
         self.test_case_config.citrea
     }
 
+    // Should run tx-sender in docker
+    pub fn tx_sender(&self) -> bool {
+        self.test_case_config.tx_sender
+    }
+
     // Should run clementine in docker
     #[cfg(feature = "clementine")]
     pub fn clementine(&self) -> bool {
         self.test_case_config.clementine
+    }
+}
+
+fn is_network_overlap_error(err: &bollard::errors::Error) -> bool {
+    match err {
+        bollard::errors::Error::DockerResponseServerError {
+            status_code,
+            message,
+        } => {
+            *status_code == 400 && {
+                let message = message.to_ascii_lowercase();
+                message.contains("pool overlaps")
+                    || message.contains("overlaps with other one on this address space")
+            }
+        }
+        _ => false,
     }
 }
