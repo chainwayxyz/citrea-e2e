@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::citrea_config::risc0::Risc0HostConfig;
+use crate::citrea_config::sp1::SP1HostConfig;
 
 /// The possible configurations of the prover.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -25,9 +25,9 @@ pub struct BatchProverConfig {
     pub proof_sampling_number: usize,
     /// Maximum number of commitments to include in a single proof
     pub max_commitments_per_proof: Option<usize>,
-    /// Configuration for Risc0Host
+    /// Configuration for SP1Host
     #[serde(default)]
-    pub risc0_host: Risc0HostConfig,
+    pub sp1_host: SP1HostConfig,
 }
 
 impl Default for BatchProverConfig {
@@ -36,7 +36,7 @@ impl Default for BatchProverConfig {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
             max_commitments_per_proof: None,
-            risc0_host: Default::default(),
+            sp1_host: Default::default(),
         }
     }
 }
@@ -53,7 +53,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use super::*;
-    use crate::citrea_config::risc0::{LocalProverConfig, Risc0ProverConfig};
+    use crate::citrea_config::sp1::SP1ProverConfig;
 
     /// Reads toml file as a specific type.
     pub fn from_toml_path<P: AsRef<Path>, R: DeserializeOwned>(path: P) -> anyhow::Result<R> {
@@ -80,11 +80,15 @@ mod tests {
             proof_sampling_number = 500
             max_commitments_per_proof = 100
 
-            [risc0_host]
+            [sp1_host]
             tx_backup_dir = "/tmp/backup"
             
-            [risc0_host.prover.Local]
-            r0vm_path = "path/to/vm"
+            prover = "network"
+
+            [sp1_host.network]
+            max_price_buffer_pct = 960
+            auction_timeout_secs = 60
+            timeout_secs = 3600
         "#;
 
         let config_file = create_config_from(config);
@@ -94,10 +98,13 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             max_commitments_per_proof: Some(100),
-            risc0_host: Risc0HostConfig {
-                prover: Risc0ProverConfig::Local(LocalProverConfig {
-                    r0vm_path: Some(PathBuf::from("path/to/vm")),
-                }),
+            sp1_host: SP1HostConfig {
+                prover: SP1ProverConfig::Network,
+                network: crate::config::SP1NetworkConfig {
+                    max_price_buffer_pct: 960,
+                    auction_timeout_secs: Some(60),
+                    timeout_secs: Some(3600),
+                },
                 tx_backup_dir: Some(PathBuf::from("/tmp/backup")),
             },
         };

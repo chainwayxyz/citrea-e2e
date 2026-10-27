@@ -7,6 +7,7 @@ env:
   CARGO_TERM_VERBOSE: true
   CARGOFLAGS: --workspace --all-targets --all-features
   RUST_LOG: citrea-e2e=trace,info
+  SP1_PROVER: mock
   RISC0_DEV_MODE: 1
   BITCOIN_DOCKER_IMAGE: "bitcoin/bitcoin:30.2"
   POSTGRES_DOCKER_IMAGE: "postgres:15"

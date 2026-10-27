@@ -691,6 +691,7 @@ where
             "LLVM_PROFILE_FILE",
             "BITVM_CACHE_PATH",
             "RISC0_DEV_MODE",
+            "SP1_PROVER",
             "RUST_MIN_STACK",
             "RUST_LOG",
         ] {

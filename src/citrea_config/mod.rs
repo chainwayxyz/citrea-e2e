@@ -6,9 +6,9 @@
 pub(crate) mod batch_prover;
 pub(crate) mod bitcoin;
 pub(crate) mod light_client_prover;
-pub(crate) mod risc0;
 pub(crate) mod rollup;
 pub(crate) mod sequencer;
+pub(crate) mod sp1;
 
 #[cfg(test)]
 /// Reads toml file as a specific type.
