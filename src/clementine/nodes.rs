@@ -361,8 +361,8 @@ impl ClementineCluster {
             ));
         }
 
-        let verifiers = try_join_all(verifiers.into_iter()).await?;
-        let operators = try_join_all(operators.into_iter()).await?;
+        let verifiers = try_join_all(verifiers).await?;
+        let operators = try_join_all(operators).await?;
 
         // Start aggregator last (similar to run.sh delay)
         debug!("Starting aggregator after verifiers and operators...");
