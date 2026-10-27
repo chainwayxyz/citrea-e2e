@@ -17,6 +17,7 @@ use serde::Serialize;
 use tokio::{
     process::Command,
     sync::mpsc::UnboundedSender,
+    task::JoinHandle,
     time::{sleep, Instant},
 };
 use tracing::{debug, info, trace};
@@ -107,6 +108,7 @@ where
     pub da: BitcoinClient,
     failure_tx: UnboundedSender<String>,
     docker_env: Arc<Option<DockerEnv>>,
+    panic_watcher: Option<JoinHandle<()>>,
 }
 
 impl<C> Node<C>
@@ -135,7 +137,7 @@ where
         .await
         .context("Failed to create RPC client")?;
 
-        watch_log_for_panics(
+        let panic_watcher = watch_log_for_panics(
             config.log_path(),
             config.kind().to_string(),
             failure_tx.clone(),
@@ -148,6 +150,7 @@ where
             da: da_client,
             failure_tx,
             docker_env: docker,
+            panic_watcher: Some(panic_watcher),
         })
     }
 
@@ -257,6 +260,12 @@ where
 
     fn spawn_output(&mut self) -> &mut SpawnOutput {
         &mut self.spawn_output
+    }
+
+    fn pre_stop(&mut self) {
+        if let Some(watcher) = self.panic_watcher.take() {
+            watcher.abort();
+        }
     }
 
     async fn wait_for_ready(&self, timeout: Option<Duration>) -> Result<()> {
@@ -390,7 +399,7 @@ where
             true => <Self as NodeT>::spawn(&config_for_spawn, &self.docker_env).await?,
             _ => Self::spawn(&config_for_spawn, extra_args)?,
         };
-        watch_log_for_panics(log_path, kind.to_string(), panic_tx);
+        self.panic_watcher = Some(watch_log_for_panics(log_path, kind.to_string(), panic_tx));
 
         self.wait_for_ready(None).await
     }

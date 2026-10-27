@@ -15,6 +15,7 @@ use tokio::{
     io::{AsyncBufReadExt, AsyncSeekExt, BufReader, SeekFrom},
     signal,
     sync::{mpsc, mpsc::UnboundedSender},
+    task::JoinHandle,
 };
 
 use super::{
@@ -306,7 +307,7 @@ pub fn watch_log_for_panics(
     log_path: PathBuf,
     process_name: String,
     failure_tx: UnboundedSender<String>,
-) {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         while !log_path.exists() {
             tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -345,5 +346,5 @@ pub fn watch_log_for_panics(
                 }
             }
         }
-    });
+    })
 }
