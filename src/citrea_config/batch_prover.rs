@@ -8,11 +8,11 @@ use crate::citrea_config::sp1::SP1HostConfig;
 pub enum ProverGuestRunConfig {
     /// Skip proving.
     Skip,
-    /// Run the rollup verifier in a zkVM executor.
+    /// Execute the SP1 guest and return an unverified development proof.
     Execute,
-    /// Run the rollup verifier and create a SNARK of execution.
+    /// Create a proof through Succinct's prover network.
     Prove,
-    /// Run the rollup verifier and create a SNARK or a fake proof of execution.
+    /// Use network proving when sampled, otherwise execute for a development proof.
     ProveWithFakes,
 }
 
@@ -53,7 +53,6 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use super::*;
-    use crate::citrea_config::sp1::SP1ProverConfig;
 
     /// Reads toml file as a specific type.
     pub fn from_toml_path<P: AsRef<Path>, R: DeserializeOwned>(path: P) -> anyhow::Result<R> {
@@ -82,13 +81,6 @@ mod tests {
 
             [sp1_host]
             tx_backup_dir = "/tmp/backup"
-            
-            prover = "network"
-
-            [sp1_host.network]
-            max_price_buffer_pct = 960
-            auction_timeout_secs = 60
-            timeout_secs = 3600
         "#;
 
         let config_file = create_config_from(config);
@@ -99,12 +91,6 @@ mod tests {
             proof_sampling_number: 500,
             max_commitments_per_proof: Some(100),
             sp1_host: SP1HostConfig {
-                prover: SP1ProverConfig::Network,
-                network: crate::config::SP1NetworkConfig {
-                    max_price_buffer_pct: 960,
-                    auction_timeout_secs: Some(60),
-                    timeout_secs: Some(3600),
-                },
                 tx_backup_dir: Some(PathBuf::from("/tmp/backup")),
             },
         };

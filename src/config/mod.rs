@@ -35,7 +35,7 @@ pub use crate::citrea_config::{
     light_client_prover::LightClientProverConfig,
     rollup::{RollupConfig, RollupPublicKeys, RpcConfig, RunnerConfig, StorageConfig},
     sequencer::{ListenModeConfig, SequencerConfig, SequencerMempoolConfig},
-    sp1::{SP1HostConfig, SP1NetworkConfig, SP1ProverConfig},
+    sp1::SP1HostConfig,
 };
 use crate::{log_provider::LogPathProvider, node::NodeKind, traits::RestartPolicy, Result};
 

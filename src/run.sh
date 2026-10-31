@@ -91,7 +91,6 @@ export BRIDGE_NONSTANDARD=${BRIDGE_NONSTANDARD:=false}
 export TELEMETRY_HOST=0.0.0.0
 export TELEMETRY_PORT=8081
 export RUST_MIN_STACK=33554432
-export SP1_PROVER=${SP1_PROVER:=mock}
 export RISC0_DEV_MODE=1
 
 # Define databases to drop and recreate

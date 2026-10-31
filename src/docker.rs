@@ -206,6 +206,12 @@ impl DockerEnv {
         let mut host_config = HostConfig {
             port_bindings: Some(port_bindings),
             mounts: Some(mounts),
+            // SP1 execution needs more shared memory than Docker's 64 MiB default.
+            shm_size: matches!(
+                config.kind,
+                NodeKind::BatchProver | NodeKind::LightClientProver
+            )
+            .then_some(8 * 1024 * 1024 * 1024),
             ..Default::default()
         };
 
