@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::batch_prover::ProverGuestRunConfig;
-use crate::citrea_config::risc0::Risc0HostConfig;
+use crate::citrea_config::sp1::SP1HostConfig;
 
 /// Light client prover configuration
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -12,9 +12,9 @@ pub struct LightClientProverConfig {
     pub proof_sampling_number: usize,
     /// The starting DA block to sync from
     pub initial_da_height: u64,
-    /// Configuration for Risc0Host
+    /// Configuration for SP1Host
     #[serde(default)]
-    pub risc0_host: Risc0HostConfig,
+    pub sp1_host: SP1HostConfig,
 }
 
 impl Default for LightClientProverConfig {
@@ -23,7 +23,7 @@ impl Default for LightClientProverConfig {
             proving_mode: ProverGuestRunConfig::Execute,
             proof_sampling_number: 0,
             initial_da_height: 1,
-            risc0_host: Default::default(),
+            sp1_host: Default::default(),
         }
     }
 }
@@ -74,7 +74,7 @@ mod tests {
             proving_mode: ProverGuestRunConfig::Skip,
             proof_sampling_number: 500,
             initial_da_height: 15,
-            risc0_host: Default::default(),
+            sp1_host: Default::default(),
         };
         assert_eq!(config, expected);
     }
